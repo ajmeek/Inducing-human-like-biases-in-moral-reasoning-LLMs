@@ -1,0 +1,5 @@
+transformers
+torch==1.13.1
+torchaudio
+torchvision
+cudatoolkit==11.6
