@@ -31,11 +31,11 @@ class BERT(nn.Module):
         self.base = base_model
         # if the desired output has multiple axes, we want to output it flattened
         # and then reshape it at the end
-        self.in_dim = 512*768 # in_dim = seq_len * d_model
+        self.head_in_dim = 512*768 # head_in_dim = seq_len * d_model
         self.out_dim = out_dim
         self.out_dim_is_multidim = type(out_dim) is tuple # bool
         out_dim_flat = math.prod(out_dim) if self.out_dim_is_multidim else out_dim
-        self.head = nn.Linear(self.in_dim, out_dim_flat) 
+        self.head = nn.Linear(self.head_in_dim, out_dim_flat) 
 
     def forward(self, tokens, mask):
         out = self.base(tokens, mask).last_hidden_state # [batch seq_len d_model]
@@ -155,7 +155,7 @@ def test_accuracy(max_samples=100, log_all=False):
     df = load_cm_df('test')
     correct_results = 0
     total_results = 0
-    for i, row in df.iterrows():
+    for i, row in df.iterrows(): # TODO: add batching for higher efficiency
         if i > max_samples: break
         text = row['input']
         logits = classifier(text)
