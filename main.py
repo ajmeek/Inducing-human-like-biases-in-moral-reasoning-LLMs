@@ -150,7 +150,7 @@ def classifier(text: str) -> torch.Tensor:
         return logits
 
 # load the testing set and see how well our model performs on it
-def test_accuracy(max_samples=100):
+def test_accuracy(max_samples=100, log_all=False):
     model.eval()
     df = load_cm_df('test')
     correct_results = 0
@@ -161,7 +161,8 @@ def test_accuracy(max_samples=100):
         logits = classifier(text)
         prediction, confidence = logits.argmax().item(), logits.max().item()
         label = row['label']
-        print(f"\n{text=:<128} {prediction=:<4} ({confidence=:.4f}) {label=:<4}\n")
+        if log_all:
+            print(f"\n{text=:<128} {prediction=:<4} ({confidence=:.4f}) {label=:<4}\n")
         if prediction == label: correct_results += 1
         total_results += 1
     print(f"\n\nAccuracy {correct_results/total_results:.4f}\n")
