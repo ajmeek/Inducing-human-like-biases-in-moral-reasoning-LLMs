@@ -101,9 +101,11 @@ def preprocess(inputs: list[str], targets: Any) -> DataLoader:
     train_loader = DataLoader(data, batch_size=batch_size, shuffle=True)
     return train_loader
 
-# returns a pandas dataframe of the CM training set
-def load_cm_df() -> pd.DataFrame:
-    return pd.read_csv(os.path.abspath('./ethics/commonsense/cm_train.csv'))
+# returns a pandas dataframe of the CM training set (excluding long ones)
+def load_cm_df(mode: Literal['train', 'test'] = 'train') -> pd.DataFrame:
+    df = pd.read_csv(os.path.abspath(f'./ethics/commonsense/cm_{mode}.csv'))
+    df = df.drop(df[df.is_short == False].index)
+    return df
 
 # this is mostly just a placeholder for testing
 def load_cm_text() -> DataLoader:
