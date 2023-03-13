@@ -87,7 +87,7 @@ class LitBert(pl.LightningModule):
     
 # given a list of strings and targets, it tokenizes the strings and returns
 # a tensor of targets
-def preprocess(inputs: list[str], targets: Any):
+def preprocess(inputs: list[str], targets: Any) -> DataLoader:
     # tokenize
     # TODO handle truncation (we're cutting the long entries short)
     tokenized = tokenizer(inputs, padding='max_length', truncation=True)
@@ -97,7 +97,9 @@ def preprocess(inputs: list[str], targets: Any):
     masks = torch.tensor(tokenized['attention_mask']).to(device)
     if type(targets) is not torch.Tensor:
         targets = torch.tensor(targets).to(device)
-    return tokens, masks, targets
+    data = TensorDataset(tokens, masks, targets)
+    train_loader = DataLoader(data, batch_size=batch_size, shuffle=True)
+    return train_loader
 
 # returns a pandas dataframe of the CM training set
 def load_cm_df() -> pd.DataFrame:
@@ -106,22 +108,14 @@ def load_cm_df() -> pd.DataFrame:
 # this is mostly just a placeholder for testing
 def load_cm_text() -> DataLoader:
     df = load_cm_df()
-
-    # put into data loader
-    data = TensorDataset(*preprocess(df['input'].tolist(), df['label']))
-    train_loader = DataLoader(data, batch_size=batch_size, shuffle=True)
-    return train_loader
+    return preprocess(df['input'].tolist(), df['label'])
 
 # returns a dataset with the same commonsense inputs but random tensor outputs
 def load_regression_placeholder() -> DataLoader:
     df = load_cm_df()
     n_samples = df.shape[0]
     targets = torch.rand((n_samples, *regression_out_dims)).to(device)
-
-    # put into data loader
-    data = TensorDataset(*preprocess(df['input'].tolist(), targets))
-    train_loader = DataLoader(data, batch_size=batch_size, shuffle=True)
-    return train_loader
+    return preprocess(df['input'].tolist(), targets)
 
 
 # inference from the model on text
