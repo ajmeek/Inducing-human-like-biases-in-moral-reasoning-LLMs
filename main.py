@@ -10,9 +10,9 @@ from transformers import AutoTokenizer, AutoModel
 from einops import rearrange
 import pandas as pd
 
-training_type = 'regression' # can be 'classification' or 'regression'
+training_type = 'classification' # can be 'classification' or 'regression'
 regression_out_dims = (4, 20)
-only_train_head = False 
+only_train_head = True 
 
 # hyperparams
 num_epochs = 10
@@ -88,15 +88,14 @@ class LitBert(pl.LightningModule):
 # given a list of strings and targets, it tokenizes the strings and returns
 # a tensor of targets
 def preprocess(inputs: list[str], targets: Any) -> DataLoader:
-    # tokenize
-    # TODO handle truncation (we're cutting the long entries short)
+    # tokenize (and truncate just in case)
     tokenized = tokenizer(inputs, padding='max_length', truncation=True)
 
     # convert tokens, masks, and targets into tensors
     tokens = torch.tensor(tokenized['input_ids']).to(device)
     masks = torch.tensor(tokenized['attention_mask']).to(device)
     if type(targets) is not torch.Tensor:
-        targets = torch.tensor(targets).to(device)
+        targets = torch.tensor(targets, dtype=torch.long).to(device)
     data = TensorDataset(tokens, masks, targets)
     train_loader = DataLoader(data, batch_size=batch_size, shuffle=True)
     return train_loader
@@ -126,7 +125,27 @@ def classifier(text: str) -> torch.Tensor:
     tokens = torch.tensor(tokenized['input_ids']).to(device)
     mask = torch.tensor(tokenized['attention_mask']).to(device)
     logits = model(tokens, mask)
-    return F.softmax(logits, dim=-1)
+    if training_type == 'classification':
+        return F.softmax(logits, dim=-1)
+    else:
+        return logits
+
+# load the testing set and see how well our model performs on it
+def test_accuracy(max_samples=100):
+    model.eval()
+    df = load_cm_df('test')
+    correct_results = 0
+    total_results = 0
+    for i, row in df.iterrows():
+        if i > max_samples: break
+        text = row['input']
+        logits = classifier(text)
+        prediction, confidence = logits.argmax().item(), logits.max().item()
+        label = row['label']
+        print(f"\n{text=:<128} {prediction=:<4} ({confidence=:.4f}) {label=:<4}\n")
+        if prediction == label: correct_results += 1
+        total_results += 1
+    print(f"\n\nAccuracy {correct_results/total_results:.4f}\n")
     
 if __name__ == '__main__':
     # determine best device to run on
@@ -158,4 +177,4 @@ if __name__ == '__main__':
     trainer.fit(lit_model, train_loader)
 
     # test the model
-    print(classifier("I hid a weapon under my clothes so nobody would notice it."))
+    if training_type == 'classification': test_accuracy()
