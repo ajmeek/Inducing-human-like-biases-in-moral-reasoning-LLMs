@@ -118,6 +118,25 @@ def load_regression_placeholder() -> DataLoader:
     targets = torch.rand((n_samples, *regression_out_dims)).to(device)
     return preprocess(df['input'].tolist(), targets)
 
+# wrapper for the whole training process (incl tokenization)
+def train_model(
+        model: nn.Module,
+        inputs: list[str],
+        targets: Any,
+        only_train_head: bool = False,
+        loss_name: Literal['cross-entropy', 'mse'] = 'cross-entropy',
+        batches_per_epoch: int = 100,
+        num_epochs: int = 10,
+    ):
+    loader = preprocess(inputs, targets)
+    lit_model = LitBert(model, only_train_head, loss_name)
+
+    # train the model
+    trainer = pl.Trainer(
+        limit_train_batches=batches_per_epoch,
+        max_epochs=num_epochs,
+    )
+    trainer.fit(lit_model, loader) 
 
 # inference from the model on text
 def classifier(text: str) -> torch.Tensor:
