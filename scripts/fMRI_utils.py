@@ -18,6 +18,7 @@ datapath = Path('./data')
 def generate_flattened_data():
     #download the dataset into the data folder, but don't add it to git
     fmri_path = datapath / "ds000212"
+    scenarios = np.loadtxt(datapath / "ds000212/scenarios.csv", delimiter=',', dtype=str) 
 
     #this data structure will allow us to capture anatomical or functional data dependent on run and subject
     layout = bids.BIDSLayout(fmri_path, config=['bids', 'derivatives'])
@@ -27,14 +28,17 @@ def generate_flattened_data():
         target_path = datapath / f"functional_flattened/sub-{i}"
         target_path.mkdir(parents=True)
         k = 0
-        for globf in subject_path.glob("*.nii.gz"):
-            mask_img = compute_epi_mask(globf)
-            masked_data = apply_mask(globf, mask_img)
+        for bold_f in subject_path.glob("*.nii.gz"):
+            mask_img = compute_epi_mask(bold_f)
+            masked_data = apply_mask(bold_f, mask_img)
             k = k+1
             filename = datapath / f"functional_flattened/sub-{i}/{k}.npy"
             #create file
             with open(filename, "w") as f:
                 np.save(filename, masked_data)
+
+            event_file = bold_f.parent / bold_f.name.replace('_bold.nii.gz', '_events.tsv')
+            events = np.loadtxt(event_file, delimiter='\t', dtype=str)
 
 def main():
     generate_flattened_data()
