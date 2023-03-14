@@ -34,11 +34,34 @@ def generate_flattened_data():
             k = k+1
             filename = datapath / f"functional_flattened/sub-{i}/{k}.npy"
             #create file
-            with open(filename, "w") as f:
-                np.save(filename, masked_data)
+            np.save(filename, masked_data)
 
             event_file = bold_f.parent / bold_f.name.replace('_bold.nii.gz', '_events.tsv')
             events = np.loadtxt(event_file, delimiter='\t', dtype=str)
+            this_scenarios = []
+            for e in events:
+                skind, stype = event_to_scenario[e['condition']]
+                item = e['item']
+                found = next(s for s in scenarios if s['item'] == item)
+                assert found['type'] == stype, f"Scenario with {item} item does not match the '{stype}' expected type. Scenario: {found}. Event: {e}."
+                text = f"{found['background']} {found['action']} {found['outcome']} {found[skind]}"
+                this_scenarios.append(text)
+            events_f = datapath / f"functional_flattened/sub-{i}/labels-{k}.npy"
+            np.save(events_f, np.array(this_scenarios))
+
+
+event_to_scenario = {
+    "A_PHA": ("accidental", "Physical harm"),
+    "B_PSA": ("accidental", "Psychological harm"),
+    "C_IA": ("accidental", "Incest"),
+    "D_PA": ("accidental", "Pathogen"),
+    "E_NA": ("accidental", "Neutral"),
+    "F_PHI": ("intentional", "Physical harm"),
+    "G_PSI": ("intentional", "Psychological harm"),
+    "H_II": ("intentional", "Incest"),
+    "I_PI": ("intentional", "Pathogen"),
+    "J_NI": ("intentional", "Neutral"),
+}
 
 def main():
     generate_flattened_data()
@@ -48,5 +71,5 @@ def main():
     print(test)
 
 if __name__ == '__main__':
-    assert datapath.exists()
+    assert datapath.exists(), "expect this run in base directory with data/"
     main()
