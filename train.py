@@ -12,12 +12,14 @@ class LitBert(pl.LightningModule):
             self,
             model: nn.Module,
             only_train_head: bool = False,
-            loss_names: list[Literal['cross-entropy', 'mse']] = ['cross-entropy']
+            loss_names: list[Literal['cross-entropy', 'mse']] = ['cross-entropy'],
+            loss_weights: list[float | int] = None,
         ):
         super().__init__()
         self.model = model
         self.only_train_head = only_train_head
         self.loss_names = loss_names
+        self.loss_weights = [1 for _ in loss_names] if loss_weights is None else loss_weights
     
     def training_step(self, batch, _):
         tokens, mask, *targets = batch
@@ -25,11 +27,14 @@ class LitBert(pl.LightningModule):
 
         # compute loss
         loss = 0
-        for pred, target, loss_name in zip(predictions, targets, self.loss_names):
+        for pred, target, loss_name, loss_weight in zip(predictions,
+                                                        targets,
+                                                        self.loss_names,
+                                                        self.loss_weights):
             if loss_name == 'cross-entropy':
-                loss += F.cross_entropy(pred, target)
+                loss += loss_weight * F.cross_entropy(pred, target)
             elif loss_name == 'mse':
-                loss += F.mse_loss(pred, target)
+                loss += loss_weight * F.mse_loss(pred, target)
             else:
                 print(f"\n\nUnsupported loss name {loss_name}\n")
         
@@ -71,6 +76,7 @@ def train_model(
         inputs: list[str],
         targets: list[Any],
         loss_names: list[Literal['cross-entropy', 'mse']] = ['cross-entropy'],
+        loss_weights: list[float | int] = None,
         only_train_head: bool = False,
         num_epochs: int = 10,
         batches_per_epoch: int = 100,
@@ -79,7 +85,7 @@ def train_model(
         n_devices: int = 1,
     ):
     loader = preprocess(inputs, targets, tokenizer, batch_size)
-    lit_model = LitBert(model, only_train_head, loss_names)
+    lit_model = LitBert(model, only_train_head, loss_names, loss_weights)
 
     # train the model
     trainer = pl.Trainer(
