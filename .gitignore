@@ -1,3 +1,4 @@
 .idea
 /ethics/**/*.csv
 /ethics/**/*.txt
+/lightning_logs

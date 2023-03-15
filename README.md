@@ -7,8 +7,14 @@ Conda based setup: `conda create -f environment.yml`
 Pip based setup: `pip install -r requirements.txt` (not tested)
 
 ### How to run
-Run `main.py` for the main script which now only executes a check for GPU and test
-if hugging face is correctly installed by doing sentiment analysis using BERT.
+Run `main.py` for the main script which fine tunes BERT on a given dataset.
+Right now there are 2 placeholder dataset options - the commonsense ETHICS training set,
+and the texts from that same dataset matched with random tensors. You can switch
+between these two training modes by changing the values of `training_type` at
+the top of the file.
+
+Once we have the fMRI dataset ready, we should be able to just call the `train_model`
+function with the model, strings, and targets to fine tune the model on them.
 
 ### How to train and evaluate on the ETHICS dataset (commonsense):
 1. Download the dataset from https://github.com/hendrycks/ethics and put the csv files of the commonsense dataset ( csv has prefix 'cm')
