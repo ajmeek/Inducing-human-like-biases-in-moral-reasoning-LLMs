@@ -10,44 +10,54 @@ from transformers import AutoTokenizer, AutoModel
 from einops import rearrange
 import pandas as pd
 
-training_type = 'classification' # can be 'classification' or 'regression'
 regression_out_dims = (4, 20)
 only_train_head = True 
 
 # hyperparams
-num_epochs = 10
+num_epochs = 1
 batches_per_epoch = 100
 batch_size = 4
 checkpoint = 'bert-base-cased' # Hugging Face model we'll be using
 
 tokenizer = AutoTokenizer.from_pretrained(checkpoint)
 
-# model including the base and the head
-# note that out_dim can be either an int (for classification) or
-# a tuple of ints (for regression)
+# model including the base and multiple heads
+# the heads are specified by the head_dims argument - the dimensionality of
+# each had can be an int or a tuple of ints
 class BERT(nn.Module):
-    def __init__(self, base_model, out_dim: Union[int, tuple[int]] = 2):
+    def __init__(self, base_model, head_dims: list[Union[int, tuple[int]]] = [2]):
         super().__init__()
         self.base = base_model
+
+        # initialize all the heads
         # if the desired output has multiple axes, we want to output it flattened
         # and then reshape it at the end
-        self.head_in_dim = 512*768 # head_in_dim = seq_len * d_model
-        self.out_dim = out_dim
-        self.out_dim_is_multidim = type(out_dim) is tuple # bool
-        out_dim_flat = math.prod(out_dim) if self.out_dim_is_multidim else out_dim
-        self.head = nn.Linear(self.head_in_dim, out_dim_flat) 
+        self.head_dims = head_dims
+        head_in_dim = base_model.config.hidden_size
+
+        heads = []
+        for head_d in head_dims:
+            head_d_flat = math.prod(head_d) if type(head_d) is tuple else head_d
+            heads.append(nn.Linear(head_in_dim, head_d_flat))
+        self.heads = nn.ModuleList(heads)
 
     def forward(self, tokens, mask):
-        out = self.base(tokens, mask).last_hidden_state # [batch seq_len d_model]
-        out = rearrange(out, 'batch pos d_model -> batch (pos d_model)') # [batch d_hidden_flat]
-        out = self.head(out) # [batch d_out_flat]
+        base_out = self.base(tokens, mask) # [batch seq_len d_model]
+        base_out = base_out.last_hidden_state # use last layer activations
+        base_out = base_out[:, 0, :] # only take the encoding of [CLS] -> [batch, d_model]
 
-        # if out_dim is multi-dimensional, reshape the output
-        if self.out_dim_is_multidim:
-            d_batch = out.shape[0]
-            out = out.reshape((d_batch, *self.out_dim)) # [batch *d_out]
+        outs = []
+        for head, head_d in zip(self.heads, self.head_dims):
+            head_out = head(base_out) # [batch d_out_flat]
 
-        return out
+            # if out_dim is multi-dimensional, reshape the output
+            if type(head_d) is tuple:
+                d_batch = head_out.shape[0]
+                head_out = head_out.reshape((d_batch, *head_d)) # [batch *head_d]
+
+            outs.append(head_out)
+
+        return outs
 
 # lightning wrapper for training (scaling, parallelization etc)
 class LitBert(pl.LightningModule):
@@ -55,31 +65,33 @@ class LitBert(pl.LightningModule):
             self,
             model: nn.Module,
             only_train_head: bool = False,
-            loss_name: Literal['cross-entropy', 'mse'] = 'cross-entropy'
+            loss_names: list[Literal['cross-entropy', 'mse']] = ['cross-entropy']
         ):
         super().__init__()
         self.model = model
         self.only_train_head = only_train_head
-        self.loss_name = loss_name
+        self.loss_names = loss_names
     
     def training_step(self, batch, _):
-        tokens, mask, target = batch
-        out = self.model(tokens, mask) # output
+        tokens, mask, *targets = batch
+        predictions = self.model(tokens, mask) # outputs
 
         # compute loss
-        if self.loss_name == 'cross-entropy':
-            loss = F.cross_entropy(out, target)
-        elif self.loss_name == 'mse':
-            loss = F.mse_loss(out, target)
-        else:
-            print(f"\n\nUnsupported loss name {self.loss_name}\n")
+        loss = 0
+        for pred, target, loss_name in zip(predictions, targets, self.loss_names):
+            if loss_name == 'cross-entropy':
+                loss += F.cross_entropy(pred, target)
+            elif loss_name == 'mse':
+                loss += F.mse_loss(pred, target)
+            else:
+                print(f"\n\nUnsupported loss name {loss_name}\n")
         
         # log and return
         self.log("train_loss", loss)
         return loss
     
     def configure_optimizers(self):
-        if self.only_train_head:
+        if self.only_train_head: #! FIXME
             for param in model.base.parameters():
                 param.requires_grad = False
         optimizer = torch.optim.AdamW(self.parameters())
@@ -87,16 +99,19 @@ class LitBert(pl.LightningModule):
     
 # given a list of strings and targets, it tokenizes the strings and returns
 # a tensor of targets
-def preprocess(inputs: list[str], targets: Any) -> DataLoader:
+def preprocess(inputs: list[str], targets: list[Any]) -> DataLoader:
     # tokenize (and truncate just in case)
     tokenized = tokenizer(inputs, padding='max_length', truncation=True)
 
     # convert tokens, masks, and targets into tensors
     tokens = torch.tensor(tokenized['input_ids']).to(device)
     masks = torch.tensor(tokenized['attention_mask']).to(device)
-    if type(targets) is not torch.Tensor:
-        targets = torch.tensor(targets, dtype=torch.long).to(device)
-    data = TensorDataset(tokens, masks, targets)
+    target_tensors = []
+    for target in targets:
+        if type(target) is not torch.Tensor:
+            target = torch.tensor(target, dtype=torch.long).to(device)
+        target_tensors.append(target)
+    data = TensorDataset(tokens, masks, *target_tensors)
     train_loader = DataLoader(data, batch_size=batch_size, shuffle=True)
     return train_loader
 
@@ -118,18 +133,27 @@ def load_regression_placeholder() -> DataLoader:
     targets = torch.rand((n_samples, *regression_out_dims)).to(device)
     return preprocess(df['input'].tolist(), targets)
 
+# returns a dataset with both classification targets and random regression targets
+def load_cm_with_reg_placeholder() -> DataLoader:
+    df = load_cm_df()
+    n_samples = df.shape[0]
+    inputs = df['input'].tolist()
+    cls_target = df['label']
+    reg_target = torch.rand((n_samples, *regression_out_dims)).to(device)
+    return preprocess(inputs, [cls_target, reg_target])
+
 # wrapper for the whole training process (incl tokenization)
 def train_model(
         model: nn.Module,
         inputs: list[str],
-        targets: Any,
+        targets: list[Any],
         only_train_head: bool = False,
-        loss_name: Literal['cross-entropy', 'mse'] = 'cross-entropy',
+        loss_names: list[Literal['cross-entropy', 'mse']] = ['cross-entropy'],
         batches_per_epoch: int = 100,
         num_epochs: int = 10,
     ):
     loader = preprocess(inputs, targets)
-    lit_model = LitBert(model, only_train_head, loss_name)
+    lit_model = LitBert(model, only_train_head, loss_names)
 
     # train the model
     trainer = pl.Trainer(
@@ -143,11 +167,8 @@ def classifier(text: str) -> torch.Tensor:
     tokenized = tokenizer([text], padding='max_length', truncation=True)
     tokens = torch.tensor(tokenized['input_ids']).to(device)
     mask = torch.tensor(tokenized['attention_mask']).to(device)
-    logits = model(tokens, mask)
-    if training_type == 'classification':
-        return F.softmax(logits, dim=-1)
-    else:
-        return logits
+    logits, reg_pred = model(tokens, mask)
+    return F.softmax(logits, dim=-1)
 
 # load the testing set and see how well our model performs on it
 def test_accuracy(max_samples=100, log_all=False):
@@ -177,17 +198,13 @@ if __name__ == '__main__':
     device = torch.device('cpu') # placeholder
     print(f"{device=}")
 
-    if training_type == 'classification':
-        train_loader = load_cm_text() # load the data
-    else:
-        train_loader = load_regression_placeholder()
+    train_loader = load_cm_with_reg_placeholder() # load the data
 
     # define the models (base, base+head, lightning wrapper)
-    out_dim = 2 if training_type == 'classification' else regression_out_dims
-    loss_name = 'cross-entropy' if training_type == 'classification' else 'mse'
     base_model = AutoModel.from_pretrained(checkpoint).to(device)
-    model = BERT(base_model, out_dim).to(device)
-    lit_model = LitBert(model, only_train_head, loss_name)
+    # TODO make sure it doesn't add SEP tokens when there's a full stop
+    model = BERT(base_model, head_dims=[2, regression_out_dims]).to(device)
+    lit_model = LitBert(model, only_train_head, loss_names=['cross-entropy', 'mse'])
 
     # train the model
     trainer = pl.Trainer(
@@ -197,4 +214,4 @@ if __name__ == '__main__':
     trainer.fit(lit_model, train_loader)
 
     # test the model
-    if training_type == 'classification': test_accuracy()
+    test_accuracy()
