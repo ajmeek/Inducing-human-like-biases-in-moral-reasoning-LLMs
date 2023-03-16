@@ -18,7 +18,7 @@ datapath = Path('./data')
 def generate_flattened_data():
     #download the dataset into the data folder, but don't add it to git
     fmri_path = datapath / "ds000212"
-    scenarios = np.loadtxt(datapath / "ds000212/scenarios.csv", delimiter=',', dtype=str) 
+    scenarios = np.loadtxt(datapath / "scenarios.csv", delimiter=',', quotechar='"', dtype=str) 
 
     #this data structure will allow us to capture anatomical or functional data dependent on run and subject
     layout = bids.BIDSLayout(fmri_path, config=['bids', 'derivatives'])
