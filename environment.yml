@@ -13,3 +13,4 @@ dependencies:
     - transformers[sentencepiece]
     - scikit-learn
     - pandas
+    - lightning
