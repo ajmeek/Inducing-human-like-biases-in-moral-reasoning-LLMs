@@ -26,7 +26,7 @@ def generate_flattened_data():
         #print(layout.get(subject=i,extension='nii.gz'))
         subject_path = datapath / f"ds000212/sub-{i}/func/"
         target_path = datapath / f"functional_flattened/sub-{i}"
-        target_path.mkdir(parents=True)
+        target_path.mkdir(parents=True, exist_ok=True)
         k = 0
         for bold_f in subject_path.glob("*.nii.gz"):
             mask_img = compute_epi_mask(bold_f)
