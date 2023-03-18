@@ -52,13 +52,12 @@ def generate_flattened_data():
         for bold_f in subject_path.glob("*.nii.gz"):
             info(f'Processing {bold_f.name}')
             k = k+1
-            #   bold_symlink_f = str(bold_f.resolve())
-            #   mask_img = compute_epi_mask(bold_symlink_f)
-            #   masked_data = apply_mask(bold_symlink_f, mask_img)
-            #   k = k+1
-            #   filename = datapath / f"functional_flattened/sub-{i}/{k}.npy"
-            #   #create file
-            #   np.save(filename, masked_data)
+            bold_symlink_f = str(bold_f.resolve())
+            mask_img = compute_epi_mask(bold_symlink_f)
+            masked_data = apply_mask(bold_symlink_f, mask_img)
+            filename = datapath / f"functional_flattened/sub-{i}/{k}.npy"
+            #create file
+            np.save(filename, masked_data)
 
             event_file = bold_f.parent / bold_f.name.replace('_bold.nii.gz', '_events.tsv')
             #events = np.loadtxt(event_file, delimiter='\t', dtype={'names':('onset','duration','condition','item','key','RT'), 'formats':(int,int,str,int,int,float)})
