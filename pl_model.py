@@ -4,10 +4,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from lightning.pytorch.utilities.types import STEP_OUTPUT
 
-from transformers import PreTrainedTokenizer
 import lightning.pytorch as pl
 
-from utils.preprocessing import preprocess
 
 
 # lightning wrapper for training (scaling, parallelization etc)
@@ -50,8 +48,8 @@ class LitBert(pl.LightningModule):
         tokens, mask, *targets = batch
         logits, reg_pred = self.model(tokens, mask)
         probs = F.softmax(logits, dim=-1)
-        predicted_label, confidence = probs.argmax().item(), probs.max().item()
-        print(predicted_label, confidence, targets[0].item())
+        predicted_label, confidence = probs.argmax().item(), probs.max().item()  # TODO: add logging to see the resulting accuracy for the whole dataset. Lightning might have built-in stuff.
+        return predicted_label
 
     def predict_step(self, batch: Any, batch_idx: int, dataloader_idx: int = 0) -> Any:
         tokens, mask = batch
@@ -65,34 +63,3 @@ class LitBert(pl.LightningModule):
                 param.requires_grad = False
         optimizer = torch.optim.AdamW(self.parameters())
         return optimizer
-     
-
-# wrapper for the whole training process (incl tokenization)
-def train_model(
-        model: nn.Module,
-        tokenizer: PreTrainedTokenizer,
-        inputs: list[str],
-        targets: list[Any],
-        loss_names: list[Literal['cross-entropy', 'mse']] = ['cross-entropy'],
-        loss_weights: list[float | int] = None,
-        only_train_head: bool = False,
-        num_epochs: int = 10,
-        batches_per_epoch: int = 100,
-        batch_size: int = 4,
-        device: str = 'cpu',
-        n_devices: int = 1,
-    ):
-    loader = preprocess(inputs, targets, tokenizer, batch_size)
-    lit_model = LitBert(model, only_train_head, loss_names, loss_weights)
-
-    # train the model
-    trainer = pl.Trainer(
-        limit_train_batches=batches_per_epoch,
-        max_epochs=num_epochs,
-        accelerator=device,
-        devices=n_devices,
-        deterministic=True
-    )
-    trainer.fit(lit_model, loader)
-
-    return trainer, lit_model
