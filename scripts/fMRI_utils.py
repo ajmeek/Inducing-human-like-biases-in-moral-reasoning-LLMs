@@ -8,12 +8,46 @@ Generates dataset for supervised learning with input text and related fMRI data.
 
 import bids
 from pathlib import Path
-from nilearn.masking import compute_epi_mask, apply_mask
+import nilearn
 import nibabel as nib
 import numpy as np
 from subprocess import run
 
 datapath = Path('./data')
+
+'''
+This will take raw fMRI data and then apply the difumo mask, saving to the ds000212_difumo directory. 
+It will save to numpy arrays of shape samples x dimensions, where dimensions is the number of ROI that the difumo mask has.
+Currently this has 64 ROI (regions of interest). DiFuMo can go up to 1024, but applying that mask uses more RAM
+than even google colab has, which is an issue.
+'''
+def apply_atlas():
+
+    difumo_atlas = nilearn.datasets.fetch_atlas_difumo(dimension=64)
+    print('DiFuMo has 64 ROIs')
+
+    difumo_masker = nilearn.maskers.NiftiMapsMasker(difumo_atlas['maps'], resampling_target='data', detrend=True).fit() #actually it kills it - not enough memory
+
+    fmri_path = datapath / "ds000212"
+    layout = bids.BIDSLayout(fmri_path, config=['bids', 'derivatives'])
+    for i in list(layout.get_subjects()):
+        subject_path = datapath / f"ds000212/sub-{i}/func/"
+        target_path = datapath / f"ds000212_difumo/sub-{i}"
+        target_path.mkdir(parents=True, exist_ok=True)
+        k = 0
+
+        for bold_f in subject_path.glob("*.nii.gz"):
+            k = k+1
+            info(f'Processing {bold_f.name}')
+
+            #print(list(subject_path.glob("*.nii.gz"))) #list of posix paths for all .nii.gz files in the subject's directory
+            data = nib.load(bold_f) #no errors from this !
+            roi_time_series = difumo_masker.transform(data)
+
+            filename = target_path / f'{k}.npy'
+            f = open(filename, "w")
+            np.save(filename, roi_time_series)
+
 
 #loop to turn all functional mri data by subject into 2d arrays. This can then be flattened for use in BERT linear layer fine tuning
 def generate_flattened_data():
@@ -97,6 +131,9 @@ event_to_scenario = {
 
 def main():
     download_dataset()
+
+    apply_atlas()
+
     generate_flattened_data()
 
     #load out of the numpy files as so
