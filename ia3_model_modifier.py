@@ -76,20 +76,33 @@ class IA3Linear(nn.Module):
 
 
 if __name__ == '__main__':
-    from transformers import AutoConfig, AutoTokenizer, AutoModelForSequenceClassification, RobertaConfig, RobertaTokenizer, RobertaModel
+    from transformers import AutoConfig, AutoTokenizer, AutoModelForSequenceClassification, RobertaConfig, RobertaTokenizer, RobertaModel, AutoModelForSeq2SeqLM
 
-    tokenizer = AutoTokenizer.from_pretrained('bert-base-cased')  # ('bert-base-cased')
-    config = AutoConfig.from_pretrained('roberta-large', num_labels=1)
-    old_model = AutoModelForSequenceClassification.from_pretrained('bert-base-cased')         #('roberta-large')
-    # old_model = RobertaModel.from_pretrained('models/cm_roberta-large.pt', local_files_only=True, config=config)
-
+    # config
+    model_name = 'bigscience/T0_3B'  # 'bert-base-cased' | 'roberta-large' | 'bigscience/T0_3B' (inference doesn't work for T0_3B)
+    if model_name == 'bigscience/T0_3B':
+        layers_to_replace = 'Attention.k|Attention.v|DenseReluDense.wi_1'
+    else:
+        layers_to_replace = "key|value|intermediate.dense"
     text = "Replace me by any text you'd like."
 
-    with torch.no_grad():
-        encoded_input = tokenizer(text, return_tensors='pt')
-        old_output = old_model(**encoded_input)
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    if model_name == 'roberta-large':
+        config = AutoConfig.from_pretrained('roberta-large', num_labels=1)
+        old_model = RobertaModel.from_pretrained('models/cm_roberta-large.pt', local_files_only=True, config=config)
+    elif model_name == 'bert-base-cased':
+        old_model = AutoModelForSequenceClassification.from_pretrained('bert-base-cased')
+    elif model_name == 'bigscience/T0_3B':
+        old_model = AutoModelForSeq2SeqLM.from_pretrained('bigscience/T0_3B', low_cpu_mem_usage=False)  # original model uses True, but that requires additional pip package so not relevant for this test.
 
-    layers_to_replace = "key|value|intermediate.dense"
+
+
+    if not model_name == 'bigscience/T0_3B':
+        with torch.no_grad():
+            encoded_input = tokenizer(text, return_tensors='pt')
+            old_output = old_model(**encoded_input)
+
+
 
     print('old model')
     print(old_model)
@@ -99,12 +112,13 @@ if __name__ == '__main__':
     print('new model')
     print(model)
 
-    with torch.no_grad():
-        new_output = model(**encoded_input)
+    if not model_name == 'bigscience/T0_3B':
+        with torch.no_grad() and not model_name == 'bigscience/T0_3B':
+            new_output = model(**encoded_input)
 
-    # These outputs should be the same
-    print(old_output)
-    print(new_output)
+        # These outputs should be the same
+        print(old_output)
+        print(new_output)
 
     print("Trainable parameters")
     trainable_param_names = ".*lora_b.*"
@@ -112,6 +126,6 @@ if __name__ == '__main__':
         [
             p_name
             for p_name in dict(model.named_parameters()).keys()
-            # if re.fullmatch(trainable_param_names, p_name)
+            if re.fullmatch(trainable_param_names, p_name)
         ]
     )
