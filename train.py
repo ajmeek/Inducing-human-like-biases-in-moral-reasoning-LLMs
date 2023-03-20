@@ -1,10 +1,14 @@
-from typing import Literal, Any
+from typing import Literal, Any, Optional
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import TensorDataset, DataLoader
+from lightning.pytorch.utilities.types import STEP_OUTPUT
+
 from transformers import PreTrainedTokenizer
 import lightning.pytorch as pl
+
+from utils.preprocessing import preprocess
+
 
 # lightning wrapper for training (scaling, parallelization etc)
 class LitBert(pl.LightningModule):
@@ -41,6 +45,22 @@ class LitBert(pl.LightningModule):
         # log and return
         self.log("train_loss", loss)
         return loss
+
+    def test_step(self, batch, batch_idx) -> Optional[STEP_OUTPUT]:
+        tokens, mask, *targets = batch
+        logits, reg_pred = self.model(tokens, mask)
+        probs = F.softmax(logits, dim=-1)
+        predicted_label, confidence = probs.argmax().item(), probs.max().item()
+        print(predicted_label, confidence, targets[0].item())
+
+
+
+
+
+    def predict_step(self, batch: Any, batch_idx: int, dataloader_idx: int = 0) -> Any:
+        tokens, mask = batch
+        logits, reg_pred = self.model(tokens, mask)
+        return F.softmax(logits, dim=-1)
     
     def configure_optimizers(self):
         #! FIXME this breaks if you first only train head and then train the whole thing
@@ -50,24 +70,7 @@ class LitBert(pl.LightningModule):
         optimizer = torch.optim.AdamW(self.parameters())
         return optimizer
      
-# given a list of strings and targets, it tokenizes the strings and returns
-# a tensor of targets
-def preprocess(inputs: list[str], targets: list[Any],
-               tokenizer: PreTrainedTokenizer, batch_size: int = 4) -> DataLoader:
-    # tokenize (and truncate just in case)
-    tokenized = tokenizer(inputs, padding='max_length', truncation=True)
 
-    # convert tokens, masks, and targets into tensors
-    tokens = torch.tensor(tokenized['input_ids'])
-    masks = torch.tensor(tokenized['attention_mask'])
-    target_tensors = []
-    for target in targets:
-        if type(target) is not torch.Tensor:
-            target = torch.tensor(target, dtype=torch.long)
-        target_tensors.append(target)
-    data = TensorDataset(tokens, masks, *target_tensors)
-    train_loader = DataLoader(data, batch_size=batch_size, shuffle=True)
-    return train_loader
 
 # wrapper for the whole training process (incl tokenization)
 def train_model(
@@ -93,5 +96,8 @@ def train_model(
         max_epochs=num_epochs,
         accelerator=device,
         devices=n_devices,
+        deterministic=True
     )
-    trainer.fit(lit_model, loader) 
+    trainer.fit(lit_model, loader)
+
+    return trainer, lit_model

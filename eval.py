@@ -23,11 +23,13 @@ def test_accuracy(model: nn.Module, tokenizer: PreTrainedTokenizer,
     for i, row in tqdm(df.iterrows()): # TODO: add batching for higher efficiency
         if i > max_samples: break
         text = row['input']
-        logits = classifier(text, model, tokenizer)
-        prediction, confidence = logits.argmax().item(), logits.max().item()
+        probs = classifier(text, model, tokenizer)
+        prediction, confidence = probs.argmax().item(), probs.max().item()
         label = row['label']
         if log_all:
-            print(f"\n{text=:<128} {prediction=:<4} ({confidence=:.4f}) {label=:<4}\n")
+            # print(f"\n{text=:<128} {prediction=:<4} ({confidence=:.4f}) {label=:<4}\n")
+            print(prediction, confidence, label)
+            pass
         if prediction == label: correct_results += 1
         total_results += 1
     print(f"\n\nAccuracy {correct_results/total_results:.4f}\n")

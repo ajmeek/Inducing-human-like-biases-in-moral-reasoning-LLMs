@@ -1,14 +1,15 @@
 import torch
 from transformers import AutoTokenizer, AutoModel
-from data_placeholders import load_cm_with_reg_placeholder
+from data_placeholders import load_cm_with_reg_placeholder, load_cm_df
 from model import BERT
-from train import train_model
-from eval import test_accuracy
+from train import train_model, preprocess
+from eval import test_accuracy, classifier
+from utils.preprocessing import preprocess_prediction, preprocess_test
 
 if __name__ == '__main__':
     # hyperparams
-    num_epochs = 10
-    batches_per_epoch = 100
+    num_epochs = 0
+    batches_per_epoch = 12
     batch_size = 4
     checkpoint = 'bert-base-cased'  # Hugging Face model we'll be using
     regression_out_dims = (4, 20)
@@ -36,7 +37,7 @@ if __name__ == '__main__':
     model = BERT(base_model, head_dims=[2, regression_out_dims])
 
     # train the model
-    train_model(model, tokenizer, inputs, targets,
+    trainer, lit_model = train_model(model, tokenizer, inputs, targets,
                 loss_names=['cross-entropy', 'mse'],   # BE CAREFUL: If this doesn't have the same length as the number of heads, not all losses will be used and thus not all heads will be trained.
                 only_train_head=only_train_head,
                 num_epochs=num_epochs,
@@ -44,5 +45,18 @@ if __name__ == '__main__':
                 batch_size=batch_size,
                 device=device)
 
-    # test the model
-    test_accuracy(model, tokenizer)
+    # test the model and see same output.
+    df = load_cm_df('test')
+    inputs = df['input'].tolist()
+    targets = df['label']
+    loader = preprocess_test(inputs, targets, tokenizer, num_samples=10, batch_size=1)
+
+    trainer.test(lit_model, dataloaders=loader)
+    test_accuracy(model, tokenizer, max_samples=10, log_all=True)
+
+    example_text = "I am a sentence."
+    prediction = classifier(example_text, model, tokenizer)
+    print(prediction)
+    test_dataloader = preprocess_test([example_text], tokenizer, batch_size=1)
+    prediction = trainer.predict(lit_model, test_dataloader)
+    print(prediction)
