@@ -53,10 +53,6 @@ class LitBert(pl.LightningModule):
         predicted_label, confidence = probs.argmax().item(), probs.max().item()
         print(predicted_label, confidence, targets[0].item())
 
-
-
-
-
     def predict_step(self, batch: Any, batch_idx: int, dataloader_idx: int = 0) -> Any:
         tokens, mask = batch
         logits, reg_pred = self.model(tokens, mask)
@@ -70,7 +66,6 @@ class LitBert(pl.LightningModule):
         optimizer = torch.optim.AdamW(self.parameters())
         return optimizer
      
-
 
 # wrapper for the whole training process (incl tokenization)
 def train_model(

@@ -13,11 +13,12 @@ if __name__ == '__main__':
     batch_size = 4
     checkpoint = 'bert-base-cased'  # Hugging Face model we'll be using
     regression_out_dims = (4, 20)
+    head_dims = [2, regression_out_dims]  # Classification head and regression head
     only_train_head = True
     use_ia3_layers = True
     layers_to_replace_with_ia3 = "key|value|intermediate.dense"
 
-    # determine best device to run on
+    # determine the best device to run on
     if torch.cuda.is_available(): device = 'cuda'
     elif torch.backends.mps.is_available(): device = 'mps'
     else: device = 'cpu'
@@ -34,7 +35,7 @@ if __name__ == '__main__':
         from ia3_model_modifier import modify_with_ia3
         base_model = modify_with_ia3(base_model, layers_to_replace_with_ia3)
 
-    model = BERT(base_model, head_dims=[2, regression_out_dims])
+    model = BERT(base_model, head_dims=head_dims)
 
     # train the model
     trainer, lit_model = train_model(model, tokenizer, inputs, targets,
@@ -57,6 +58,6 @@ if __name__ == '__main__':
     example_text = "I am a sentence."
     prediction = classifier(example_text, model, tokenizer)
     print(prediction)
-    test_dataloader = preprocess_test([example_text], tokenizer, batch_size=1)
-    prediction = trainer.predict(lit_model, test_dataloader)
+    prediction_dataloader = preprocess_prediction([example_text], tokenizer, batch_size=1)
+    prediction = trainer.predict(lit_model, prediction_dataloader)
     print(prediction)
