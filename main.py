@@ -1,6 +1,6 @@
 import torch
 from transformers import AutoTokenizer, AutoModel
-from data_placeholders import load_cm_with_reg_placeholder
+from data_placeholders import load_cm_with_reg_placeholder, load_ds000212_dataset
 from model import BERT
 from train import train_model
 from eval import test_accuracy
@@ -21,7 +21,9 @@ if __name__ == '__main__':
     print(f"{device=}")
 
     # load the data
-    inputs, targets = load_cm_with_reg_placeholder(regression_out_dims)
+    #inputs, targets = load_cm_with_reg_placeholder(regression_out_dims)
+    df = load_ds000212_dataset()
+    inputs, targets = df['input'], df['output']
 
     # define the tokenizer and model
     tokenizer = AutoTokenizer.from_pretrained(checkpoint)

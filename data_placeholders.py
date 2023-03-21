@@ -1,6 +1,6 @@
 import os
 from typing import Literal, Any
-from numpy import np
+import numpy as np
 import torch
 import pandas as pd
 from pathlib import Path
@@ -36,10 +36,17 @@ def load_cm_with_reg_placeholder(regression_out_dims: tuple[int, ...]) -> tuple[
 
 def load_ds000212_dataset():
     assert datapath.exists()
-    pd.DataFrame(
-
+    events = []
     for subject_dir in Path(datapath / 'functional_flattened').glob('sub-*'):
         for runpath in subject_dir.glob('[0-9]*.npy'):
             label_path = runpath.parent / f'label-{runpath.name}'
-            run_fmri = np.load(runpath.resolve())
-            run_label = np.load(label_path.resolve())
+            run_fmri_events = np.load(runpath.resolve())
+            run_label_events = np.load(label_path.resolve())
+            events.append(pd.DataFrame({
+                'input': run_label_events,
+                'output': run_fmri_events
+            }))
+    df = pd.concat(events,ignore_index=True)
+    return df
+
+

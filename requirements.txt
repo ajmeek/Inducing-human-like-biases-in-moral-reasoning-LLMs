@@ -6,3 +6,4 @@ torchvision
 bids
 nilearn
 nibabel
+sympy

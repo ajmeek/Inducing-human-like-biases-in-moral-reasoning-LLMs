@@ -2,3 +2,7 @@
 /ethics/**/*.csv
 /ethics/**/*.txt
 /lightning_logs
+*.log
+__pycache__
+data/ethics
+data/ds000212
