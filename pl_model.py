@@ -25,7 +25,8 @@ class LitBert(pl.LightningModule):
     
     def training_step(self, batch, _):
         tokens, mask, *targets = batch
-        predictions = self.model(tokens, mask)  # predictions is a list of tensors, one tensor per head. Each tensor is [batch, *head_dims]
+        # predictions is a list of tensors, one tensor per head. Each tensor is [batch, *head_dims]
+        predictions = self.model(tokens, mask)
 
         # Compute loss and sum the weighted loss of each head.
         loss = 0
@@ -48,7 +49,8 @@ class LitBert(pl.LightningModule):
         tokens, mask, *targets = batch
         logits, reg_pred = self.model(tokens, mask)
         probs = F.softmax(logits, dim=-1)
-        predicted_label, confidence = probs.argmax().item(), probs.max().item()  # TODO: add logging to see the resulting accuracy for the whole dataset. Lightning might have built-in stuff.
+        # TODO: add logging to see the resulting accuracy for the whole dataset. Lightning might have built-in stuff.
+        predicted_label, confidence = probs.argmax().item(), probs.max().item()
         return predicted_label
 
     def predict_step(self, batch: Any, batch_idx: int, dataloader_idx: int = 0) -> Any:
