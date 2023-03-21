@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 '''
-fMRI_utils.py
+fMRI_utils_old.py
 
 Generates dataset for supervised learning with input text and related fMRI data.
 '''
@@ -9,6 +9,8 @@ Generates dataset for supervised learning with input text and related fMRI data.
 import bids
 from pathlib import Path
 from nilearn.masking import compute_epi_mask, apply_mask
+import nilearn
+import nilearn.maskers
 import nibabel as nib
 import numpy as np
 from subprocess import run
@@ -22,10 +24,15 @@ def generate_flattened_data():
     #download the dataset into the data folder, but don't add it to git
     fmri_path = datapath / "ds000212"
 
+    #for generating ROI analysis
+    difumo_atlas = nilearn.datasets.fetch_atlas_difumo(dimension=64)
+    difumo_masker = nilearn.maskers.NiftiMapsMasker(difumo_atlas['maps'], resampling_target='data', detrend=True).fit()
+
     #this data structure will allow us to capture anatomical or functional data dependent on run and subject
     layout = bids.BIDSLayout(fmri_path, config=['bids', 'derivatives'])
     for subject in list(layout.get_subjects()):
         process_subject(subject)
+        process_subject_roi(difumo_masker, subject)
 
 def process_subject(subject):
     subject_path = datapath / f"ds000212/sub-{subject}/func/"
@@ -80,6 +87,29 @@ def extract_fmri_data(subject, run_num, bold_f):
     bold_symlink_f = str(bold_f.resolve())
     mask_img = compute_epi_mask(bold_symlink_f)
     return apply_mask(bold_symlink_f, mask_img)
+
+def process_subject_roi(masker, subject):
+    subject_path = datapath / f"ds000212/sub-{subject}/func/"
+    target_path = datapath / f"ds000212_difumo/sub-{subject}"
+    target_path.mkdir(parents=True, exist_ok=True)
+    run_num = 0
+    for bold_f in subject_path.glob("*.nii.gz"):
+        run_num = run_num+1
+        info(f'Processing {bold_f.name}')
+        #masked_data = extract_fmri_data(subject, run_num, bold_f)
+
+        data = nib.load(bold_f)  # no errors from this !
+        roi_time_series = masker.transform(data)
+
+        scenarios = extract_scenarios(subject, run_num, bold_f)
+        if roi_time_series.shape[0] > 0 and len(scenarios) > 0:
+            merged = merge_fmri_and_scenarios(roi_time_series, scenarios)
+            if merged:
+                data, scenarios = merged
+                filename = datapath / f"ds000212_difumo/sub-{subject}/{run_num}.npy"
+                np.save(filename, data)
+                events_f = datapath / f"ds000212_difumo/sub-{subject}/labels-{run_num}.npy"
+                np.save(events_f, scenarios)
 
 def extract_scenarios(subject, run_num, bold_f):
     event_file = bold_f.parent / bold_f.name.replace('_bold.nii.gz', '_events.tsv')
