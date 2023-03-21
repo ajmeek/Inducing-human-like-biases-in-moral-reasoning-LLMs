@@ -10,9 +10,11 @@ if __name__ == '__main__':
     num_epochs = 10
     batches_per_epoch = 100
     batch_size = 4
-    checkpoint = 'bert-base-cased' # Hugging Face model we'll be using
+    checkpoint = 'bert-base-cased'  # Hugging Face model we'll be using
     regression_out_dims = (4, 20)
-    only_train_head = True 
+    only_train_head = True
+    use_ia3_layers = True
+    layers_to_replace_with_ia3 = "key|value|intermediate.dense"
 
     # determine best device to run on
     if torch.cuda.is_available(): device = 'cuda'
@@ -27,6 +29,10 @@ if __name__ == '__main__':
     tokenizer = AutoTokenizer.from_pretrained(checkpoint)
     # TODO make sure it doesn't add SEP tokens when there's a full stop
     base_model = AutoModel.from_pretrained(checkpoint)
+    if use_ia3_layers:
+        from ia3_model_modifier import modify_with_ia3
+        base_model = modify_with_ia3(base_model, layers_to_replace_with_ia3)
+
     model = BERT(base_model, head_dims=[2, regression_out_dims])
 
     # train the model
