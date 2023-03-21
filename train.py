@@ -23,9 +23,9 @@ class LitBert(pl.LightningModule):
     
     def training_step(self, batch, _):
         tokens, mask, *targets = batch
-        predictions = self.model(tokens, mask) # outputs
+        predictions = self.model(tokens, mask)  # predictions is a list of tensors, one tensor per head. Each tensor is [batch, *head_dims]
 
-        # compute loss
+        # Compute loss and sum the weighted loss of each head.
         loss = 0
         for pred, target, loss_name, loss_weight in zip(predictions,
                                                         targets,

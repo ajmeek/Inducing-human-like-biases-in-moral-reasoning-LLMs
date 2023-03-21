@@ -22,7 +22,7 @@ def load_regression_placeholder(regression_out_dims: tuple[int]) -> tuple[list[s
     return df['input'].tolist(), targets
 
 # returns a dataset with both classification targets and random regression targets
-def load_cm_with_reg_placeholder(regression_out_dims: tuple[int]) -> tuple[list[str], list[Any]]:
+def load_cm_with_reg_placeholder(regression_out_dims: tuple[int, ...]) -> tuple[list[str], list[Any]]:
     df = load_cm_df()
     n_samples = df.shape[0]
     inputs = df['input'].tolist()

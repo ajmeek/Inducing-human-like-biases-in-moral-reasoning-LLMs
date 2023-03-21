@@ -31,7 +31,7 @@ if __name__ == '__main__':
 
     # train the model
     train_model(model, tokenizer, inputs, targets,
-                loss_names=['cross-entropy', 'mse'],
+                loss_names=['cross-entropy', 'mse'],   # BE CAREFUL: If this doesn't have the same length as the number of heads, not all losses will be used and thus not all heads will be trained.
                 only_train_head=only_train_head,
                 num_epochs=num_epochs,
                 batches_per_epoch=batches_per_epoch,
