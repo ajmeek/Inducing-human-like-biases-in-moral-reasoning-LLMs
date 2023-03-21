@@ -1,7 +1,11 @@
 import os
 from typing import Literal, Any
+from numpy import np
 import torch
 import pandas as pd
+from pathlib import Path
+
+datapath = Path('./data')
 
 # returns a pandas dataframe of the CM training set (excluding long ones)
 def load_cm_df(mode: Literal['train', 'test'] = 'train') -> pd.DataFrame:
@@ -29,3 +33,13 @@ def load_cm_with_reg_placeholder(regression_out_dims: tuple[int, ...]) -> tuple[
     cls_target = df['label']
     reg_target = torch.rand((n_samples, *regression_out_dims))
     return inputs, [cls_target, reg_target]
+
+def load_ds000212_dataset():
+    assert datapath.exists()
+    pd.DataFrame(
+
+    for subject_dir in Path(datapath / 'functional_flattened').glob('sub-*'):
+        for runpath in subject_dir.glob('[0-9]*.npy'):
+            label_path = runpath.parent / f'label-{runpath.name}'
+            run_fmri = np.load(runpath.resolve())
+            run_label = np.load(label_path.resolve())
