@@ -34,6 +34,9 @@ class IA3Linear(nn.Module):
     """
     The IA3Linear layer is a wrapper around a linear layer that is used to element-wise multiply (i.e. rescale) the model's activations against a learned vector.
     https://arxiv.org/pdf/2205.05638.pdf section 3.3 Parameter-efficient fine-tuning with IA3
+    This code is a simplified version of the LoRALinear layer: https://github.com/r-three/t-few/blob/master/src/models/lora.py#L16 given that the
+    rank is set to 0, scaling_rank is set to 1 and init_scale is set to 0.
+    The default config for IA3 (configs/ia3.json) they use also only has lora_b as trainable parameters, so we don't implement lora_a to keep the code simple and clean.
     """
     def __init__(self, linear_layer: nn.Linear):
         super().__init__()
