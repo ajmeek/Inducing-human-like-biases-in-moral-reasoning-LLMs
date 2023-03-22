@@ -18,8 +18,8 @@ function with the model, strings, and targets to fine tune the model on them.
 
 ### How to train and evaluate on the ETHICS dataset (commonsense):
 1. Download the dataset from https://github.com/hendrycks/ethics and put the csv files of the commonsense dataset ( csv has prefix 'cm')
-in the `ethics/commonsense` folder in the git repository.
-2. Run `ethics/commonsense/tune.py` to train and evaluate the model on ETHICS commonsense dataset.
+in the `data/ethics/commonsense` folder in the git repository.
+2. Run `data/ethics/commonsense/tune.py` to train and evaluate the model on ETHICS commonsense dataset.
 
 Relevant parameters
 - `batch_size` if forward pass makes you run out of GPU memory, reduce this. Minimum is 2 (1 doesn't work because of small bug)
