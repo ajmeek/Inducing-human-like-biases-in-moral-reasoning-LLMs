@@ -7,7 +7,7 @@ Conda based setup: `conda create -f environment.yml`
 Pip based setup: `pip install -r requirements.txt` (not tested)
 
 ### How to run
-Run `main.py` for the main script which fine tunes BERT on a given dataset.
+Run `bin/train.sh` for the main script which fine tunes BERT on a given dataset.
 Right now there are 2 placeholder dataset options - the commonsense ETHICS training set,
 and the texts from that same dataset matched with random tensors. You can switch
 between these two training modes by changing the values of `training_type` at

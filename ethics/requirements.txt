@@ -1,6 +1,0 @@
-torch
-transformers[sentencepiece]
-pandas
-scikit-learn
-einops
-lightning

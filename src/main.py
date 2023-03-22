@@ -5,9 +5,13 @@ from utils.preprocessing import preprocess_prediction, preprocess
 from model import BERT
 from pl_model import LitBert
 import lightning.pytorch as pl
+from pathlib import Path
 
 
-if __name__ == '__main__':
+def main():
+    datapath = Path('./data')
+    assert datapath.exists(), 'Expected data dir present.'
+    ethics_ds_path = datapath / 'ethics'
     # Hyperparameters #
     # Training parameters
     num_epochs = 10
@@ -26,9 +30,9 @@ if __name__ == '__main__':
     loss_weights = [1, 1]
 
     # Dataset parameters
-    train_dataset = './ethics/commonsense/cm_train.csv'
+    train_dataset = ethics_ds_path / 'commonsense/cm_train.csv'
     num_samples_train = 100
-    test_dataset = './ethics/commonsense/cm_test.csv'
+    test_dataset = ethics_ds_path / 'commonsense/cm_test.csv'
     num_samples_test = 10
 
     # determine the best device to run on
@@ -71,3 +75,6 @@ if __name__ == '__main__':
     example_text = "I am a sentence."
     prediction_dataloader = preprocess_prediction([example_text], tokenizer, batch_size=1)
     prediction = trainer.predict(lit_model, prediction_dataloader)
+
+if __name__ == '__main__':
+    main()
