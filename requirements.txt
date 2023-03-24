@@ -3,6 +3,9 @@ torch==1.13.1
 torchaudio
 torchvision
 #cudatoolkit==11.6
+pandas
+lightning[extra]  # for lightning, extra is for tensorboard support
+>>>>>>> refactor/clean_and_apply_structure
 bids
 nilearn
 nibabel

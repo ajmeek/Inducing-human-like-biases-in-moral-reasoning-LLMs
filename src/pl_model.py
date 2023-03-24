@@ -1,0 +1,67 @@
+from typing import Literal, Any, Optional
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from lightning.pytorch.utilities.types import STEP_OUTPUT
+
+import lightning.pytorch as pl
+
+
+
+# lightning wrapper for training (scaling, parallelization etc)
+class LitBert(pl.LightningModule):
+    def __init__(
+            self,
+            model: nn.Module,
+            only_train_head: bool = False,
+            loss_names: list[Literal['cross-entropy', 'mse']] = ['cross-entropy'],
+            loss_weights: list[float | int] = None,
+        ):
+        super().__init__()
+        self.model = model
+        self.only_train_head = only_train_head
+        self.loss_names = loss_names
+        self.loss_weights = [1 for _ in loss_names] if loss_weights is None else loss_weights
+    
+    def training_step(self, batch, _):
+        tokens, mask, *targets = batch
+        # predictions is a list of tensors, one tensor per head. Each tensor is [batch, *head_dims]
+        predictions = self.model(tokens, mask)
+
+        # Compute loss and sum the weighted loss of each head.
+        loss = 0
+        for pred, target, loss_name, loss_weight in zip(predictions,
+                                                        targets,
+                                                        self.loss_names,
+                                                        self.loss_weights):
+            if loss_name == 'cross-entropy':
+                loss += loss_weight * F.cross_entropy(pred, target)
+            elif loss_name == 'mse':
+                loss += loss_weight * F.mse_loss(pred, target)
+            else:
+                print(f"\n\nUnsupported loss name {loss_name}\n")
+        
+        # log and return
+        self.log("train_loss", loss)
+        return loss
+
+    def test_step(self, batch, batch_idx) -> Optional[STEP_OUTPUT]:
+        tokens, mask, *targets = batch
+        logits, reg_pred = self.model(tokens, mask)
+        probs = F.softmax(logits, dim=-1)
+        # TODO: add logging to see the resulting accuracy for the whole dataset. Lightning might have built-in stuff.
+        predicted_label, confidence = probs.argmax().item(), probs.max().item()
+        return predicted_label
+
+    def predict_step(self, batch: Any, batch_idx: int, dataloader_idx: int = 0) -> Any:
+        tokens, mask = batch
+        logits, reg_pred = self.model(tokens, mask)
+        return F.softmax(logits, dim=-1)
+    
+    def configure_optimizers(self):
+        #! FIXME this breaks if you first only train head and then train the whole thing
+        if self.only_train_head:
+            for param in self.model.base.parameters():
+                param.requires_grad = False
+        optimizer = torch.optim.AdamW(self.parameters())
+        return optimizer
