@@ -18,7 +18,8 @@ class BERT(nn.Module):
 
         heads = []
         for head_d in head_dims:
-            head_d_flat = math.prod(head_d) if type(head_d) is tuple else head_d    # For now, we make everything a flattened 1D output
+            # For now, we make everything a flattened 1D output
+            head_d_flat = math.prod(head_d) if type(head_d) is tuple else head_d
             heads.append(nn.Linear(head_in_dim, head_d_flat))
         self.heads = nn.ModuleList(heads)
 
@@ -36,7 +37,8 @@ class BERT(nn.Module):
             # if out_dim is multi-dimensional, reshape the output
             if type(head_d) is tuple:
                 d_batch = head_out.shape[0]
-                head_out = head_out.reshape((d_batch, *head_d)) # [batch *head_d]  Unflatten the output again, note that targets are also not flat.
+                # Unflatten the output again, note that targets are also not flat.
+                head_out = head_out.reshape((d_batch, *head_d)) # [batch *head_d]
 
             outs.append(head_out)
 
