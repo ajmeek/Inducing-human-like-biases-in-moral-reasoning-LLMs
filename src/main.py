@@ -12,6 +12,8 @@ def main():
     datapath = Path('./data')
     assert datapath.exists(), 'Expected data dir present.'
     ethics_ds_path = datapath / 'ethics'
+    artifactspath = Path('./artifacts')
+    artifactspath.mkdir(exist_ok=True)
     # Hyperparameters #
     # Training parameters
     num_epochs = 10
@@ -62,6 +64,7 @@ def main():
         max_epochs=num_epochs,
         accelerator=device,
         devices=1,
+        default_root_dir=artifactspath / 'lightning_logs'
     )
     trainer.fit(lit_model, train_loader)
 
