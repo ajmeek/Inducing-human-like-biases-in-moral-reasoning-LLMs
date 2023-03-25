@@ -18,7 +18,7 @@ def main():
     artifactspath.mkdir(exist_ok=True)
     # Hyperparameters #
     # Training parameters
-    num_epochs = 10
+    num_epochs = 1
     batches_per_epoch = 12
     batch_size = 4
 
@@ -29,7 +29,7 @@ def main():
     # Dataset parameters
     train_dataset = ethics_ds_path / 'commonsense/cm_train.csv'
     num_samples_train = 100
-    est_dataset = ethics_ds_path / 'commonsense/cm_test.csv'
+    test_dataset = ethics_ds_path / 'commonsense/cm_test.csv'
     num_samples_test = 10
 
     # determine the best device to run on
@@ -93,9 +93,9 @@ def main():
     # prediction_dataloader = preprocess_prediction([example_text], tokenizer, batch_size=1)
     true_num = 0
     count = 0
-    for in_batch, labels_batch in test_loader:
-        predictions = trainer.predict(lit_model, test_loader)
-        true_num += (predictions.max(axis=0).indices == labels_batch).sum()
+    for batch in test_loader:
+        predictions = trainer.predict(lit_model, batch)
+        true_num += (predictions.max(axis=0).indices == h1).sum()
         count += len(labels_batch)
     print(f'Accuracty: {true_num / count}')
 
