@@ -1,4 +1,4 @@
-import torch
+import torch as t
 from transformers import AutoTokenizer, AutoModel
 from utils.loading_csv import load_csv_to_tensors
 from utils.preprocessing import preprocess_prediction, preprocess
@@ -6,10 +6,12 @@ from model import BERT
 from pl_model import LitBert
 import lightning.pytorch as pl
 from pathlib import Path
+import pandas as pd
+import numpy as np
 
+datapath = Path('./data')
 
 def main():
-    datapath = Path('./data')
     assert datapath.exists(), 'Expected data dir present.'
     ethics_ds_path = datapath / 'ethics'
     artifactspath = Path('./artifacts')
@@ -22,14 +24,7 @@ def main():
 
     # Model parameters
     checkpoint = 'bert-base-cased'  # Hugging Face model we'll be using
-    head_dims = [2, (4, 20)]  # Classification head and regression head
-    only_train_head = True
-    use_ia3_layers = True
     layers_to_replace_with_ia3 = "key|value|intermediate.dense"
-
-    # Loss parameters
-    loss_names = ['cross-entropy', 'mse']
-    loss_weights = [1, 1]
 
     # Dataset parameters
     train_dataset = ethics_ds_path / 'commonsense/cm_train.csv'
@@ -38,8 +33,8 @@ def main():
     num_samples_test = 10
 
     # determine the best device to run on
-    if torch.cuda.is_available(): device = 'cuda'
-    elif torch.backends.mps.is_available(): device = 'mps'
+    if t.cuda.is_available(): device = 'cuda'
+    elif t.backends.mps.is_available(): device = 'mps'
     else: device = 'cpu'
     print(f"{device=}")
 
@@ -47,15 +42,29 @@ def main():
     tokenizer = AutoTokenizer.from_pretrained(checkpoint)
     # TODO make sure it doesn't add SEP tokens when there's a full stop
     base_model = AutoModel.from_pretrained(checkpoint)
+    use_ia3_layers = False
     if use_ia3_layers:
         from ia3_model_modifier import modify_with_ia3
         base_model = modify_with_ia3(base_model, layers_to_replace_with_ia3)
 
+    ds000212 = load_ds000212_dataset()    
+    ds000212_shape = ds000212['output'].shape
+
+    head_dims = [2, ds000212_shape[1]]  # Classification head and regression head
+    loss_names = ['cross-entropy', 'mse']
+    loss_weights = [1, 1]
     model = BERT(base_model, head_dims=head_dims)
+    only_train_head = True
     lit_model = LitBert(model, only_train_head, loss_names, loss_weights)
 
     # Get training dataloader
     tokens, masks, targets = load_csv_to_tensors(train_dataset, tokenizer, num_samples=num_samples_train)
+    tokens = t.concat((tokens, ds000212['inputs']))  # Input for ds000212 data (scenarios).
+    # With ds000212, head 1 is nothing and head 2 is fMRI:
+    targets.append(t.tensor([None] * targets[0].shape[0]))
+    targets[0] = t.concat((targets[0], t.tensor([None] * ds000212_shape[0])))
+    targets[1] = t.concat((targets[1], ds000212['outputs']))
+
     train_loader = preprocess(tokens, masks, targets, head_dims, batch_size, shuffle=True)
 
     # train the model
@@ -78,6 +87,20 @@ def main():
     example_text = "I am a sentence."
     prediction_dataloader = preprocess_prediction([example_text], tokenizer, batch_size=1)
     prediction = trainer.predict(lit_model, prediction_dataloader)
+    print(f'{prediction=}')
+
+
+def load_ds000212_dataset():
+    assert datapath.exists()
+    scenarios = []
+    fmri_items = []
+    for subject_dir in Path(datapath / 'functional_flattened').glob('sub-*'):
+        for runpath in subject_dir.glob('[0-9]*.npy'):
+            scenario_path = runpath.parent / f'labels-{runpath.name}'
+            fmri_items.append(np.load(runpath.resolve()))
+            scenarios.append(np.load(scenario_path.resolve()))
+    return {'inputs': t.tensor(scenarios), 'ouputs': t.tensor(fmri_items)}
+
 
 if __name__ == '__main__':
     main()

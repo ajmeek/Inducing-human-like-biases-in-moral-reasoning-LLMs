@@ -7,3 +7,4 @@ models
 __pycache__
 data/ethics
 data/ds000212
+artifacts/
