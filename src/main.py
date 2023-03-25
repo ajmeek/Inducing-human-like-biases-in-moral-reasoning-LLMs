@@ -42,13 +42,14 @@ def main():
     tokenizer = AutoTokenizer.from_pretrained(checkpoint)
     # TODO make sure it doesn't add SEP tokens when there's a full stop
     base_model = AutoModel.from_pretrained(checkpoint)
-    use_ia3_layers = False
-    if use_ia3_layers:
-        from ia3_model_modifier import modify_with_ia3
-        base_model = modify_with_ia3(base_model, layers_to_replace_with_ia3)
+    # use_ia3_layers = False
+    # if use_ia3_layers:
+    #     from ia3_model_modifier import modify_with_ia3
+    #     base_model = modify_with_ia3(base_model, layers_to_replace_with_ia3)
 
     ds000212 = load_ds000212_dataset()    
-    ds000212_shape = ds000212['output'].shape
+    ds000212_shape = ds000212['outputs'].shape
+
 
     head_dims = [2, ds000212_shape[1]]  # Classification head and regression head
     loss_names = ['cross-entropy', 'mse']
@@ -59,10 +60,17 @@ def main():
 
     # Get training dataloader
     tokens, masks, targets = load_csv_to_tensors(train_dataset, tokenizer, num_samples=num_samples_train)
-    tokens = t.concat((tokens, ds000212['inputs']))  # Input for ds000212 data (scenarios).
-    # With ds000212, head 1 is nothing and head 2 is fMRI:
-    targets.append(t.tensor([None] * targets[0].shape[0]))
-    targets[0] = t.concat((targets[0], t.tensor([None] * ds000212_shape[0])))
+
+    # Input for ds000212 data (scenarios,fmri):
+    # Scenarios:
+    tokenized_scenarios = tokenizer(ds000212['inputs'], padding='max_length', truncation=True)
+    scenario_tokens = t.tensor(tokenized_scenarios['input_ids'])
+    scenario_masks = t.tensor(tokenized_scenarios['attention_mask'])
+    tokens = t.concat((tokens, scenario_tokens))
+    masks = t.concat((masks, scenario_masks))
+    # fMRI:
+    targets.append(t.zeros((targets[0].shape[0], ds000212_shape[1])))
+    targets[0] = t.concat((targets[0], t.zeros((ds000212_shape[0],)).int()))
     targets[1] = t.concat((targets[1], ds000212['outputs']))
 
     train_loader = preprocess(tokens, masks, targets, head_dims, batch_size, shuffle=True)
@@ -97,9 +105,17 @@ def load_ds000212_dataset():
     for subject_dir in Path(datapath / 'functional_flattened').glob('sub-*'):
         for runpath in subject_dir.glob('[0-9]*.npy'):
             scenario_path = runpath.parent / f'labels-{runpath.name}'
-            fmri_items.append(np.load(runpath.resolve()))
-            scenarios.append(np.load(scenario_path.resolve()))
-    return {'inputs': t.tensor(scenarios), 'ouputs': t.tensor(fmri_items)}
+            fmri_items += np.load(runpath.resolve()).tolist()
+            scenarios += np.load(scenario_path.resolve()).tolist()
+    assert len(scenarios) == len(fmri_items), f'Expected: {len(scenarios)} == {len(fmri_items)}'
+    # Drop those of inconsistent len:
+    from collections import Counter
+    counts = Counter(len(e) for e in fmri_items)
+    most_common_len = counts.most_common()[0][0]
+    indeces = [i for i, e in enumerate(fmri_items) if len(e) == most_common_len] 
+    scenarios = [e for i,e in enumerate(scenarios) if i in indeces]
+    fmri_items = [e for i,e in enumerate(fmri_items) if i in indeces]
+    return {'inputs': scenarios, 'outputs': t.tensor(fmri_items)}
 
 
 if __name__ == '__main__':
