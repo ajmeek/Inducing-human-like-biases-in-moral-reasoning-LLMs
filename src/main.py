@@ -95,7 +95,7 @@ def main():
     count = 0
     for in_batch, labels_batch in test_loader:
         predictions = trainer.predict(lit_model, test_loader)
-        true_num += (predictions.max(axis=0).indeces == labels_batch).sum()
+        true_num += (predictions.max(axis=0).indices == labels_batch).sum()
         count += len(labels_batch)
     print(f'Accuracty: {true_num / count}')
 
