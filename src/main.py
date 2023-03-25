@@ -29,7 +29,7 @@ def main():
     # Dataset parameters
     train_dataset = ethics_ds_path / 'commonsense/cm_train.csv'
     num_samples_train = 100
-    test_dataset = ethics_ds_path / 'commonsense/cm_test.csv'
+    est_dataset = ethics_ds_path / 'commonsense/cm_test.csv'
     num_samples_test = 10
 
     # determine the best device to run on
@@ -88,14 +88,16 @@ def main():
     # Test the model
     tokens, masks, targets = load_csv_to_tensors(test_dataset, tokenizer, num_samples=num_samples_test)
     test_loader = preprocess(tokens, masks, targets, head_dims=[2], batch_size=1, shuffle=False)  # only test the classification head
-
-    trainer.test(lit_model, dataloaders=test_loader)
-
-    # Make prediction on a single test example
-    example_text = "I am a sentence."
-    prediction_dataloader = preprocess_prediction([example_text], tokenizer, batch_size=1)
-    prediction = trainer.predict(lit_model, prediction_dataloader)
-    print(f'{prediction=}')
+    metrics = trainer.test(lit_model, dataloaders=test_loader, verbose=True)
+    print(metrics)
+    # prediction_dataloader = preprocess_prediction([example_text], tokenizer, batch_size=1)
+    true_num = 0
+    count = 0
+    for in_batch, labels_batch in test_loader:
+        predictions = trainer.predict(lit_model, test_loader)
+        true_num += (predictions.max(axis=0).indeces == labels_batch).sum()
+        count += len(labels_batch)
+    print(f'Accuracty: {true_num / count}')
 
 
 def load_ds000212_dataset():
