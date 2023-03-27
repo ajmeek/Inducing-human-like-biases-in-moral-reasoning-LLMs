@@ -8,3 +8,4 @@ lightning[extra]  # for lightning, extra is for tensorboard support
 bids
 nilearn
 nibabel
+datalad

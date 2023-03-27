@@ -134,7 +134,7 @@ def extract_scenarios(subject, run_num, bold_f):
 
 def init_scenarios():
     global all_scenarios
-    with open(datapath / "scenarios.csv", newline='') as csvfile:
+    with open(datapath / "scenarios.csv", newline='', encoding='utf-8') as csvfile:
         reader = DictReader(csvfile)
         for row in reader:
             all_scenarios.append(row)
