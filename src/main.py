@@ -9,7 +9,7 @@ from pathlib import Path
 
 
 def main():
-    datapath = Path('../data')
+    datapath = Path('./data')
     assert datapath.exists(), 'Expected data dir present.'
     ethics_ds_path = datapath / 'ethics'
     difumo_ds_path = datapath / 'ds000212_difumo'
