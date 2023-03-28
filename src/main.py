@@ -34,6 +34,8 @@ def main():
     # Loss parameters
     loss_names = ['cross-entropy']  # cross-entropy, mse
     loss_weights = [1]
+    regularize_from_init = True
+    regularization_coef = 1e-2
 
     # Dataset parameters
     # train_dataset_path = ethics_ds_path / 'commonsense/cm_train.csv'
@@ -66,7 +68,8 @@ def main():
     #ds000212_shape = ds000212['outputs'].shape
 
     model = BERT(base_model, head_dims=train_head_dims)
-    lit_model = LitBert(model, only_train_head, loss_names, loss_weights)
+    lit_model = LitBert(model, only_train_head, loss_names, loss_weights,
+                        regularize_from_init=regularize_from_init, regularization_coef=regularization_coef)
 
     # Get training dataloader
     if train_head_dims[0] == 2:  # TODO: this is a bit hacky, not sure when we want to use what.
