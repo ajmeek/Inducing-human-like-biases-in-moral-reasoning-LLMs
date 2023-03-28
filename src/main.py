@@ -28,6 +28,8 @@ def main():
     # Loss parameters
     loss_names = ['cross-entropy', 'mse']
     loss_weights = [1, 1]
+    regularize_from_init = True
+    regularization_coef = 1e-2
 
     # Dataset parameters
     train_dataset = ethics_ds_path / 'commonsense/cm_train.csv'
@@ -50,7 +52,8 @@ def main():
         base_model = modify_with_ia3(base_model, layers_to_replace_with_ia3)
 
     model = BERT(base_model, head_dims=head_dims)
-    lit_model = LitBert(model, only_train_head, loss_names, loss_weights)
+    lit_model = LitBert(model, only_train_head, loss_names, loss_weights,
+                        regularize_from_init=regularize_from_init, regularization_coef=regularization_coef)
 
     # Get training dataloader
     tokens, masks, targets = load_csv_to_tensors(train_dataset, tokenizer, num_samples=num_samples_train)
