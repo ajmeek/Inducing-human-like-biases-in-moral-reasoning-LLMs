@@ -25,7 +25,6 @@ def main():
 
     # Model parameters
     checkpoint = 'bert-base-cased'  # Hugging Face model we'll be using
-    train_head_dims = [64]  # Classification head and regression head, for example [2, (10, 4)]
     test_head_dims = [2]
     only_train_head = True
     use_ia3_layers = False
@@ -38,8 +37,6 @@ def main():
     regularization_coef = 1e-2
 
     # Dataset parameters
-    # train_dataset_path = ethics_ds_path / 'commonsense/cm_train.csv'
-    train_dataset_path = difumo_ds_path
     num_samples_train = 32
     shuffle_train = True  # Set to False in order to get deterministic results and test overfitting on a small dataset.
     test_dataset_path = ethics_ds_path / 'commonsense/cm_train.csv'
@@ -64,9 +61,9 @@ def main():
     #     from ia3_model_modifier import modify_with_ia3
     #     base_model = modify_with_ia3(base_model, layers_to_replace_with_ia3)
 
-    #ds000212 = load_ds000212_dataset(datapath)
+    #ds000212 = load_ds000212_dataset(datapath, tokenizer, num_samples_train, normalize=True)
     #ds000212_shape = ds000212['outputs'].shape
-
+    train_head_dims = [64]  # Classification head and regression head, for example [2, (10, 4)]
     model = BERT(base_model, head_dims=train_head_dims)
     lit_model = LitBert(model, only_train_head, loss_names, loss_weights,
                         regularize_from_init=regularize_from_init, regularization_coef=regularization_coef)
@@ -74,9 +71,9 @@ def main():
     # Get training dataloader
     if train_head_dims[0] == 2:  # TODO: this is a bit hacky, not sure when we want to use what.
         # For now if the first head has two outputs we use the ethics dataset and otherwise the fMRI dataset.
-        tokens, masks, targets = load_csv_to_tensors(train_dataset_path, tokenizer, num_samples=num_samples_train)
+        tokens, masks, targets = load_csv_to_tensors(ethics_ds_path / 'commonsense/cm_train.csv', tokenizer, num_samples=num_samples_train)
     else:
-        tokens, masks, targets = load_np_fmri_to_tensor(train_dataset_path, tokenizer, num_samples=num_samples_train)
+        tokens, masks, targets = load_np_fmri_to_tensor(difumo_ds_path, tokenizer, num_samples=num_samples_train)
     train_loader = preprocess(tokens, masks, targets, train_head_dims, batch_size, shuffle=shuffle_train)
 
     # train the model

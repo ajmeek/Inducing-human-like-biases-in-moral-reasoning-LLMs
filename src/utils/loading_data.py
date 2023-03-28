@@ -58,9 +58,13 @@ def load_np_fmri_to_tensor(base_path: str,
 
 
 def load_ds000212_dataset(
-    datapath: Path
-
-):
+    datapath: Path,
+    tokenizer: PreTrainedTokenizer,
+    num_samples: int,
+    normalize=True) -> tuple[torch.Tensor, torch.Tensor, list[torch.Tensor]
+]:
+    print('Loading ds000212_dataset')
+    import torch as t
     assert datapath.exists()
     scenarios = []
     fmri_items = []
@@ -77,7 +81,24 @@ def load_ds000212_dataset(
     indeces = [i for i, e in enumerate(fmri_items) if len(e) == most_common_len] 
     scenarios = [e for i,e in enumerate(scenarios) if i in indeces]
     fmri_items = [e for i,e in enumerate(fmri_items) if i in indeces]
-    return {'inputs': scenarios, 'outputs': t.tensor(fmri_items)}
+
+    # Extract tokens, masks:
+    tokens_list = []
+    masks_list = []
+    for text in scenarios:
+        tokenized = tokenizer(text, padding='max_length', truncation=True)
+        tokens_list.append(torch.tensor(tokenized['input_ids']))
+        masks_list.append(torch.tensor(tokenized['attention_mask']))
+    tokens = torch.cat(tokens_list, dim=0)
+    masks = torch.cat(masks_list, dim=0)
+    target_tensors = torch.tensor(fmri_items)
+    if normalize:
+        target_tensors = (target_tensors - target_tensors.mean()) / target_tensors.std()
+    
+    assert tokens.shape[0] == masks.shape[0] == target_tensors.shape[0], f'{tokens.shape=} {masks.shape=} {target_tensors.shape=}'
+    random_indices = torch.permute(range(tokens.shape[0]))[:num_samples]
+
+    return tokens[random_indices], masks[random_indices], [target_tensors[random_indices]]
 
 
 
