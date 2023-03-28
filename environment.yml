@@ -17,3 +17,4 @@ dependencies:
     - bids
     - nilearn
     - nibabel
+    - datalad
