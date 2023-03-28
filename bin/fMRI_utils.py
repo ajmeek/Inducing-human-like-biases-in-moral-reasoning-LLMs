@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 '''
-fMRI_utils_old.py
+fMRI_utils.py
 
 Generates dataset for supervised learning with input text and related fMRI data.
 '''
