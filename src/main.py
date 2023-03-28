@@ -1,6 +1,6 @@
 import torch as t
 from transformers import AutoTokenizer, AutoModel
-from utils.loading_data import load_csv_to_tensors, load_np_fmri_to_tensor
+from utils.loading_data import load_csv_to_tensors, load_np_fmri_to_tensor, load_ds000212_dataset
 from utils.preprocessing import preprocess_prediction, preprocess
 from model import BERT
 from pl_model import LitBert
@@ -62,8 +62,8 @@ def main():
     #     from ia3_model_modifier import modify_with_ia3
     #     base_model = modify_with_ia3(base_model, layers_to_replace_with_ia3)
 
-    ds000212 = load_ds000212_dataset()    
-    ds000212_shape = ds000212['outputs'].shape
+    #ds000212 = load_ds000212_dataset(datapath)
+    #ds000212_shape = ds000212['outputs'].shape
 
     model = BERT(base_model, head_dims=train_head_dims)
     lit_model = LitBert(model, only_train_head, loss_names, loss_weights)
@@ -102,28 +102,6 @@ def main():
     example_text = "I am a sentence."
     prediction_dataloader = preprocess_prediction([example_text], tokenizer, batch_size=1)
     prediction = trainer.predict(lit_model, prediction_dataloader)
-
-
-def load_ds000212_dataset():
-    assert datapath.exists()
-    scenarios = []
-    fmri_items = []
-    for subject_dir in Path(datapath / 'functional_flattened').glob('sub-*'):
-        for runpath in subject_dir.glob('[0-9]*.npy'):
-            scenario_path = runpath.parent / f'labels-{runpath.name}'
-            fmri_items += np.load(runpath.resolve()).tolist()
-            scenarios += np.load(scenario_path.resolve()).tolist()
-    assert len(scenarios) == len(fmri_items), f'Expected: {len(scenarios)} == {len(fmri_items)}'
-    # Drop those of inconsistent len:
-    from collections import Counter
-    counts = Counter(len(e) for e in fmri_items)
-    most_common_len = counts.most_common()[0][0]
-    indeces = [i for i, e in enumerate(fmri_items) if len(e) == most_common_len] 
-    scenarios = [e for i,e in enumerate(scenarios) if i in indeces]
-    fmri_items = [e for i,e in enumerate(fmri_items) if i in indeces]
-    return {'inputs': scenarios, 'outputs': t.tensor(fmri_items)}
-
-
 
 if __name__ == '__main__':
     main()
