@@ -5,9 +5,11 @@ from utils.preprocessing import preprocess_prediction, preprocess
 from model import BERT
 from pl_model import LitBert
 import lightning.pytorch as pl
+from lightning.pytorch.loggers import TensorBoardLogger
 from pathlib import Path
 import pandas as pd
 import numpy as np
+import argparse
 
 datapath = Path('./data')
 
@@ -17,11 +19,8 @@ def main():
     artifactspath = Path('./artifacts')
     artifactspath.mkdir(exist_ok=True)
     difumo_ds_path = datapath / 'ds000212_difumo'
-    # Hyperparameters #
-    # Training parameters
-    num_epochs = 1
-    batches_per_epoch = 1
-    batch_size = 32
+
+    config = get_config()
 
     # Model parameters
     checkpoint = 'bert-base-cased'  # Hugging Face model we'll be using
@@ -31,8 +30,6 @@ def main():
 
     # Loss parameters
     loss_weights = [1]
-    regularize_from_init = True
-    regularization_coef = 1e-1
 
     # Dataset parameters
     num_samples_train = 100
@@ -71,8 +68,8 @@ def main():
         only_train_head,
         loss_names,
         loss_weights,
-        regularize_from_init=regularize_from_init,
-        regularization_coef=regularization_coef
+        regularize_from_init=config['regularize_from_init'],
+        regularization_coef=config['regularization_coef']
     )
 
     # Get training dataloader
@@ -81,16 +78,24 @@ def main():
     #     tokens, masks, targets = load_csv_to_tensors(ethics_ds_path / 'commonsense/cm_train.csv', tokenizer, num_samples=num_samples_train)
     # else:
     #     tokens, masks, targets = load_np_fmri_to_tensor(difumo_ds_path, tokenizer, num_samples=num_samples_train)
-    train_loader = preprocess(tokens, masks, targets, train_head_dims, batch_size, shuffle=shuffle_train)
+    train_loader = preprocess(tokens, masks, targets, train_head_dims, config['batch_size'], shuffle=shuffle_train)
+
+    print(str(artifactspath.resolve()))
+    logger = TensorBoardLogger(
+        default_hp_metric=True,
+        save_dir=artifactspath
+    )
+    logger.log_hyperparams(config)
 
     # train the model
     trainer = pl.Trainer(
-        limit_train_batches=batches_per_epoch,
-        max_epochs=num_epochs,
+        limit_train_batches=config['batches_per_epoch'],
+        max_epochs=config['num_epochs'],
         accelerator=device,
         devices=1,
-        default_root_dir=artifactspath,
-        log_every_n_steps=log_every_n_steps
+        logger=logger,
+        log_every_n_steps=log_every_n_steps,
+        default_root_dir=artifactspath
     )
     trainer.fit(lit_model, train_loader)
 
@@ -102,14 +107,70 @@ def main():
 
     # Test the model
     tokens, masks, targets = load_csv_to_tensors(test_dataset_path, tokenizer, num_samples=num_samples_test)
-    test_loader = preprocess(tokens, masks, targets, head_dims=test_head_dims, batch_size=batch_size, shuffle=shuffle_test)
+    test_loader = preprocess(tokens, masks, targets, head_dims=test_head_dims, batch_size=config['batch_size'], shuffle=shuffle_test)
 
     trainer.test(lit_model, dataloaders=test_loader)
+    logger.save()
 
     # Make prediction on a single test example
     example_text = "I am a sentence."
     prediction_dataloader = preprocess_prediction([example_text], tokenizer, batch_size=1)
     prediction = trainer.predict(lit_model, prediction_dataloader)
+
+def get_config():
+    args = get_args().parse_args()
+    config = vars(args)
+    for arg in config:
+        if config[arg] in {'True', 'False'}:
+            config[arg] = config[arg] == 'True'
+        elif config[arg] == 'none':
+            config[arg] = None
+        elif 'subjects_per_dataset' in arg:
+            config[arg] = None if config[arg] == -1 else config[arg]
+    return config
+
+def get_args() -> argparse.ArgumentParser:
+    """Get command line arguments"""
+
+    parser = argparse.ArgumentParser(
+        description='run model training'
+    )
+    parser.add_argument(
+        '--num_epochs',
+        default='1',
+        type=int,
+        help='Number of epochs to fine tune a model on fMRI data.'
+             '(default: 1)'
+    )
+    parser.add_argument(
+        '--batches_per_epoch',
+        default='1',
+        type=int,
+        help='Batches per epoch.'
+             '(default: 1)'
+    )
+    parser.add_argument(
+        '--batch_size',
+        default='32',
+        type=int,
+        help='Batch size.'
+             '(default: 32)'
+    )
+    parser.add_argument(
+        '--regularize_from_init',
+        default='True',
+        type=str,
+        help='Regularize from init (base) model.'
+             '(default: True)'
+    )
+    parser.add_argument(
+        '--regularization_coef',
+        default='0.1',
+        type=float,
+        help='Regularization from init coef.'
+             '(default: 0.1)'
+    )
+    return parser
 
 if __name__ == '__main__':
     main()

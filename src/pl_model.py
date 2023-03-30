@@ -30,7 +30,6 @@ class LitBert(pl.LightningModule):
         # store the initial weights of the model (used for regularization)
         # note that we're not applying the regularization to the heads
         self.init_params = copy.deepcopy([p for p in model.base.parameters()])
-        self.log('hp_metric', regularization_coef)
     
     def training_step(self, batch, _):
         tokens, mask, *targets = batch

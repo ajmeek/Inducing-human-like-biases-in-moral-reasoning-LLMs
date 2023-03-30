@@ -11,7 +11,7 @@ root_dir=$( realpath "$script_dir/.." )
 
 # Run:
 pushd $root_dir > /dev/null
-python3 "$root_dir/src/main.py" || popd
+python3 "$root_dir/src/main.py" "$@"  || popd
 popd
 
 echo See logs:
