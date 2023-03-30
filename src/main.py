@@ -9,18 +9,18 @@ from pathlib import Path
 
 
 def main():
-    datapath = Path('../data')
+    datapath = Path('./data')
     assert datapath.exists(), 'Expected data dir present.'
     ethics_ds_path = datapath / 'ethics'
     # Hyperparameters #
     # Training parameters
-    num_epochs = 50
+    num_epochs = 5
     batches_per_epoch = 1
     batch_size = 32
 
     # Model parameters
     checkpoint = 'bert-base-cased'  # Hugging Face model we'll be using
-    head_dims = [2]  # Classification head and regression head
+    head_dims = [2]
     only_train_head = True
     use_ia3_layers = False
     layers_to_replace_with_ia3 = "key|value|intermediate.dense"
