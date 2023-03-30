@@ -19,25 +19,23 @@ def main():
     difumo_ds_path = datapath / 'ds000212_difumo'
     # Hyperparameters #
     # Training parameters
-    num_epochs = 10
+    num_epochs = 1
     batches_per_epoch = 1
     batch_size = 32
 
     # Model parameters
     checkpoint = 'bert-base-cased'  # Hugging Face model we'll be using
-    test_head_dims = [2]
     only_train_head = True
     use_ia3_layers = False
     layers_to_replace_with_ia3 = "key|value|intermediate.dense"
 
     # Loss parameters
-    loss_names = ['cross-entropy']  # cross-entropy, mse
     loss_weights = [1]
     regularize_from_init = True
-    regularization_coef = 1e-2
+    regularization_coef = 1e-1
 
     # Dataset parameters
-    num_samples_train = 32
+    num_samples_train = 100
     shuffle_train = True  # Set to False in order to get deterministic results and test overfitting on a small dataset.
     test_dataset_path = ethics_ds_path / 'commonsense/cm_train.csv'
     # test_dataset_path = difumo_ds_path
@@ -61,19 +59,28 @@ def main():
     #     from ia3_model_modifier import modify_with_ia3
     #     base_model = modify_with_ia3(base_model, layers_to_replace_with_ia3)
 
-    #ds000212 = load_ds000212_dataset(datapath, tokenizer, num_samples_train, normalize=True)
-    #ds000212_shape = ds000212['outputs'].shape
-    train_head_dims = [64]  # Classification head and regression head, for example [2, (10, 4)]
-    model = BERT(base_model, head_dims=train_head_dims)
-    lit_model = LitBert(model, only_train_head, loss_names, loss_weights,
-                        regularize_from_init=regularize_from_init, regularization_coef=regularization_coef)
+    tokens, masks, targets = load_ds000212_dataset(datapath, tokenizer, num_samples_train, normalize=False)
+    train_head_dims = [e.shape[1] for e in targets] #[64]  # Classification head and regression head, for example [2, (10, 4)]
+    model = BERT(
+        base_model,
+        head_dims=train_head_dims
+    )
+    loss_names = ['mse'] #['cross-entropy']  # cross-entropy, mse
+    lit_model = LitBert(
+        model,
+        only_train_head,
+        loss_names,
+        loss_weights,
+        regularize_from_init=regularize_from_init,
+        regularization_coef=regularization_coef
+    )
 
     # Get training dataloader
-    if train_head_dims[0] == 2:  # TODO: this is a bit hacky, not sure when we want to use what.
-        # For now if the first head has two outputs we use the ethics dataset and otherwise the fMRI dataset.
-        tokens, masks, targets = load_csv_to_tensors(ethics_ds_path / 'commonsense/cm_train.csv', tokenizer, num_samples=num_samples_train)
-    else:
-        tokens, masks, targets = load_np_fmri_to_tensor(difumo_ds_path, tokenizer, num_samples=num_samples_train)
+    # if train_head_dims[0] == 2:  # TODO: this is a bit hacky, not sure when we want to use what.
+    #     # For now if the first head has two outputs we use the ethics dataset and otherwise the fMRI dataset.
+    #     tokens, masks, targets = load_csv_to_tensors(ethics_ds_path / 'commonsense/cm_train.csv', tokenizer, num_samples=num_samples_train)
+    # else:
+    #     tokens, masks, targets = load_np_fmri_to_tensor(difumo_ds_path, tokenizer, num_samples=num_samples_train)
     train_loader = preprocess(tokens, masks, targets, train_head_dims, batch_size, shuffle=shuffle_train)
 
     # train the model
@@ -82,13 +89,14 @@ def main():
         max_epochs=num_epochs,
         accelerator=device,
         devices=1,
-        default_root_dir=artifactspath / 'lightning_logs',
+        default_root_dir=artifactspath,
         log_every_n_steps=log_every_n_steps
     )
     trainer.fit(lit_model, train_loader)
 
     # Use base model with new head for testing.
     trained_base_model = trainer.model.model.base
+    test_head_dims = [2]
     model = BERT(trained_base_model, head_dims=test_head_dims)
     lit_model = LitBert(model, only_train_head)  # losses are not needed for testing
 
