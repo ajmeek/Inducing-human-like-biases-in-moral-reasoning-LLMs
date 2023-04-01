@@ -52,7 +52,7 @@ def main():
         model,
         config['only_train_head'],
         loss_names,
-        loss_weights=[1],
+        loss_weights=[1.0],
         regularize_from_init=config['regularize_from_init'],
         regularization_coef=config['regularization_coef']
     )
