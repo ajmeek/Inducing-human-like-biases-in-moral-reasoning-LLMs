@@ -30,10 +30,9 @@ def main():
     print(f"{device=}")
 
     # Define the tokenizer and model
-    checkpoint='bert-base-cased'
-    tokenizer = AutoTokenizer.from_pretrained(checkpoint)
+    tokenizer = AutoTokenizer.from_pretrained(config['checkpoint'])
     # TODO make sure it doesn't add SEP tokens when there's a full stop
-    base_model = AutoModel.from_pretrained(checkpoint)
+    base_model = AutoModel.from_pretrained(config['checkpoint'])
 
     #use_ia3_layers = False
     # if use_ia3_layers:
@@ -178,6 +177,13 @@ def get_args() -> argparse.ArgumentParser:
         type=str,
         help='Train only attached head.'
              '(default: True)'
+    )
+    parser.add_argument(
+        '--checkpoint',
+        default='bert-base-cased',
+        type=str,
+        help='HuggingFace model.'
+             '(default: bert-base-cased)'
     )
 
     return parser
