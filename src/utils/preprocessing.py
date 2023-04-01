@@ -16,7 +16,8 @@ def preprocess(tokens: torch.tensor,
     When the number of targets is less than the number of heads, it generates random targets for the remaining heads.
     """
     if len(targets) < len(head_dims):
-        print(f'Number of targets is {len(targets)}, but there are {len(head_dims)} heads. Generating random targets for the remaining heads.')
+        print(f'Number of targets is {len(targets)}, '
+              f'but there are {len(head_dims)} heads. Generating random targets for the remaining heads.')
         n_samples = tokens.shape[0]
         counter = len(head_dims) - len(targets)
         while counter < len(head_dims):
@@ -32,7 +33,8 @@ def preprocess_prediction(inputs: list[str],
                           tokenizer: PreTrainedTokenizer,
                           batch_size: int = 1) -> DataLoader:
     """
-    Given a list of strings, it tokenizes the strings and returns a dataloader with only the tokens and masks and no targets.
+    Given a list of strings, it tokenizes the strings and returns a dataloader with only the tokens and masks and
+    no targets.
     """
     # tokenize (and truncate just in case)
     tokenized = tokenizer(inputs, padding='max_length', truncation=True)
