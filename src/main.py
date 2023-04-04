@@ -80,8 +80,7 @@ def main():
     trainer.fit(lit_model, train_loader)
 
     # Use base model with new head for testing.
-    trained_base_model = trainer.model.model.base
-    model = BERT(trained_base_model, head_dims=test_head_dims)
+    model = BERT(base_model, head_dims=test_head_dims)
     lit_model = LitBert(model, only_train_head)  # losses are not needed for testing
 
     # Test the model
