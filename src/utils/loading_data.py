@@ -1,4 +1,5 @@
 import os
+from typing import Union
 import numpy as np
 import torch
 import pandas as pd
@@ -6,7 +7,7 @@ from transformers import PreTrainedTokenizer, AutoTokenizer
 
 
 # returns a pandas dataframe of the CM training set (excluding long ones)
-def load_csv_to_tensors(path: str | os.PathLike,
+def load_csv_to_tensors(path: Union[str, os.PathLike],
                         tokenizer: PreTrainedTokenizer,
                         num_samples: int) -> tuple[torch.Tensor, torch.Tensor, list[torch.Tensor]]:
     df = pd.read_csv(os.path.abspath(path))

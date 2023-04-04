@@ -1,4 +1,4 @@
-from typing import Literal, Any, Optional
+from typing import Literal, Union, Any, Optional
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -16,7 +16,7 @@ class LitBert(pl.LightningModule):
             model: nn.Module,
             only_train_head: bool = False,
             loss_names: list[Literal['cross-entropy', 'mse']] = ['cross-entropy'],
-            loss_weights: list[float | int] = None,
+            loss_weights: list[Union[float, int]] = None,
             regularize_from_init: bool = False,
             regularization_coef: float = 0.,
         ):
