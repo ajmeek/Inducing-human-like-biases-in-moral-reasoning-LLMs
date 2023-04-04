@@ -14,15 +14,15 @@ def main():
     ethics_ds_path = datapath / 'ethics'
     # Hyperparameters #
     # Training parameters
-    num_epochs = 10
-    batches_per_epoch = 12
-    batch_size = 4
+    num_epochs = 5
+    batches_per_epoch = 1
+    batch_size = 32
 
     # Model parameters
     checkpoint = 'bert-base-cased'  # Hugging Face model we'll be using
-    head_dims = [2, (4, 20)]  # Classification head and regression head
+    head_dims = [2]
     only_train_head = True
-    use_ia3_layers = True
+    use_ia3_layers = False
     layers_to_replace_with_ia3 = "key|value|intermediate.dense"
 
     # Loss parameters
@@ -33,9 +33,14 @@ def main():
 
     # Dataset parameters
     train_dataset = ethics_ds_path / 'commonsense/cm_train.csv'
-    num_samples_train = 100
+    num_samples_train = 32
+    shuffle_train = True  # Set to False in order to get deterministic results and test overfitting on a small dataset.
     test_dataset = ethics_ds_path / 'commonsense/cm_test.csv'
-    num_samples_test = 10
+    num_samples_test = 32
+    shuffle_test = False
+
+    # Logging
+    log_every_n_steps = 1
 
     # determine the best device to run on
     if torch.cuda.is_available(): device = 'cuda'
@@ -57,7 +62,7 @@ def main():
 
     # Get training dataloader
     tokens, masks, targets = load_csv_to_tensors(train_dataset, tokenizer, num_samples=num_samples_train)
-    train_loader = preprocess(tokens, masks, targets, head_dims, batch_size, shuffle=True)
+    train_loader = preprocess(tokens, masks, targets, head_dims, batch_size, shuffle=shuffle_train)
 
     # train the model
     trainer = pl.Trainer(
@@ -65,12 +70,13 @@ def main():
         max_epochs=num_epochs,
         accelerator=device,
         devices=1,
+        log_every_n_steps=log_every_n_steps,
     )
     trainer.fit(lit_model, train_loader)
 
     # Test the model
     tokens, masks, targets = load_csv_to_tensors(test_dataset, tokenizer, num_samples=num_samples_test)
-    test_loader = preprocess(tokens, masks, targets, head_dims=[2], batch_size=1, shuffle=False)  # only test the classification head
+    test_loader = preprocess(tokens, masks, targets, head_dims=head_dims, batch_size=batch_size, shuffle=shuffle_test)
 
     trainer.test(lit_model, dataloaders=test_loader)
 
@@ -78,6 +84,7 @@ def main():
     example_text = "I am a sentence."
     prediction_dataloader = preprocess_prediction([example_text], tokenizer, batch_size=1)
     prediction = trainer.predict(lit_model, prediction_dataloader)
+
 
 if __name__ == '__main__':
     main()
