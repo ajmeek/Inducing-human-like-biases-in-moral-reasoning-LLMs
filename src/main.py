@@ -78,10 +78,13 @@ def main():
     model = BERT(base_model, test_head_dims)
     lit_model = LitBert(model, only_train_head)  # losses are not needed for testing
 
+    # TODO fine-tune head
+
     # Test the model
     tokens, masks, targets = load_csv_to_tensors(test_dataset_path, tokenizer,
                                                  num_samples=num_samples_test)
-    test_loader = preprocess(tokens, masks, targets, head_dims=2, batch_size=batch_size)
+    test_loader = preprocess(tokens, masks, targets,
+                             head_dims=test_head_dims, batch_size=batch_size)
 
     trainer.test(lit_model, dataloaders=test_loader)
 
