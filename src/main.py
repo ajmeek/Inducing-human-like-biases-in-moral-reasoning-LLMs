@@ -1,6 +1,6 @@
 import torch
 from transformers import AutoTokenizer, AutoModel
-from utils.loading_data import load_csv_to_tensors, load_np_fmri_to_tensor
+from utils.loading_data import load_fmri_with_labels, load_csv_to_tensors
 from utils.preprocessing import preprocess_prediction, preprocess
 from model import BERT
 from pl_model import LitBert
@@ -9,37 +9,32 @@ from pathlib import Path
 
 
 def main():
-    datapath = Path('./data')
-    assert datapath.exists(), 'Expected data dir present.'
-    ethics_ds_path = datapath / 'ethics'
-    difumo_ds_path = datapath / 'ds000212_difumo'
+    data_path = Path('./data')
+    assert data_path.exists(), 'Expected data dir present.'
     # Hyperparameters #
     # Training parameters
-    num_epochs = 10
-    batches_per_epoch = 1
-    batch_size = 32
+    num_epochs = 16
+    batches_per_epoch = 128
+    batch_size = 8
+    regularize = True
+    regularization_coef = 1e-5
 
     # Model parameters
     checkpoint = 'bert-base-cased'  # Hugging Face model we'll be using
-    train_head_dims = [64]  # Classification head and regression head, for example [2, (10, 4)]
+    train_head_dims = [64, 3] # fMRI and classification (neutral, accidental, intentional)
     test_head_dims = [2]
-    only_train_head = True
+    only_train_head = False
     use_ia3_layers = False
     layers_to_replace_with_ia3 = "key|value|intermediate.dense"
 
     # Loss parameters
-    loss_names = ['cross-entropy']  # cross-entropy, mse
-    loss_weights = [1]
+    loss_names = ['mse', 'cross-entropy']  # cross-entropy, mse
 
     # Dataset parameters
-    # train_dataset_path = ethics_ds_path / 'commonsense/cm_train.csv'
-    train_dataset_path = difumo_ds_path
-    num_samples_train = 32
+    num_samples_train = 4096
     shuffle_train = True  # Set to False in order to get deterministic results and test overfitting on a small dataset.
-    test_dataset_path = ethics_ds_path / 'commonsense/cm_train.csv'
-    # test_dataset_path = difumo_ds_path
+    test_dataset_path = data_path / 'ethics/commonsense/cm_test.csv'
     num_samples_test = 32
-    shuffle_test = False
 
     # Logging
     log_every_n_steps = 1
@@ -59,15 +54,15 @@ def main():
         base_model = modify_with_ia3(base_model, layers_to_replace_with_ia3)
 
     model = BERT(base_model, head_dims=train_head_dims)
-    lit_model = LitBert(model, only_train_head, loss_names, loss_weights)
+    lit_model = LitBert(model, only_train_head, loss_names,
+                        regularize_from_init=regularize,
+                        regularization_coef=regularization_coef)
 
     # Get training dataloader
-    if train_head_dims[0] == 2:  # TODO: this is a bit hacky, not sure when we want to use what.
-        # For now if the first head has two outputs we use the ethics dataset and otherwise the fMRI dataset.
-        tokens, masks, targets = load_csv_to_tensors(train_dataset_path, tokenizer, num_samples=num_samples_train)
-    else:
-        tokens, masks, targets = load_np_fmri_to_tensor(train_dataset_path, tokenizer, num_samples=num_samples_train)
-    train_loader = preprocess(tokens, masks, targets, train_head_dims, batch_size, shuffle=shuffle_train)
+    tokens, masks, targets = load_fmri_with_labels(data_path, tokenizer,
+                                                   num_samples=num_samples_train)
+    train_loader = preprocess(tokens, masks, targets, train_head_dims, batch_size,
+                              shuffle=shuffle_train)
 
     # train the model
     trainer = pl.Trainer(
@@ -79,14 +74,14 @@ def main():
     )
     trainer.fit(lit_model, train_loader)
 
-    # Use base model with new head for testing.
-    trained_base_model = trainer.model.model.base
-    model = BERT(trained_base_model, head_dims=test_head_dims)
+   # Use base model with new head for testing.
+    model = BERT(base_model, test_head_dims)
     lit_model = LitBert(model, only_train_head)  # losses are not needed for testing
 
     # Test the model
-    tokens, masks, targets = load_csv_to_tensors(test_dataset_path, tokenizer, num_samples=num_samples_test)
-    test_loader = preprocess(tokens, masks, targets, head_dims=test_head_dims, batch_size=batch_size, shuffle=shuffle_test)
+    tokens, masks, targets = load_csv_to_tensors(test_dataset_path, tokenizer,
+                                                 num_samples=num_samples_test)
+    test_loader = preprocess(tokens, masks, targets, head_dims=2, batch_size=batch_size)
 
     trainer.test(lit_model, dataloaders=test_loader)
 
