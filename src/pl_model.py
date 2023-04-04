@@ -68,9 +68,10 @@ class LitBert(pl.LightningModule):
         predictions = self.model(tokens, mask)
         logits = predictions[0]
         probs = F.softmax(logits, dim=-1)
-        predicted_label, confidence = probs.argmax(dim=-1), probs.max(dim=-1)
-        self.log("test_acc", (predicted_label == targets[0]).float().mean(), prog_bar=True)  # This automatically accumulates the accuracy over the whole test set.
-        return predicted_label  # This automatically accumulates the accuracy over the whole test set.
+        predicted_label = probs.argmax(dim=-1)
+        # log the accuracy (this automatically accumulates it over the whole test set)
+        self.log("test_acc", (predicted_label == targets[0]).float().mean(), prog_bar=True)
+        return predicted_label
 
     def predict_step(self, batch: Any, batch_idx: int, dataloader_idx: int = 0) -> Any:
         tokens, mask = batch
