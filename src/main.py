@@ -89,12 +89,25 @@ def main():
     lit_model = LitBert(model, config['only_train_head'])  # losses are not needed for testing
 
     # Test the model
-    test_dataset_path = ethics_ds_path / 'commonsense/cm_train.csv'
-    tokens, masks, targets = load_csv_to_tensors(test_dataset_path, tokenizer, num_samples=config['num_samples_test'])
-    test_loader = preprocess(tokens, masks, targets, head_dims=test_head_dims, batch_size=config['batch_size'], shuffle=False)
+    ethics_cs_dataset_path = ethics_ds_path / 'commonsense/cm_train.csv'
+    tokens, masks, targets = load_csv_to_tensors(ethics_cs_dataset_path, tokenizer, num_samples=config['num_samples_test'])
+    ethics_cs_loader = preprocess(tokens, masks, targets, head_dims=test_head_dims, batch_size=config['batch_size'], shuffle=True)
+
+    # train the model
+    trainer = pl.Trainer(
+        limit_train_batches=config['batches_per_epoch'],
+        max_epochs=config['ethics_num_epochs'],
+        accelerator=device,
+        devices=1,
+        logger=logger,
+        log_every_n_steps=1,
+        default_root_dir=artifactspath
+    )
+    print('Fine tuning on ETHICS...')
+    trainer.fit(lit_model, ethics_cs_loader)
 
     print('Testing on ETHICS...')
-    trainer.test(lit_model, dataloaders=test_loader)
+    trainer.test(lit_model, dataloaders=ethics_cs_loader)
     logger.save()
     print('Done')
 
@@ -184,7 +197,13 @@ def get_args() -> argparse.ArgumentParser:
         help='HuggingFace model.'
              '(default: bert-base-cased)'
     )
-
+    parser.add_argument(
+        '--ethics_num_epochs',
+        default='5',
+        type=int,
+        help='Number of epochs to fine tune a model on ETHICS data.'
+             '(default: 5)'
+    )
     return parser
 
 if __name__ == '__main__':
