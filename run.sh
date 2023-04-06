@@ -34,7 +34,7 @@ function install()
 {
 
     pip install datalad-installer
-    echo y | datalad-installer git-annex -m datalad/git-annex:release
+    yes y | datalad-installer git-annex -m datalad/git-annex:release
 }
 
 if [[ $# == 0 ]] ; then 
