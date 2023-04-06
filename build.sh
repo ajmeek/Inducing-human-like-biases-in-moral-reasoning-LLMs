@@ -32,7 +32,9 @@ function train()
 
 function google_colab()
 {
-    apt install git-annex
+
+    pip install datalad-installer
+    datalad-installer git-annex -m datalad/git-annex:release
     train
 }
 
