@@ -140,8 +140,37 @@ def init_scenarios():
             all_scenarios.append(row)
 
 def download_dataset():
-    cmd = 'cd data; datalad install --get-data https://github.com/OpenNeuroDatasets/ds000212.git'
-    cprocess = run(cmd, shell=True)
+    '''
+
+    :return:
+    '''
+
+    #The line directly below will install the entire dataset - around ~260 gigs. Only safe for HPC systems
+    #cmd = 'cd data; datalad install --get-data https://github.com/OpenNeuroDerivatives/ds000212-fmriprep.git'
+
+    #this will grab specific files for a test run.
+    ''' 
+    List of files to be downloaded and their use:
+    sub-XX.html  - html reports generated for each subject detailing fmriprep outlines. If you want to look at the figures
+        in each subject, then run datalad get fmriprep/sub-XX/figures . Not putting that in here since all
+        figures for any one subject are 50-60 mb while the html is much smaller.
+    sub-XX_task_XX_run_XX_space-MNI152NLin2009cAsym_res_2_desc-brain_mask.json/.nii.gz
+        These are the brain masks calculated for the subject in Montreal Neurological Institute 152 space. Later on
+        we'll use these with nilearn to skull strip the BOLD signal for each subject and all their runs
+    sub-XX_task_XX_run_XX_space-MNI152NLin2009cAsym_res-2_desk-preproc_bold.json/.nii.gz
+        These are the actual bold signals for what we want! Once we perform skull stripping then 
+    '''
+    #cmd = 'cd data/ds000212/derivatives; datalad install https://github.com/OpenNeuroDerivatives/ds000212-fmriprep.git; mv ds000212-fmriprep fmriprep'
+    #cprocess = run(cmd, shell=True)
+
+
+    #download specific, individual files here. assuming still in the proper directory (ds000212/derivatives)
+    layout = bids.BIDSLayout('./data/ds000212')
+    for subject in list(layout.get_subjects()): #subject is the number
+        #39 subj, ~240 runs
+        cmd = f'datalad get ./data/ds000212/derivatives/fmriprep/sub-{subject}.html' #datalad here gives git-annex version issue
+        cprocess = run(cmd, shell=True)
+
     assert cprocess.returncode==0, f'"`{cmd}` failed: {cprocess}'
 
 def info(msg):
@@ -162,12 +191,13 @@ event_to_scenario = {
 
 def main():
     download_dataset()
-    init_scenarios()
-    generate_flattened_data()
+    #init_scenarios()
+    #generate_flattened_data()
 
     #load out of the numpy files as so
     # test = np.load(datapath / 'functional_flattened/sub-03/1.npy')
     # print(test)
+
 
 if __name__ == '__main__':
     assert datapath.exists(), "expect this run in base directory with data/"
