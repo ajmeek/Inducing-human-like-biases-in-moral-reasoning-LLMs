@@ -32,4 +32,4 @@ if [[ ! -e data/ethics ]]; then
 fi
 
 echo Training
-bash bin/train.sh --num_epochs=0 --only_train_head=True  --num_samples_test=1000 --num_samples_train=3000
+bash bin/train.sh --num_epochs=0 --only_train_head=True  --num_samples_test=1000 --num_samples_train=3000 --ethics_num_epochs=1

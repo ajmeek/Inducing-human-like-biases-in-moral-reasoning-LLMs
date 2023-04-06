@@ -28,6 +28,7 @@ def main():
     elif t.backends.mps.is_available(): device = 'mps'
     else: device = 'cpu'
     print(f"{device=}")
+    print(f'Config: {config}')
 
     # Define the tokenizer and model
     tokenizer = AutoTokenizer.from_pretrained(config['checkpoint'])
@@ -62,7 +63,7 @@ def main():
     #     tokens, masks, targets = load_csv_to_tensors(ethics_ds_path / 'commonsense/cm_train.csv', tokenizer, num_samples=num_samples_train)
     # else:
     #     tokens, masks, targets = load_np_fmri_to_tensor(difumo_ds_path, tokenizer, num_samples=num_samples_train)
-    train_loader = preprocess(tokens, masks, targets, train_head_dims, config['batch_size'], shuffle=False)
+    train_loader = preprocess(tokens, masks, targets, train_head_dims, config['batch_size'], shuffle=True)
 
     logger = TensorBoardLogger(
         save_dir=artifactspath,
@@ -91,7 +92,7 @@ def main():
     # Test the model
     ethics_cs_dataset_path = ethics_ds_path / 'commonsense/cm_train.csv'
     tokens, masks, targets = load_csv_to_tensors(ethics_cs_dataset_path, tokenizer, num_samples=config['num_samples_test'])
-    ethics_cs_loader = preprocess(tokens, masks, targets, head_dims=test_head_dims, batch_size=config['batch_size'], shuffle=True)
+    ethics_cs_loader = preprocess(tokens, masks, targets, head_dims=test_head_dims, batch_size=config['batch_size'], shuffle=False)
 
     # train the model
     trainer = pl.Trainer(
