@@ -32,9 +32,9 @@ function train()
 
 function install()
 {
-
-    pip install datalad-installer
-    yes y | datalad-installer git-annex -m datalad/git-annex:release
+sudo apt-get install git-annex
+    # pip install datalad-installer
+    # yes y | datalad-installer git-annex -m datalad/git-annex:release
 }
 
 if [[ $# == 0 ]] ; then 
