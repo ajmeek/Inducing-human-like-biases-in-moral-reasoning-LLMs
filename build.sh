@@ -1,15 +1,4 @@
 #!/bin/bash
-
-: '
-Run the script below to download code and install dependances.
-# Token from https://github.com/settings/tokens
-YOURTOKEN=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  
-git clone "https://$YOURTOKEN@github.com/ameek2/Inducing-human-like-biases-in-moral-reasoning-LLMs.git"
-cd Inducing-human-like-biases-in-moral-reasoning-LLMs
-git checkout ds000212_fine_tuning_bert
-pip install -r requirements.txt
-'
-
 set -euo pipefail
 IFS=$'\n\t'
 trap "echo 'error: Script failed: see failed command above'" ERR
