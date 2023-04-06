@@ -9,8 +9,7 @@ script_dir="$(dirname "$script_path")"
 readonly script_dir
 root_dir=$( realpath "$script_dir/.." )
 
-
-if [[ ! -e data/functional_flattened ]]; then 
+if [[ ! -e data/ds000212  || ! -e data/functional_flattened ]]; then 
     echo Downloading and processing ds000212...
     python bin/fMRI_utils.py
 fi
