@@ -30,23 +30,26 @@ function train()
     bash bin/train.sh --num_epochs=0 --only_train_head=True  --num_samples_test=1000 --num_samples_train=3000 --ethics_num_epochs=1
 }
 
-function google_colab()
+function install()
 {
 
     pip install datalad-installer
-    datalad-installer git-annex -m datalad/git-annex:release --sudo ok
-    train
+    echo y | datalad-installer git-annex -m datalad/git-annex:release --sudo ok
 }
 
 if [[ $# == 0 ]] ; then 
-    echo 'Usage: build.sh <FUNCTION>
+    echo 'Usage: run.sh <FUNCTIONS...>
 
-FUNCTION: 
+FUNCTIONS: 
+  install   - intsalls environment to load data, train
   train     - runs training
   load_data - loads data
 '
 else 
-    $1
+    while [[ $# -ne 0 ]] ; do 
+        $1
+        shift 1
+    done
 fi
 
 
