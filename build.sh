@@ -34,7 +34,7 @@ function google_colab()
 {
 
     pip install datalad-installer
-    datalad-installer git-annex -m datalad/git-annex:release
+    datalad-installer git-annex -m datalad/git-annex:release --sudo ok
     train
 }
 
