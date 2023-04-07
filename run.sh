@@ -11,16 +11,7 @@ root_dir=$( realpath "$script_dir/.." )
 
 function prepare_datasets() 
 {
-    echo Loading data...
-    if [[ ! -e data/ds000212  || ! -e data/functional_flattened ]]; then 
-        echo Downloading and processing ds000212...
-        python bin/fMRI_utils.py
-    fi
-
-    if [[ ! -e data/ethics ]]; then 
-        echo Downloading and processing ETHICS...
-        bash ./bin/download_ethics_ds.sh 
-    fi
+    bash ./bin/datasets.sh
 }
 
 function train()
