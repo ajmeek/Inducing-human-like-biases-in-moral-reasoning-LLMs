@@ -32,15 +32,20 @@ function train()
 
 function install()
 {
+
+    git config --global user.email "artyomkarpov@gmail.com"
+    git config --global user.name "Artem K"
     python3 -m pip install datalad-installer
     datalad-installer --sudo ok datalad git-annex -m datalad/git-annex:release 
 }
+
+
 
 if [[ $# == 0 ]] ; then 
     echo 'Usage: run.sh <FUNCTIONS...>
 
 FUNCTIONS: 
-  install   - intsalls environment to load data, train
+  install   - installs environment to load data, train
   train     - runs training
   load_data - loads data
 '
