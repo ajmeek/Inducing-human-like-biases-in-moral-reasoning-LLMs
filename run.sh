@@ -9,6 +9,7 @@ script_dir="$(dirname "$script_path")"
 readonly script_dir
 root_dir=$( realpath "$script_dir/.." )
 
+
 function prepare_datasets() 
 {
     source ./bin/datasets.sh
@@ -42,6 +43,7 @@ FUNCTIONS:
   prepare_datasets - downloads and processes a dataset(s)
 '
 else 
+    cd $root_dir 
     while [[ $# -ne 0 ]] ; do 
         $1
         shift 1
