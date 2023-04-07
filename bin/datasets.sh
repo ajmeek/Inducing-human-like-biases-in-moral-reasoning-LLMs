@@ -1,6 +1,6 @@
-[[ -e "$root_dir" ]] || ( echo 'root dir not found'  ; exit 1 )
+[[ -e "$root_dir" ]] || ( echo "root dir not found: '$root_dir'"  ; exit 1 )
 datadir=$root_dir/data
-[[ -e "$datadir" ]] || ( echo 'data dir not found'  ; exit 1 )
+[[ -e "$datadir" ]] || ( echo "data dir not found: '$datadir'"  ; exit 1 )
 
 if [[ ! -e data/ds000212  || ! -e data/functional_flattened ]]; then 
     echo Downloading and processing ds000212...
