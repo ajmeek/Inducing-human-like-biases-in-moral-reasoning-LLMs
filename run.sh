@@ -35,6 +35,7 @@ function install()
 
     git config --global user.email "artyomkarpov@gmail.com"
     git config --global user.name "Artem K"
+    python3 -m pip install -r requirements.txt
     python3 -m pip install datalad-installer
     datalad-installer --sudo ok datalad git-annex -m datalad/git-annex:release 
 }
