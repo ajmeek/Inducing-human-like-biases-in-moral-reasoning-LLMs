@@ -11,7 +11,7 @@ root_dir=$( realpath "$script_dir/.." )
 
 function prepare_datasets() 
 {
-    bash ./bin/datasets.sh
+    source ./bin/datasets.sh
 }
 
 function train()

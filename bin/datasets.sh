@@ -7,8 +7,8 @@ if [[ ! -e data/ds000212  || ! -e data/functional_flattened ]]; then
     echo Downloading and processing ds000212...
     pushd "$datadir"
     datalad install --get-data https://github.com/OpenNeuroDatasets/ds000212.git
-    python ./bin/fMRI_utils.py
     popd
+    python ./bin/fMRI_utils.py
     echo 'done'
 fi
 
