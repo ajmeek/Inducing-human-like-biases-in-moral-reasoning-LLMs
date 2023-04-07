@@ -9,7 +9,7 @@ script_dir="$(dirname "$script_path")"
 readonly script_dir
 root_dir=$( realpath "$script_dir/.." )
 
-function load_data() 
+function prepare_datasets() 
 {
     echo Loading data...
     if [[ ! -e data/ds000212  || ! -e data/functional_flattened ]]; then 
@@ -48,7 +48,7 @@ if [[ $# == 0 ]] ; then
 FUNCTIONS: 
   install   - installs environment to load data, train
   train     - runs training
-  load_data - loads data
+  prepare_datasets - downloads and processes a dataset(s)
 '
 else 
     while [[ $# -ne 0 ]] ; do 
