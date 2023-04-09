@@ -1,13 +1,16 @@
 import torch as t
 from transformers import AutoTokenizer, AutoModel
-from utils.loading_csv import load_csv_to_tensors
+from utils.loading_data import load_csv_to_tensors, load_np_fmri_to_tensor, load_ds000212_dataset
 from utils.preprocessing import preprocess_prediction, preprocess
 from model import BERT
 from pl_model import LitBert
 import lightning.pytorch as pl
+from lightning.pytorch.loggers import TensorBoardLogger
 from pathlib import Path
 import pandas as pd
 import numpy as np
+import argparse
+from datetime import datetime
 
 datapath = Path('./data')
 
@@ -16,21 +19,9 @@ def main():
     ethics_ds_path = datapath / 'ethics'
     artifactspath = Path('./artifacts')
     artifactspath.mkdir(exist_ok=True)
-    # Hyperparameters #
-    # Training parameters
-    num_epochs = 1
-    batches_per_epoch = 12
-    batch_size = 4
+    difumo_ds_path = datapath / 'ds000212_difumo'
 
-    # Model parameters
-    checkpoint = 'bert-base-cased'  # Hugging Face model we'll be using
-    layers_to_replace_with_ia3 = "key|value|intermediate.dense"
-
-    # Dataset parameters
-    train_dataset = ethics_ds_path / 'commonsense/cm_train.csv'
-    num_samples_train = 100
-    test_dataset = ethics_ds_path / 'commonsense/cm_test.csv'
-    num_samples_test = 10
+    config = get_config()
 
     # determine the best device to run on
     if t.cuda.is_available(): device = 'cuda'
@@ -39,86 +30,162 @@ def main():
     print(f"{device=}")
 
     # Define the tokenizer and model
-    tokenizer = AutoTokenizer.from_pretrained(checkpoint)
+    tokenizer = AutoTokenizer.from_pretrained(config['checkpoint'])
     # TODO make sure it doesn't add SEP tokens when there's a full stop
-    base_model = AutoModel.from_pretrained(checkpoint)
-    # use_ia3_layers = False
+    base_model = AutoModel.from_pretrained(config['checkpoint'])
+
+    #use_ia3_layers = False
     # if use_ia3_layers:
     #     from ia3_model_modifier import modify_with_ia3
+    #     layers_to_replace_with_ia3 = "key|value|intermediate.dense"
     #     base_model = modify_with_ia3(base_model, layers_to_replace_with_ia3)
 
-    ds000212 = load_ds000212_dataset()    
-    ds000212_shape = ds000212['outputs'].shape
-
-
-    head_dims = [2, ds000212_shape[1]]  # Classification head and regression head
-    loss_names = ['cross-entropy', 'mse']
-    loss_weights = [1, 1]
-    model = BERT(base_model, head_dims=head_dims)
-    only_train_head = True
-    lit_model = LitBert(model, only_train_head, loss_names, loss_weights)
+    tokens, masks, targets = load_ds000212_dataset(datapath, tokenizer, config['num_samples_train'], normalize=False)
+    train_head_dims = [e.shape[1] for e in targets] #[64]  # Classification head and regression head, for example [2, (10, 4)]
+    model = BERT(
+        base_model,
+        head_dims=train_head_dims
+    )
+    loss_names = ['mse'] #['cross-entropy']  # cross-entropy, mse
+    lit_model = LitBert(
+        model,
+        config['only_train_head'],
+        loss_names,
+        loss_weights=[1.0],
+        regularize_from_init=config['regularize_from_init'],
+        regularization_coef=config['regularization_coef']
+    )
 
     # Get training dataloader
-    tokens, masks, targets = load_csv_to_tensors(train_dataset, tokenizer, num_samples=num_samples_train)
+    # if train_head_dims[0] == 2:  # TODO: this is a bit hacky, not sure when we want to use what.
+    #     # For now if the first head has two outputs we use the ethics dataset and otherwise the fMRI dataset.
+    #     tokens, masks, targets = load_csv_to_tensors(ethics_ds_path / 'commonsense/cm_train.csv', tokenizer, num_samples=num_samples_train)
+    # else:
+    #     tokens, masks, targets = load_np_fmri_to_tensor(difumo_ds_path, tokenizer, num_samples=num_samples_train)
+    train_loader = preprocess(tokens, masks, targets, train_head_dims, config['batch_size'], shuffle=False)
 
-    # Input for ds000212 data (scenarios,fmri):
-    # Scenarios:
-    tokenized_scenarios = tokenizer(ds000212['inputs'], padding='max_length', truncation=True)
-    scenario_tokens = t.tensor(tokenized_scenarios['input_ids'])
-    scenario_masks = t.tensor(tokenized_scenarios['attention_mask'])
-    tokens = t.concat((tokens, scenario_tokens))
-    masks = t.concat((masks, scenario_masks))
-    # fMRI:
-    targets.append(t.zeros((targets[0].shape[0], ds000212_shape[1])))
-    targets[0] = t.concat((targets[0], t.zeros((ds000212_shape[0],)).int()))
-    targets[1] = t.concat((targets[1], ds000212['outputs']))
-
-    train_loader = preprocess(tokens, masks, targets, head_dims, batch_size, shuffle=True)
+    logger = TensorBoardLogger(
+        save_dir=artifactspath,
+        name=f'{datetime.utcnow():%y%m%d-%H%M%S}'
+    )
+    logger.log_hyperparams(config)
 
     # train the model
     trainer = pl.Trainer(
-        limit_train_batches=batches_per_epoch,
-        max_epochs=num_epochs,
+        limit_train_batches=config['batches_per_epoch'],
+        max_epochs=config['num_epochs'],
         accelerator=device,
         devices=1,
-        default_root_dir=artifactspath / 'lightning_logs'
+        logger=logger,
+        log_every_n_steps=1,
+        default_root_dir=artifactspath
     )
+    print('Fine tuning BERT...')
     trainer.fit(lit_model, train_loader)
 
+    # Use base model with new head for testing.
+    test_head_dims=[2]
+    model = BERT(base_model, head_dims=test_head_dims)
+    lit_model = LitBert(model, config['only_train_head'])  # losses are not needed for testing
+
     # Test the model
-    tokens, masks, targets = load_csv_to_tensors(test_dataset, tokenizer, num_samples=num_samples_test)
-    test_loader = preprocess(tokens, masks, targets, head_dims=[2], batch_size=1, shuffle=False)  # only test the classification head
-    metrics = trainer.test(lit_model, dataloaders=test_loader, verbose=True)
-    print(metrics)
+    test_dataset_path = ethics_ds_path / 'commonsense/cm_train.csv'
+    tokens, masks, targets = load_csv_to_tensors(test_dataset_path, tokenizer, num_samples=config['num_samples_test'])
+    test_loader = preprocess(tokens, masks, targets, head_dims=test_head_dims, batch_size=config['batch_size'], shuffle=False)
+
+    print('Testing on ETHICS...')
+    trainer.test(lit_model, dataloaders=test_loader)
+    logger.save()
+    print('Done')
+
+    # Make prediction on a single test example
+    # example_text = "I am a sentence."
     # prediction_dataloader = preprocess_prediction([example_text], tokenizer, batch_size=1)
-    true_num = 0
-    count = 0
-    for batch in test_loader:
-        predictions = trainer.predict(lit_model, batch)
-        true_num += (predictions.max(axis=0).indices == h1).sum()
-        count += len(labels_batch)
-    print(f'Accuracty: {true_num / count}')
+    # prediction = trainer.predict(lit_model, prediction_dataloader)
 
+def get_config():
+    args = get_args().parse_args()
+    config = vars(args)
+    for arg in config:
+        if config[arg] in {'True', 'False'}:
+            config[arg] = config[arg] == 'True'
+        elif config[arg] == 'none':
+            config[arg] = None
+        elif 'subjects_per_dataset' in arg:
+            config[arg] = None if config[arg] == -1 else config[arg]
+    return config
 
-def load_ds000212_dataset():
-    assert datapath.exists()
-    scenarios = []
-    fmri_items = []
-    for subject_dir in Path(datapath / 'functional_flattened').glob('sub-*'):
-        for runpath in subject_dir.glob('[0-9]*.npy'):
-            scenario_path = runpath.parent / f'labels-{runpath.name}'
-            fmri_items += np.load(runpath.resolve()).tolist()
-            scenarios += np.load(scenario_path.resolve()).tolist()
-    assert len(scenarios) == len(fmri_items), f'Expected: {len(scenarios)} == {len(fmri_items)}'
-    # Drop those of inconsistent len:
-    from collections import Counter
-    counts = Counter(len(e) for e in fmri_items)
-    most_common_len = counts.most_common()[0][0]
-    indeces = [i for i, e in enumerate(fmri_items) if len(e) == most_common_len] 
-    scenarios = [e for i,e in enumerate(scenarios) if i in indeces]
-    fmri_items = [e for i,e in enumerate(fmri_items) if i in indeces]
-    return {'inputs': scenarios, 'outputs': t.tensor(fmri_items)}
+def get_args() -> argparse.ArgumentParser:
+    """Get command line arguments"""
 
+    parser = argparse.ArgumentParser(
+        description='run model training'
+    )
+    parser.add_argument(
+        '--num_epochs',
+        default='1',
+        type=int,
+        help='Number of epochs to fine tune a model on fMRI data.'
+             '(default: 1)'
+    )
+    parser.add_argument(
+        '--batches_per_epoch',
+        default='1',
+        type=int,
+        help='Batches per epoch.'
+             '(default: 1)'
+    )
+    parser.add_argument(
+        '--batch_size',
+        default='32',
+        type=int,
+        help='Batch size.'
+             '(default: 32)'
+    )
+    parser.add_argument(
+        '--regularize_from_init',
+        default='True',
+        type=str,
+        help='Regularize from init (base) model.'
+             '(default: True)'
+    )
+    parser.add_argument(
+        '--regularization_coef',
+        default='0.1',
+        type=float,
+        help='Regularization from init coef.'
+             '(default: 0.1)'
+    )
+    parser.add_argument(
+        '--num_samples_train',
+        default='100',
+        type=int,
+        help='Number of train samples (fine tuning).'
+             '(default: 100)'
+    )
+    parser.add_argument(
+        '--num_samples_test',
+        default='64',
+        type=int,
+        help='Number of test samples.'
+             '(default: 64)'
+    )
+    parser.add_argument(
+        '--only_train_head',
+        default='True',
+        type=str,
+        help='Train only attached head.'
+             '(default: True)'
+    )
+    parser.add_argument(
+        '--checkpoint',
+        default='bert-base-cased',
+        type=str,
+        help='HuggingFace model.'
+             '(default: bert-base-cased)'
+    )
+
+    return parser
 
 if __name__ == '__main__':
     main()

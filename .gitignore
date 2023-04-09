@@ -2,6 +2,7 @@
 /ethics/**/*.csv
 /ethics/**/*.txt
 /lightning_logs
+/src/lightning_logs
 models
 *.log
 __pycache__
