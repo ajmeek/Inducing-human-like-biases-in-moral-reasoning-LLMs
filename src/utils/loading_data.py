@@ -16,9 +16,9 @@ def load_csv_to_tensors(path: os.PathLike,
     df = df.drop(df[df.is_short == False].index)
     inputs, labels = df['input'].tolist()[:num_samples], df['label'][:num_samples]
     tokenized = tokenizer(inputs, padding='max_length', truncation=True)
-    tokens = torch.tensor(tokenized['input_ids'])
-    masks = torch.tensor(tokenized['attention_mask'])
-    target_tensors = torch.tensor(labels.tolist())
+    tokens = torch.tensor(tokenized['input_ids'])  # shape: (num_samples, max_seq_len)
+    masks = torch.tensor(tokenized['attention_mask'])  # shape: (num_samples, max_seq_len)
+    target_tensors = torch.tensor(labels.tolist())  # shape: (num_samples, 1)
     return tokens, masks, [target_tensors]
 
 

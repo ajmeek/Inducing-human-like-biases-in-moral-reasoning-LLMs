@@ -40,8 +40,20 @@ def main():
     #     layers_to_replace_with_ia3 = "key|value|intermediate.dense"
     #     base_model = modify_with_ia3(base_model, layers_to_replace_with_ia3)
 
-    tokens, masks, targets = load_ds000212_dataset(datapath, tokenizer, config['num_samples_train'], normalize=False)
-    train_head_dims = [e.shape[1] for e in targets] #[64]  # Classification head and regression head, for example [2, (10, 4)]
+    # Load the dataset
+    train_head_dims = []
+    for train_dataset in config['train_datasets']:
+        if train_dataset == 'ds000212':
+            tokens, masks, targets = load_ds000212_dataset(datapath, tokenizer,
+                                                           config['num_samples_train'], normalize=False)
+            train_head_dims.extend([e.shape[1] for e in targets])  # [64]  # Classification head and regression head, for example [2, (10, 4)]
+        elif train_dataset == 'ethics':
+            tokens, masks, targets = load_csv_to_tensors(ethics_ds_path / 'commonsense/cm_train.csv', tokenizer,
+                                                         num_samples=config['num_samples_train'])
+            train_head_dims.append(2)
+    train_loader = preprocess(tokens, masks, targets, train_head_dims, config['batch_size'], shuffle=False)
+
+    # Define the model
     model = BERT(
         base_model,
         head_dims=train_head_dims
@@ -61,7 +73,6 @@ def main():
     #     tokens, masks, targets = load_csv_to_tensors(ethics_ds_path / 'commonsense/cm_train.csv', tokenizer, num_samples=num_samples_train)
     # else:
     #     tokens, masks, targets = load_np_fmri_to_tensor(difumo_ds_path, tokenizer, num_samples=num_samples_train)
-    train_loader = preprocess(tokens, masks, targets, train_head_dims, config['batch_size'], shuffle=False)
 
     logger = TensorBoardLogger(
         save_dir=artifactspath,
@@ -116,11 +127,19 @@ def get_config():
             config[arg] = None if config[arg] == -1 else config[arg]
     return config
 
+
 def get_args() -> argparse.ArgumentParser:
     """Get command line arguments"""
 
     parser = argparse.ArgumentParser(
         description='run model training'
+    )
+    parser.add_argument(
+        '--train_datasets',
+        nargs='+',
+        default=['ethics'],
+        type=str,
+        help='Datasets to train on. This can be multiple datasets, e.g. "ds000212 ETHICS".'
     )
     parser.add_argument(
         '--num_epochs',
