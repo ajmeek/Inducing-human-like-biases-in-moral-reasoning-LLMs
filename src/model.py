@@ -4,7 +4,7 @@ import torch.nn as nn
 
 # model including the base and multiple heads
 # the heads are specified by the head_dims argument - the dimensionality of
-# each had can be an int or a tuple of ints
+# each head can be an int or a tuple of ints
 class BERT(nn.Module):
     def __init__(self, base_model, head_dims: list[Union[int, tuple[int]]] = (2,)):
         super().__init__()

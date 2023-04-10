@@ -1,13 +1,15 @@
 import os
 
 import numpy as np
-import torch
+import torch as torch
 import pandas as pd
 from transformers import PreTrainedTokenizer, AutoTokenizer
+from pathlib import Path
+from torch.nn import functional as F
 
 
 # returns a pandas dataframe of the CM training set (excluding long ones)
-def load_csv_to_tensors(path: str | os.PathLike,
+def load_csv_to_tensors(path: os.PathLike,
                         tokenizer: PreTrainedTokenizer,
                         num_samples: int) -> tuple[torch.Tensor, torch.Tensor, list[torch.Tensor]]:
     df = pd.read_csv(os.path.abspath(path))
@@ -54,4 +56,54 @@ def load_np_fmri_to_tensor(base_path: str,
     if normalize:
         target_tensors = (target_tensors - target_tensors.mean()) / target_tensors.std()
     return tokens, masks, [target_tensors]
+
+
+def load_ds000212_dataset(
+    datapath: Path,
+    tokenizer: PreTrainedTokenizer,
+    num_samples: int,
+    normalize=True) -> tuple[torch.Tensor, torch.Tensor, list[torch.Tensor]
+]:
+    print('Loading ds000212_dataset')
+    assert datapath.exists()
+    scenarios = []
+    fmri_items = []
+    for subject_dir in Path(datapath / 'functional_flattened').glob('sub-*'):
+        for runpath in subject_dir.glob('[0-9]*.npy'):
+            scenario_path = runpath.parent / f'labels-{runpath.name}'
+            fmri_items += torch.tensor(np.load(runpath.resolve()))
+            scenarios += np.load(scenario_path.resolve()).tolist()
+    assert len(scenarios) == len(fmri_items), f'Expected: {len(scenarios)} == {len(fmri_items)}'
+    # Pad with 0 those smaller one
+    max_l = max(e.shape[0] for e in fmri_items)
+    fmri_items = [F.pad(e, (0, max_l - e.shape[0]), 'constant', 0) for e in fmri_items]
+    assert all(e.shape[0] == max_l for e in fmri_items)
+
+    #from collections import Counter
+    #counts = Counter(len(e) for e in fmri_items)
+    #counts_mc = counts.most_common()  # TODO: Merge? 229 different len 
+    #most_common_len = counts_mc[0][0]
+    #indeces = [i for i, e in enumerate(fmri_items) if len(e) == most_common_len] 
+    #scenarios = [e for i,e in enumerate(scenarios) if i in indeces]
+    #fmri_items = [e for i,e in enumerate(fmri_items) if i in indeces]
+
+    # Extract tokens, masks:
+    tokens_list = []
+    masks_list = []
+    for text in scenarios:
+        tokenized = tokenizer(text, padding='max_length', truncation=True)
+        tokens_list.append(torch.tensor(tokenized['input_ids']))
+        masks_list.append(torch.tensor(tokenized['attention_mask']))
+    tokens = torch.stack(tokens_list)
+    masks = torch.stack(masks_list)
+    target_tensors = torch.stack(fmri_items)
+    if normalize:
+        target_tensors = (target_tensors - target_tensors.mean()) / target_tensors.std()
+    
+    assert tokens.shape[0] == masks.shape[0] == target_tensors.shape[0], f'{tokens.shape=} {masks.shape=} {target_tensors.shape=}'
+    random_indices = torch.randperm(target_tensors.shape[0])[:num_samples]
+
+    return tokens[random_indices], masks[random_indices], [target_tensors[random_indices]]
+
+
 
