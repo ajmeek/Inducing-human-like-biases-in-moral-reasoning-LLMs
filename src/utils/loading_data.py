@@ -1,17 +1,21 @@
 import os
+from typing import Union
 
 import numpy as np
 import torch as torch
 import pandas as pd
+from torch.utils.data import DataLoader
 from transformers import PreTrainedTokenizer, AutoTokenizer
 from pathlib import Path
 from torch.nn import functional as F
+
+from src.utils.preprocessing import preprocess
 
 
 # returns a pandas dataframe of the CM training set (excluding long ones)
 def load_csv_to_tensors(path: os.PathLike,
                         tokenizer: PreTrainedTokenizer,
-                        num_samples: int) -> tuple[torch.Tensor, torch.Tensor, list[torch.Tensor]]:
+                        num_samples: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     df = pd.read_csv(os.path.abspath(path))
     df = df.drop(df[df.is_short == False].index)
     inputs, labels = df['input'].tolist()[:num_samples], df['label'][:num_samples]
@@ -19,7 +23,7 @@ def load_csv_to_tensors(path: os.PathLike,
     tokens = torch.tensor(tokenized['input_ids'])  # shape: (num_samples, max_seq_len)
     masks = torch.tensor(tokenized['attention_mask'])  # shape: (num_samples, max_seq_len)
     target_tensors = torch.tensor(labels.tolist())  # shape: (num_samples, 1)
-    return tokens, masks, [target_tensors]
+    return tokens, masks, target_tensors
 
 
 def load_np_fmri_to_tensor(base_path: str,
@@ -62,7 +66,7 @@ def load_ds000212_dataset(
     datapath: Path,
     tokenizer: PreTrainedTokenizer,
     num_samples: int,
-    normalize=True) -> tuple[torch.Tensor, torch.Tensor, list[torch.Tensor]
+    normalize=True) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor
 ]:
     print('Loading ds000212_dataset')
     assert datapath.exists()
@@ -103,7 +107,25 @@ def load_ds000212_dataset(
     assert tokens.shape[0] == masks.shape[0] == target_tensors.shape[0], f'{tokens.shape=} {masks.shape=} {target_tensors.shape=}'
     random_indices = torch.randperm(target_tensors.shape[0])[:num_samples]
 
-    return tokens[random_indices], masks[random_indices], [target_tensors[random_indices]]
+    return tokens[random_indices], masks[random_indices], target_tensors[random_indices]
 
 
+def multiple_dataset_loading(datapath, tokenizer, config, shuffle, normalize_fmri) \
+        -> tuple[list[DataLoader], list[Union[int, tuple[int, int]]]]:
+    train_head_dims = []
+    dataloaders = []
+    for index, train_dataset in enumerate(config['train_datasets']):
+        if train_dataset == 'ds000212':
+            tokens, masks, target = load_ds000212_dataset(datapath, tokenizer,
+                                                           config['num_samples_train'], normalize=normalize_fmri)
+            train_head_dims.append(target.shape[1])  # [64]  # Classification head and regression head, for example [2, (10, 4)]
+            dataloader = preprocess(tokens, masks, target, config['batch_size'], shuffle=shuffle)
+            dataloaders.append(dataloader)
 
+        elif train_dataset.startswith('ethics'):
+            tokens, masks, target = load_csv_to_tensors(datapath / train_dataset, tokenizer,
+                                                         num_samples=config['num_samples_train'])
+            train_head_dims.append(2)
+            dataloader = preprocess(tokens, masks, target, config['batch_size'], shuffle=shuffle)
+            dataloaders.append(dataloader)
+    return dataloaders, train_head_dims

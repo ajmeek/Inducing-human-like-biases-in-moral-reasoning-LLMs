@@ -7,14 +7,11 @@ Conda based setup: `conda create -f environment.yml`
 Pip based setup: `pip install -r requirements.txt` (not tested)
 
 ### How to run
-Run `bin/train.sh` for the main script which fine tunes BERT on a given dataset.
-Right now there are 2 placeholder dataset options - the commonsense ETHICS training set,
-and the texts from that same dataset matched with random tensors. You can switch
-between these two training modes by changing the values of `training_type` at
-the top of the file.
-
-Once we have the fMRI dataset ready, we should be able to just call the `train_model`
-function with the model, strings, and targets to fine tune the model on them.
+Run `bin/train.sh` for the main script which fine-tunes BERT on a given dataset.
+With the argument `--train_datasets` you can specify the datasets to train on.
+It supports training on multiple datasets at once. The current options are: `ethics` and `ds000212`. If you specify both it will on each train step sample a batch from each dataset and train on it.
+The default test set is ETHICS commonsense. And the classification head that
+was used to train ETHICS will be saved to also test on the ETHICS commonsense dataset.
 
 ### How to train and evaluate on the ETHICS dataset (commonsense):
 1. Download the dataset from https://github.com/hendrycks/ethics and put the csv files of the commonsense dataset ( csv has prefix 'cm')
