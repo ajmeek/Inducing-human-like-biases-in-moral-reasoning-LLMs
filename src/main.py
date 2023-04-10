@@ -47,12 +47,11 @@ def main():
         base_model,
         head_dims=train_head_dims
     )
-    loss_names = ['mse'] #['cross-entropy']  # cross-entropy, mse
     lit_model = LitBert(
         model,
         config['only_train_head'],
-        loss_names,
-        loss_weights=[1.0],
+        config['loss_names'],
+        loss_weights=config['loss_weights'],
         regularize_from_init=config['regularize_from_init'],
         regularization_coef=config['regularization_coef']
     )
@@ -63,7 +62,7 @@ def main():
     #     tokens, masks, targets = load_csv_to_tensors(ethics_ds_path / 'commonsense/cm_train.csv', tokenizer, num_samples=num_samples_train)
     # else:
     #     tokens, masks, targets = load_np_fmri_to_tensor(difumo_ds_path, tokenizer, num_samples=num_samples_train)
-    train_loader = preprocess(tokens, masks, targets, train_head_dims, config['batch_size'], shuffle=True)
+    train_loader = preprocess(tokens, masks, targets, train_head_dims, config['batch_size'], shuffle=False)
 
     logger = TensorBoardLogger(
         save_dir=artifactspath,
@@ -90,25 +89,12 @@ def main():
     lit_model = LitBert(model, config['only_train_head'])  # losses are not needed for testing
 
     # Test the model
-    ethics_cs_dataset_path = ethics_ds_path / 'commonsense/cm_train.csv'
-    tokens, masks, targets = load_csv_to_tensors(ethics_cs_dataset_path, tokenizer, num_samples=config['num_samples_test'])
-    ethics_cs_loader = preprocess(tokens, masks, targets, head_dims=test_head_dims, batch_size=config['batch_size'], shuffle=False)
-
-    # train the model
-    trainer = pl.Trainer(
-        limit_train_batches=config['batches_per_epoch'],
-        max_epochs=config['ethics_num_epochs'],
-        accelerator=device,
-        devices=1,
-        logger=logger,
-        log_every_n_steps=1,
-        default_root_dir=artifactspath
-    )
-    print('Fine tuning on ETHICS...')
-    trainer.fit(lit_model, ethics_cs_loader)
+    test_dataset_path = ethics_ds_path / config['test_set']
+    tokens, masks, targets = load_csv_to_tensors(test_dataset_path, tokenizer, num_samples=config['num_samples_test'])
+    test_loader = preprocess(tokens, masks, targets, head_dims=test_head_dims, batch_size=config['batch_size'], shuffle=False)
 
     print('Testing on ETHICS...')
-    trainer.test(lit_model, dataloaders=ethics_cs_loader)
+    trainer.test(lit_model, dataloaders=test_loader)
     logger.save()
     print('Done')
 
@@ -121,7 +107,9 @@ def get_config():
     args = get_args().parse_args()
     config = vars(args)
     for arg in config:
-        if config[arg] in {'True', 'False'}:
+        if isinstance(config[arg], list):
+            config[arg] = config[arg]
+        elif config[arg] in {'True', 'False'}:
             config[arg] = config[arg] == 'True'
         elif config[arg] == 'none':
             config[arg] = None
@@ -199,12 +187,26 @@ def get_args() -> argparse.ArgumentParser:
              '(default: bert-base-cased)'
     )
     parser.add_argument(
-        '--ethics_num_epochs',
-        default='5',
-        type=int,
-        help='Number of epochs to fine tune a model on ETHICS data.'
-             '(default: 5)'
+        '--test_set',
+        default='commonsense/cm_train.csv',
+        type=str,
+        help='Path to test set starting from data/ethics directory.'
     )
+    parser.add_argument(
+        '--loss_names',
+        nargs='+',
+        default=['mse'],
+        type=str,
+        help='Loss names.'
+    )
+    parser.add_argument(
+        '--loss_weights',
+        nargs='+',
+        default=[1.0],
+        type=float,
+        help='Loss names.'
+    )
+
     return parser
 
 if __name__ == '__main__':
