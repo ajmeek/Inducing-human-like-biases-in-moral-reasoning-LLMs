@@ -1,9 +1,10 @@
 [[ -e "$root_dir" ]] || ( echo "root dir not found: '$root_dir'"  ; exit 1 )
 datadir=$root_dir/data
-[[ -e "$datadir" ]] || ( echo "data dir not found: '$datadir'"  ; exit 1 )
 pwd
 ls 
 echo $datadir
+[[ -e "$datadir" ]] || ( echo "data dir not found: '$datadir'"  ; exit 1 )
+
 exit
 
 if [[ ! -e data/ethics ]]; then 

@@ -7,7 +7,7 @@ trap "echo 'error: Script failed: see failed command above'" ERR
 readonly script_path="${BASH_SOURCE[0]}"
 script_dir="$(dirname "$script_path")"
 readonly script_dir
-root_dir=$( realpath "$script_dir/.." )
+root_dir=$( realpath "$script_dir" )
 
 
 function install() {
