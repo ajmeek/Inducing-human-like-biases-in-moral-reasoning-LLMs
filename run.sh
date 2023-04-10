@@ -11,6 +11,7 @@ root_dir=$( realpath "$script_dir/.." )
 
 
 function install() {
+    echo Installing...
     git config --global user.email "artyomkarpov@gmail.com"
     git config --global user.name "Artem K"
     python3 -m pip install -r requirements.txt
@@ -19,11 +20,14 @@ function install() {
 }
 
 function prepare_datasets() {
+    echo Preparing datasets...
+    pwd
+    ls
     source ./bin/datasets.sh
 }
 
 function train() {
-    echo Training
+    echo Training...
     bash ./bin/train.sh --num_epochs=0 --only_train_head=True  --num_samples_test=1000 --num_samples_train=3000 --ethics_num_epochs=1
 }
 
@@ -41,5 +45,4 @@ else
         shift 1
     done
 fi
-
 
