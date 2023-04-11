@@ -28,7 +28,7 @@ function prepare_datasets() {
 
 function train() {
     echo Training...
-    bash ./bin/train.sh --num_epochs=0 --only_train_head=True  --num_samples_test=1000 --num_samples_train=3000 --ethics_num_epochs=1
+    bash ./bin/train.sh --num_epochs=1 --only_train_head=True  --num_samples_test=100 --num_samples_train=300
 }
 
 if [[ $# == 0 ]] ; then 

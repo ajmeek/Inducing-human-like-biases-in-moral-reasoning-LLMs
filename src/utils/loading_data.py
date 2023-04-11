@@ -9,7 +9,7 @@ from transformers import PreTrainedTokenizer, AutoTokenizer
 from pathlib import Path
 from torch.nn import functional as F
 
-from src.utils.preprocessing import preprocess
+from utils.preprocessing import preprocess
 
 
 # returns a pandas dataframe of the CM training set (excluding long ones)
