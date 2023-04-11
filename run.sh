@@ -1,4 +1,16 @@
 #!/bin/bash 
+# 
+# Script to run high level functions for development, maintenance, deployment, etc.
+
+USAGE=`cat<<EOF
+Usage: run.sh ( <function>... | <function> [parameters...] )
+
+FUNCTIONS: 
+  install           - installs environment to load data, train
+  train             - runs training
+  prepare_datasets  - downloads and processes a dataset(s)
+EOF
+`
 set -euo pipefail
 IFS=$'\n\t'
 trap "echo 'error: Script failed: see failed command above'" ERR
@@ -32,17 +44,17 @@ function train() {
 }
 
 if [[ $# == 0 ]] ; then 
-    echo 'Usage: run.sh <FUNCTIONS...>
-
-FUNCTIONS: 
-  install   - installs environment to load data, train
-  train     - runs training
-  prepare_datasets - downloads and processes a dataset(s)
-'
+    echo "$USAGE"
 else 
-    while [[ $# -ne 0 ]] ; do 
-        $1
+    if [[ "$@" =~ '--' ]]; then 
+        cmd=$1
         shift 1
-    done
+        $cmd "$@"
+    else
+        while [[ $# -ne 0 ]] ; do 
+            $1
+            shift 1
+        done
+    fi
 fi
 
