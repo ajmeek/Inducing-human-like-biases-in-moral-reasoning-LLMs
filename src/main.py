@@ -1,6 +1,6 @@
 import torch
 from transformers import AutoTokenizer, AutoModel
-from utils.loading_data import load_fmri_with_labels, load_csv_to_tensors
+from utils.loading_data import load_fmri_with_labels, load_np_fmri_to_tensor, load_csv_to_tensors
 from utils.preprocessing import preprocess_prediction, preprocess
 from model import BERT
 from pl_model import LitBert
@@ -13,7 +13,9 @@ def main():
     assert data_path.exists(), 'Expected data dir present.'
     # Hyperparameters #
     # Training parameters
+    train_with_cls_labels = True
     num_epochs = 16
+    num_epochs_head_training = 4
     batches_per_epoch = 128
     batch_size = 8
     regularize = True
@@ -21,7 +23,10 @@ def main():
 
     # Model parameters
     checkpoint = 'bert-base-cased'  # Hugging Face model we'll be using
-    train_head_dims = [64, 3] # fMRI and classification (neutral, accidental, intentional)
+    if train_with_cls_labels:
+        train_head_dims = [64, 3] # fMRI and classification (neutral, accidental, intentional)
+    else:
+        train_head_dims = [64]
     test_head_dims = [2]
     only_train_head = False
     use_ia3_layers = False
@@ -33,6 +38,7 @@ def main():
     # Dataset parameters
     num_samples_train = 4096
     shuffle_train = True  # Set to False in order to get deterministic results and test overfitting on a small dataset.
+    head_train_dataset_path = data_path / 'ethics/commonsense/cm_train.csv'
     test_dataset_path = data_path / 'ethics/commonsense/cm_test.csv'
     num_samples_test = 32
 
@@ -59,8 +65,13 @@ def main():
                         regularization_coef=regularization_coef)
 
     # Get training dataloader
-    tokens, masks, targets = load_fmri_with_labels(data_path, tokenizer,
-                                                   num_samples=num_samples_train)
+    if train_with_cls_labels:
+        tokens, masks, targets = load_fmri_with_labels(data_path, tokenizer,
+                                                       num_samples_train)
+    else:
+        tokens, masks, targets = load_np_fmri_to_tensor(data_path / 'ds000212_difumo',
+                                                        tokenizer,
+                                                        num_samples_train)
     train_loader = preprocess(tokens, masks, targets, train_head_dims, batch_size,
                               shuffle=shuffle_train)
 
@@ -74,11 +85,23 @@ def main():
     )
     trainer.fit(lit_model, train_loader)
 
-   # Use base model with new head for testing.
+    # Use base model with new head for testing.
     model = BERT(base_model, test_head_dims)
-    lit_model = LitBert(model, only_train_head)  # losses are not needed for testing
+    lit_model = LitBert(model, only_train_head=True)
 
-    # TODO fine-tune head
+    # Fine-tune the head on the ethics training set
+    tokens, masks, targets = load_csv_to_tensors(head_train_dataset_path,
+                                                 tokenizer, num_samples=1000)
+    head_train_loader = preprocess(tokens, masks, targets, test_head_dims,
+                              batch_size, shuffle=True)
+    trainer = pl.Trainer(
+        limit_train_batches=batches_per_epoch,
+        max_epochs=num_epochs_head_training,
+        accelerator=device,
+        devices=1,
+        log_every_n_steps=log_every_n_steps,
+    )
+    trainer.fit(lit_model, head_train_loader) 
 
     # Test the model
     tokens, masks, targets = load_csv_to_tensors(test_dataset_path, tokenizer,
