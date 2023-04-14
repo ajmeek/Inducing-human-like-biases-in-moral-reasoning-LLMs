@@ -156,10 +156,10 @@ def get_args() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         '--batch_size',
-        default='32',
+        default='15',
         type=int,
         help='Batch size.'
-             '(default: 32)'
+             '(default: 15)'
     )
     parser.add_argument(
         '--regularize_from_init',
