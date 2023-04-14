@@ -46,12 +46,11 @@ def main():
         base_model,
         head_dims=train_head_dims
     )
-    loss_names = ['mse'] #['cross-entropy']  # cross-entropy, mse
     lit_model = LitBert(
         model,
         config['only_train_head'],
-        loss_names,
-        loss_weights=[1.0],
+        config['loss_names'],
+        loss_weights=config['loss_weights'],
         regularize_from_init=config['regularize_from_init'],
         regularization_coef=config['regularization_coef']
     )
@@ -89,7 +88,7 @@ def main():
     lit_model = LitBert(model, config['only_train_head'])  # losses are not needed for testing
 
     # Test the model
-    test_dataset_path = ethics_ds_path / 'commonsense/cm_train.csv'
+    test_dataset_path = ethics_ds_path / config['test_set']
     tokens, masks, targets = load_csv_to_tensors(test_dataset_path, tokenizer, num_samples=config['num_samples_test'])
     test_loader = preprocess(tokens, masks, targets, head_dims=test_head_dims, batch_size=config['batch_size'], shuffle=False)
 
@@ -107,7 +106,9 @@ def get_config():
     args = get_args().parse_args()
     config = vars(args)
     for arg in config:
-        if config[arg] in {'True', 'False'}:
+        if isinstance(config[arg], list):
+            config[arg] = config[arg]
+        elif config[arg] in {'True', 'False'}:
             config[arg] = config[arg] == 'True'
         elif config[arg] == 'none':
             config[arg] = None
@@ -183,6 +184,26 @@ def get_args() -> argparse.ArgumentParser:
         type=str,
         help='HuggingFace model.'
              '(default: bert-base-cased)'
+    )
+    parser.add_argument(
+        '--test_set',
+        default='commonsense/cm_train.csv',
+        type=str,
+        help='Path to test set starting from data/ethics directory.'
+    )
+    parser.add_argument(
+        '--loss_names',
+        nargs='+',
+        default=['mse'],
+        type=str,
+        help='Loss names.'
+    )
+    parser.add_argument(
+        '--loss_weights',
+        nargs='+',
+        default=[1.0],
+        type=float,
+        help='Loss names.'
     )
 
     return parser
