@@ -29,8 +29,8 @@ def main():
     if t.cuda.is_available(): device = 'cuda'
     elif t.backends.mps.is_available(): device = 'mps'
     else: device = 'cpu'
-    print(f"{device=}")
-    print(f'Config: {config}')
+    print(f"Device: {device=}")
+    print(f'Config: {pd.DataFrame(config).T.to_string()}')
 
     # Define the tokenizer and model
     tokenizer = AutoTokenizer.from_pretrained(config['checkpoint'])

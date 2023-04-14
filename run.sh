@@ -33,14 +33,12 @@ function install() {
 
 function prepare_datasets() {
     echo Preparing datasets...
-    pwd
-    ls
     source ./bin/datasets.sh
 }
 
 function train() {
     echo Training...
-    bash ./bin/train.sh --num_epochs=1 --only_train_head=True  --num_samples_test=100 --num_samples_train=300
+    bash ./bin/train.sh "$@"
 }
 
 if [[ $# == 0 ]] ; then 
