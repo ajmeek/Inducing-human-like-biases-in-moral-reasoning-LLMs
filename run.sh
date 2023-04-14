@@ -8,7 +8,7 @@ Usage: run.sh ( <function>... | <function> [parameters...] )
 FUNCTIONS: 
   install           - installs environment to load data, train
   train             - runs training
-  prepare_datasets  - downloads and processes a dataset(s)
+  datasets          - downloads and processes a dataset(s)
 EOF
 `
 set -euo pipefail
@@ -22,16 +22,16 @@ readonly script_dir
 root_dir=$( realpath "$script_dir" )
 
 
+################################################################################
+
 function install() {
     echo Installing...
-    git config --global user.email "artyomkarpov@gmail.com"
-    git config --global user.name "Artem K"
     python3 -m pip install -r requirements.txt
     python3 -m pip install datalad-installer
     datalad-installer --sudo ok datalad git-annex -m datalad/git-annex:release 
 }
 
-function prepare_datasets() {
+function datasets() {
     echo Preparing datasets...
     source ./bin/datasets.sh
 }
@@ -40,6 +40,10 @@ function train() {
     echo Training...
     bash ./bin/train.sh "$@"
 }
+
+
+################################################################################
+
 
 if [[ $# == 0 ]] ; then 
     echo "$USAGE"
