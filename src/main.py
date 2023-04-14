@@ -30,7 +30,7 @@ def main():
     elif t.backends.mps.is_available(): device = 'mps'
     else: device = 'cpu'
     print(f"Device: {device=}")
-    print(f'Config: {pd.DataFrame(config).T.to_string()}')
+    print(f'Config: \n' + '\n'.join(f'{k:<40}{config[k]}' for k in config))
 
     # Define the tokenizer and model
     tokenizer = AutoTokenizer.from_pretrained(config['checkpoint'])
