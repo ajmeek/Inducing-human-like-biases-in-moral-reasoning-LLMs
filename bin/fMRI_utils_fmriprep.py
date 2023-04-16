@@ -16,8 +16,9 @@ import nilearn
 import nilearn.maskers
 import nibabel as nib
 import numpy as np
-from subprocess import run
+from subprocess import run, PIPE
 from csv import DictReader
+import os
 
 datapath = Path('./data')
 all_scenarios = []
@@ -42,6 +43,95 @@ def generate_flattened_data():
 def process_subject(subject):
     # TODO Change this so that it only runs on .nii.gz files for which we have valid symlinks, also for variable number of runs
 
+    cwd = os.path.dirname(os.path.realpath(__file__))  # current working directory
+    # cmd = 'echo hello'
+    cmd = f'cd data/ds000212/derivatives/fmriprep/sub-{subject}/func/; find . -xtype l'
+    result = run(cmd, cwd=cwd, stdout=PIPE, shell=True)
+    print(result.stdout)  # checking this
+
+    not_bytes = result.stdout.decode()
+    list_of_invalid_symlinks_paths = not_bytes.split('\n')
+    # print(list_of_invalid_symlinks_paths)
+    list_of_invalid_symlinks_names = []
+    for i in range(len(list_of_invalid_symlinks_paths)):
+        temp = list_of_invalid_symlinks_paths[i]
+        list_of_invalid_symlinks_names.append(temp[2:])
+    # print(list_of_invalid_symlinks_names)
+    # the above list contains the relative path to all invalid symlinks, not their names themselves. change
+
+    subject_path = datapath / f"ds000212/derivatives/fmriprep/sub-{subject}/func/"
+    target_path = datapath / f"fmriprep_functional_flattened/sub-{subject}"
+    target_path.mkdir(parents=True, exist_ok=True)
+
+    # grabbing the bold files and data masks.
+    '''
+    Logic as follows:
+    Can't just grab every single BOLD file. Need to grab exactly the one we want and the brain mask for it.
+    Fortunately, those will be the ones with valid symlinks. So use glob as below, then subtract all the invalid
+    symlinks from it.
+    '''
+
+    nifti_symlinks = subject_path.glob("*.nii.gz")
+    nifti_symlinks_basename = []
+    for i in nifti_symlinks:
+        # print(i)
+        # print(os.path.basename(i))
+        nifti_symlinks_basename.append(os.path.basename(i))
+    set_of_invalid_symlinks = set(list_of_invalid_symlinks_names)
+    # print(set_of_invalid_symlinks)
+    valid_nifti_symlinks = [i for i in nifti_symlinks_basename if i not in set_of_invalid_symlinks]
+    # print("valid: ", valid_nifti_symlinks)
+
+    # Need a way to separate out the brain masks.
+    # the most elegant way to do this would be to have a tuple of bold file and associated brain mask. Then can just iterate
+    # over all those and capture the runs simultaneously
+
+    # how to do this? Would it be best to separate out all the bold files, and then the brain masks, then combine them somehow?
+    # I suppose so
+
+    bold_files = []
+    brain_masks = []
+    for file in valid_nifti_symlinks:
+        if "bold" in file:
+            bold_files.append(file)
+        elif "brain" in file:
+            brain_masks.append(file)
+    print("bold: ", bold_files)
+    print("brain: ", brain_masks)
+
+    # now combine them based on their task and run
+    tasks = ['fb', 'dis']
+    nifti_tuples = []
+    temp_brain = ""
+    temp_bold = ""
+    for i in tasks:
+        for j in range(6):
+            for k in bold_files:
+                if f'task-{i}' in k and f'run-{j + 1}' in k:
+                    temp_bold = k
+            for k in brain_masks:
+                if f'task-{i}' in k and f'run-{j + 1}' in k:
+                    temp_brain = k
+            # print(temp_bold)
+            # print(temp_brain)
+            if temp_bold != "":
+                nifti_tuples.append((temp_bold, temp_brain))
+            temp_bold = ""
+            temp_brain = ""
+
+    # print("nifti_tuples: ")
+    # for i in nifti_tuples:
+    #    print(i)
+
+    for tuple in nifti_tuples:
+        masked_data = apply_mask(tuple[0], tuple[1])
+
+        # TODO - change so that nilearn utils work with symlinks - resolve them into their destination files
+
+        pass
+
+    '''
+    #change for fmriprep derivatives folder
     subject_path = datapath / f"ds000212/sub-{subject}/func/"
     target_path = datapath / f"functional_flattened/sub-{subject}"
     target_path.mkdir(parents=True, exist_ok=True)
@@ -68,6 +158,7 @@ def process_subject(subject):
                 np.save(filename, data)
                 events_f = datapath / f"functional_flattened/sub-{subject}/labels-{run_num}.npy"
                 np.save(events_f, scenarios)
+    '''
 
 
 def merge_fmri_and_scenarios(data, scenarios):
@@ -188,6 +279,7 @@ def main():
     # load out of the numpy files as so
     # test = np.load(datapath / 'functional_flattened/sub-03/1.npy')
     # print(test)
+    process_subject(subject="03")
 
 
 if __name__ == '__main__':
