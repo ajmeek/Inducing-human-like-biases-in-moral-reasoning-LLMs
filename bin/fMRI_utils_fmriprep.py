@@ -47,7 +47,7 @@ def process_subject(subject):
     # cmd = 'echo hello'
     cmd = f'cd data/ds000212/derivatives/fmriprep/sub-{subject}/func/; find . -xtype l'
     result = run(cmd, cwd=cwd, stdout=PIPE, shell=True)
-    print(result.stdout)  # checking this
+    #print(result.stdout)  # checking this
 
     not_bytes = result.stdout.decode()
     list_of_invalid_symlinks_paths = not_bytes.split('\n')
@@ -86,9 +86,6 @@ def process_subject(subject):
     # the most elegant way to do this would be to have a tuple of bold file and associated brain mask. Then can just iterate
     # over all those and capture the runs simultaneously
 
-    # how to do this? Would it be best to separate out all the bold files, and then the brain masks, then combine them somehow?
-    # I suppose so
-
     bold_files = []
     brain_masks = []
     for file in valid_nifti_symlinks:
@@ -124,11 +121,14 @@ def process_subject(subject):
     #    print(i)
 
     for tuple in nifti_tuples:
-        masked_data = apply_mask(tuple[0], tuple[1])
+        for tuple in nifti_tuples:
+            full_path_bold = f"data/ds000212/derivatives/fmriprep/sub-{subject}/func/" + f'{tuple[0]}'
+            full_path_brain = f"data/ds000212/derivatives/fmriprep/sub-{subject}/func/" + f'{tuple[1]}'
+            masked_data = apply_mask(full_path_bold, full_path_brain)
 
-        # TODO - change so that nilearn utils work with symlinks - resolve them into their destination files
+            print("masked data computed for ", tuple[0])
 
-        pass
+            pass
 
     '''
     #change for fmriprep derivatives folder
