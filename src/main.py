@@ -1,6 +1,8 @@
 import torch as t
+from torch.utils.data import TensorDataset
 from transformers import AutoTokenizer, AutoModel
-from utils.loading_data import load_csv_to_tensors, load_np_fmri_to_tensor, load_ds000212_dataset
+from utils.loading_data import load_csv_to_tensors, load_np_fmri_to_tensor, load_ds000212_dataset, \
+    multiple_dataset_loading
 from utils.preprocessing import preprocess_prediction, preprocess
 from model import BERT
 from pl_model import LitBert
@@ -27,7 +29,8 @@ def main():
     if t.cuda.is_available(): device = 'cuda'
     elif t.backends.mps.is_available(): device = 'mps'
     else: device = 'cpu'
-    print(f"{device=}")
+    print(f"Device: {device=}")
+    print(f'Config: \n' + '\n'.join(f'{k:<40}{config[k]}' for k in config))
 
     # Define the tokenizer and model
     tokenizer = AutoTokenizer.from_pretrained(config['checkpoint'])
@@ -40,8 +43,11 @@ def main():
     #     layers_to_replace_with_ia3 = "key|value|intermediate.dense"
     #     base_model = modify_with_ia3(base_model, layers_to_replace_with_ia3)
 
-    tokens, masks, targets = load_ds000212_dataset(datapath, tokenizer, config['num_samples_train'], normalize=False)
-    train_head_dims = [e.shape[1] for e in targets] #[64]  # Classification head and regression head, for example [2, (10, 4)]
+    # Load the dataset
+    dataloaders, train_head_dims = multiple_dataset_loading(datapath, tokenizer, config,
+                                                            shuffle=config['shuffle_train'],                                                         normalize_fmri=config['normalize_fmri'])
+
+    # Define the model
     model = BERT(
         base_model,
         head_dims=train_head_dims
@@ -54,14 +60,6 @@ def main():
         regularize_from_init=config['regularize_from_init'],
         regularization_coef=config['regularization_coef']
     )
-
-    # Get training dataloader
-    # if train_head_dims[0] == 2:  # TODO: this is a bit hacky, not sure when we want to use what.
-    #     # For now if the first head has two outputs we use the ethics dataset and otherwise the fMRI dataset.
-    #     tokens, masks, targets = load_csv_to_tensors(ethics_ds_path / 'commonsense/cm_train.csv', tokenizer, num_samples=num_samples_train)
-    # else:
-    #     tokens, masks, targets = load_np_fmri_to_tensor(difumo_ds_path, tokenizer, num_samples=num_samples_train)
-    train_loader = preprocess(tokens, masks, targets, train_head_dims, config['batch_size'], shuffle=False)
 
     logger = TensorBoardLogger(
         save_dir=artifactspath,
@@ -80,17 +78,12 @@ def main():
         default_root_dir=artifactspath
     )
     print('Fine tuning BERT...')
-    trainer.fit(lit_model, train_loader)
-
-    # Use base model with new head for testing.
-    test_head_dims=[2]
-    model = BERT(base_model, head_dims=test_head_dims)
-    lit_model = LitBert(model, config['only_train_head'])  # losses are not needed for testing
+    trainer.fit(lit_model, dataloaders)
 
     # Test the model
     test_dataset_path = ethics_ds_path / config['test_set']
     tokens, masks, targets = load_csv_to_tensors(test_dataset_path, tokenizer, num_samples=config['num_samples_test'])
-    test_loader = preprocess(tokens, masks, targets, head_dims=test_head_dims, batch_size=config['batch_size'], shuffle=False)
+    test_loader = preprocess(tokens, masks, targets, batch_size=config['batch_size'], shuffle=config['shuffle_test'])
 
     print('Testing on ETHICS...')
     trainer.test(lit_model, dataloaders=test_loader)
@@ -101,6 +94,7 @@ def main():
     # example_text = "I am a sentence."
     # prediction_dataloader = preprocess_prediction([example_text], tokenizer, batch_size=1)
     # prediction = trainer.predict(lit_model, prediction_dataloader)
+
 
 def get_config():
     args = get_args().parse_args()
@@ -114,6 +108,15 @@ def get_config():
             config[arg] = None
         elif 'subjects_per_dataset' in arg:
             config[arg] = None if config[arg] == -1 else config[arg]
+
+    # Check if parameters are valid
+    for index, train_dataset in enumerate(config['train_datasets']):
+        if train_dataset not in ['ds000212'] and not train_dataset.startswith('ethics'):
+            raise ValueError(f"Invalid train dataset: {train_dataset}")
+        if train_dataset == 'ethics' and config['loss_names'][index] != 'cross-entropy':
+            raise ValueError(f"Invalid loss for ethics dataset: {config['loss_names'][index]}. "
+                             f"For classification can only use cross_entropy.")
+
     return config
 
 def get_args() -> argparse.ArgumentParser:
@@ -121,6 +124,19 @@ def get_args() -> argparse.ArgumentParser:
 
     parser = argparse.ArgumentParser(
         description='run model training'
+    )
+    parser.add_argument(
+        '--train_datasets',
+        nargs='+',
+        default=['ethics/commonsense/cm_train.csv', 'ds000212'],
+        type=str,
+        help='Datasets to train on. This can be multiple datasets, e.g. "ds000212 ethics/...".'
+    )
+    parser.add_argument(
+        '--normalize_fmri',
+        default='False',
+        type=str,
+        help='Normalize fMRI data.'
     )
     parser.add_argument(
         '--num_epochs',
@@ -131,17 +147,17 @@ def get_args() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         '--batches_per_epoch',
-        default='1',
+        default='10',
         type=int,
         help='Batches per epoch.'
              '(default: 1)'
     )
     parser.add_argument(
         '--batch_size',
-        default='32',
+        default='15',
         type=int,
         help='Batch size.'
-             '(default: 32)'
+             '(default: 15)'
     )
     parser.add_argument(
         '--regularize_from_init',
@@ -165,11 +181,23 @@ def get_args() -> argparse.ArgumentParser:
              '(default: 100)'
     )
     parser.add_argument(
+        '--shuffle_train',
+        default='True',
+        type=str,
+        help='If we should shuffle train data.'
+    )
+    parser.add_argument(
         '--num_samples_test',
-        default='64',
+        default='100',
         type=int,
         help='Number of test samples.'
              '(default: 64)'
+    )
+    parser.add_argument(
+        '--shuffle_test',
+        default='False',
+        type=str,
+        help='If we should shuffle test data.'
     )
     parser.add_argument(
         '--only_train_head',
@@ -187,26 +215,27 @@ def get_args() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         '--test_set',
-        default='commonsense/cm_train.csv',
+        default='commonsense/cm_test.csv',
         type=str,
         help='Path to test set starting from data/ethics directory.'
     )
     parser.add_argument(
         '--loss_names',
         nargs='+',
-        default=['mse'],
+        default=['cross-entropy', 'mse'],  # cross-entropy, mse
         type=str,
         help='Loss names.'
     )
     parser.add_argument(
         '--loss_weights',
         nargs='+',
-        default=[1.0],
+        default=[1.0, 1.0],
         type=float,
-        help='Loss names.'
+        help='Loss weights.'
     )
 
     return parser
+
 
 if __name__ == '__main__':
     main()

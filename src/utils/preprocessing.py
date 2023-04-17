@@ -7,15 +7,13 @@ from torch.utils.data import TensorDataset, DataLoader
 
 def preprocess(tokens: torch.tensor,
                masks: torch.tensor,
-               targets: list[torch.tensor],
-               head_dims: list[Any],
+               target: torch.tensor,
                batch_size: int = 4,
                shuffle: bool = True) -> DataLoader:
     """
     Given the tokens, masks, and targets, it returns a dataloader with the tokens, masks, and targets.
     """
-    assert len(targets) == len(head_dims), 'Expected heads number matches number of targets.'
-    data = TensorDataset(tokens, masks, *targets)
+    data = TensorDataset(tokens, masks, target)
     data_loader = DataLoader(data, batch_size=batch_size, shuffle=shuffle)
     return data_loader
 

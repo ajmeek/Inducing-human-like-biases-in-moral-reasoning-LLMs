@@ -31,21 +31,19 @@ class LitBert(pl.LightningModule):
         # note that we're not applying the regularization to the heads
         self.init_params = copy.deepcopy([p for p in model.base.parameters()])
     
-    def training_step(self, batch, _):
-        tokens, mask, *targets = batch
-        # predictions is a list of tensors, one tensor per head. Each tensor is [batch, *head_dims]
-        predictions = self.model(tokens, mask)
-
-        # Compute loss and sum the weighted loss of each head.
+    def training_step(self, batch, batch_idx):
         loss = 0
-        for pred, target, loss_name, loss_weight in zip(predictions,
-                                                        targets,
-                                                        self.loss_names,
-                                                        self.loss_weights):
+        for index, dataloader in enumerate(batch):  # Batch has now multiple dataloaders (can also still be 1)
+            tokens, mask, target = dataloader
+            predictions = self.model(tokens, mask)[index]
+
+            # Compute weighted and summed loss
+            loss_weight = self.loss_weights[index]
+            loss_name = self.loss_names[index]
             if loss_name == 'cross-entropy':
-                loss += loss_weight * F.cross_entropy(pred, target)
+                loss += loss_weight * F.cross_entropy(predictions, target)
             elif loss_name == 'mse':
-                loss += loss_weight * F.mse_loss(pred, target)
+                loss += loss_weight * F.mse_loss(predictions, target)
             else:
                 print(f"\n\nUnsupported loss name {loss_name}\n")
         
@@ -64,19 +62,19 @@ class LitBert(pl.LightningModule):
         return loss
 
     def test_step(self, batch, batch_idx) -> Optional[STEP_OUTPUT]:
-        tokens, mask, *targets = batch
+        tokens, mask, target = batch
         predictions = self.model(tokens, mask)
-        logits = predictions[0]
+        logits = predictions[0]  # Note: take the first, so we use the ETHICS head to predict.
         probs = F.softmax(logits, dim=-1)
         predicted_label = probs.argmax(dim=-1)
         # log the accuracy (this automatically accumulates it over the whole test set)
-        self.log("test_acc", (predicted_label == targets[0]).float().mean(), prog_bar=True)
+        self.log("test_acc", (predicted_label == target).float().mean(), prog_bar=True)
         return predicted_label
 
     def predict_step(self, batch: Any, batch_idx: int, dataloader_idx: int = 0) -> Any:
-        tokens, mask = batch
+        tokens, mask, target, dataset_index = batch
         predictions = self.model(tokens, mask)
-        logits = predictions[0]
+        logits = predictions[dataset_index[0].item()]
         return F.softmax(logits, dim=-1)
     
     def configure_optimizers(self):
