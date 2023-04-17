@@ -19,6 +19,7 @@ class LitBert(pl.LightningModule):
             loss_weights: list[float] = None,
             regularize_from_init: bool = False,
             regularization_coef: float = 0.,
+            dataset_names: list[str] = None,
         ):
         super().__init__()
         self.model = model
@@ -30,8 +31,9 @@ class LitBert(pl.LightningModule):
         # store the initial weights of the model (used for regularization)
         # note that we're not applying the regularization to the heads
         self.init_params = copy.deepcopy([p for p in model.base.parameters()])
+        self.dataset_names = dataset_names
     
-    def training_step(self, batch, batch_idx):
+    def training_step(self, batch, _):
         loss = 0
         for index, dataloader in enumerate(batch):  # Batch has now multiple dataloaders (can also still be 1)
             tokens, mask, target = dataloader
@@ -61,14 +63,25 @@ class LitBert(pl.LightningModule):
         self.log("train_loss", loss, prog_bar=True)
         return loss
 
-    def test_step(self, batch, batch_idx) -> Optional[STEP_OUTPUT]:
+    def validation_step(self, batch, batch_idx, dataloader_idx):
+        dataset_name = self.dataset_names[dataloader_idx]
+        if dataset_name.startswith('ethics'):
+            return self.test_step(batch, batch_idx, dataloader_idx)
+        elif dataset_name == 'ds000212':
+            tokens, mask, target = batch
+            predictions = self.model(tokens, mask)[dataloader_idx]
+            mse_loss = F.mse_loss(predictions, target)
+            self.log("val_mse", mse_loss, prog_bar=True)
+            return mse_loss
+
+    def test_step(self, batch, batch_idx, dataloader_idx: int = 0) -> Optional[STEP_OUTPUT]:
         tokens, mask, target = batch
         predictions = self.model(tokens, mask)
         logits = predictions[0]  # Note: take the first, so we use the ETHICS head to predict.
         probs = F.softmax(logits, dim=-1)
         predicted_label = probs.argmax(dim=-1)
         # log the accuracy (this automatically accumulates it over the whole test set)
-        self.log("test_acc", (predicted_label == target).float().mean(), prog_bar=True)
+        self.log("accuracy", (predicted_label == target).float().mean(), prog_bar=True)
         return predicted_label
 
     def predict_step(self, batch: Any, batch_idx: int, dataloader_idx: int = 0) -> Any:

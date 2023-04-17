@@ -13,6 +13,9 @@ It supports training on multiple datasets at once. The current options are: `eth
 The default test set is ETHICS commonsense. And the classification head that
 was used to train ETHICS will be saved to also test on the ETHICS commonsense dataset.
 
+These datasets are split into a training and validation dataset specified by a fraction by the user. For validation the same datasets are used as for training and evaluated every `n` epochs. For the ETHICS the accuracy is evaluated and for the fMRI the MSE is calculated.
+
+
 ### How to train and evaluate on the ETHICS dataset (commonsense):
 1. Download the dataset from https://github.com/hendrycks/ethics and put the csv files of the commonsense dataset ( csv has prefix 'cm')
 in the `data/ethics/commonsense` folder in the git repository.

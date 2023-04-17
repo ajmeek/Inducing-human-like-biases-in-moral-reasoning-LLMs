@@ -63,10 +63,10 @@ def load_np_fmri_to_tensor(base_path: str,
 
 
 def load_ds000212_dataset(
-    datapath: Path,
-    tokenizer: PreTrainedTokenizer,
-    num_samples: int,
-    normalize=True) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor
+        datapath: Path,
+        tokenizer: PreTrainedTokenizer,
+        num_samples: int,
+        normalize=True) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor
 ]:
     print('Loading ds000212_dataset')
     assert datapath.exists()
@@ -83,13 +83,13 @@ def load_ds000212_dataset(
     fmri_items = [F.pad(e, (0, max_l - e.shape[0]), 'constant', 0) for e in fmri_items]
     assert all(e.shape[0] == max_l for e in fmri_items)
 
-    #from collections import Counter
-    #counts = Counter(len(e) for e in fmri_items)
-    #counts_mc = counts.most_common()  # TODO: Merge? 229 different len 
-    #most_common_len = counts_mc[0][0]
-    #indeces = [i for i, e in enumerate(fmri_items) if len(e) == most_common_len] 
-    #scenarios = [e for i,e in enumerate(scenarios) if i in indeces]
-    #fmri_items = [e for i,e in enumerate(fmri_items) if i in indeces]
+    # from collections import Counter
+    # counts = Counter(len(e) for e in fmri_items)
+    # counts_mc = counts.most_common()  # TODO: Merge? 229 different len
+    # most_common_len = counts_mc[0][0]
+    # indeces = [i for i, e in enumerate(fmri_items) if len(e) == most_common_len]
+    # scenarios = [e for i,e in enumerate(scenarios) if i in indeces]
+    # fmri_items = [e for i,e in enumerate(fmri_items) if i in indeces]
 
     # Extract tokens, masks:
     tokens_list = []
@@ -103,29 +103,35 @@ def load_ds000212_dataset(
     target_tensors = torch.stack(fmri_items)
     if normalize:
         target_tensors = (target_tensors - target_tensors.mean()) / target_tensors.std()
-    
-    assert tokens.shape[0] == masks.shape[0] == target_tensors.shape[0], f'{tokens.shape=} {masks.shape=} {target_tensors.shape=}'
+
+    assert tokens.shape[0] == masks.shape[0] == target_tensors.shape[
+        0], f'{tokens.shape=} {masks.shape=} {target_tensors.shape=}'
     random_indices = torch.randperm(target_tensors.shape[0])[:num_samples]
 
     return tokens[random_indices], masks[random_indices], target_tensors[random_indices]
 
 
-def multiple_dataset_loading(datapath, tokenizer, config, shuffle, normalize_fmri) \
-        -> tuple[list[DataLoader], list[Union[int, tuple[int, int]]]]:
+def multiple_dataset_loading(datapath, tokenizer, datasets, num_samples, batch_size, shuffle, normalize_fmri,
+                             fraction_train) \
+        -> tuple[list[DataLoader], dict[str, DataLoader], list[Union[int, tuple[int, int]]]]:
     train_head_dims = []
-    dataloaders = []
-    for index, train_dataset in enumerate(config['train_datasets']):
+    dataloaders_train = []
+    dataloaders_val = []
+    for index, train_dataset in enumerate(datasets):
         if train_dataset == 'ds000212':
             tokens, masks, target = load_ds000212_dataset(datapath, tokenizer,
-                                                           config['num_samples_train'], normalize=normalize_fmri)
-            train_head_dims.append(target.shape[1])  # [64]  # Classification head and regression head, for example [2, (10, 4)]
-            dataloader = preprocess(tokens, masks, target, config['batch_size'], shuffle=shuffle)
-            dataloaders.append(dataloader)
+                                                          num_samples, normalize=normalize_fmri)
+            train_head_dims.append(
+                target.shape[1])  # [64]  # Classification head and regression head, for example [2, (10, 4)]
+            dataloader_train, dataloader_val = preprocess(tokens, masks, target, batch_size, shuffle, fraction_train)
+            dataloaders_train.append(dataloader_train)
+            dataloaders_val.append(dataloader_val)
 
         elif train_dataset.startswith('ethics'):
-            tokens, masks, target = load_csv_to_tensors(datapath / train_dataset, tokenizer,
-                                                         num_samples=config['num_samples_train'])
+            tokens, masks, target = load_csv_to_tensors(datapath / train_dataset, tokenizer, num_samples=num_samples)
             train_head_dims.append(2)
-            dataloader = preprocess(tokens, masks, target, config['batch_size'], shuffle=shuffle)
-            dataloaders.append(dataloader)
-    return dataloaders, train_head_dims
+            dataloader_train, dataloader_val = preprocess(tokens, masks, target, batch_size, shuffle, fraction_train)
+            dataloaders_train.append(dataloader_train)
+            dataloaders_val.append(dataloader_val)
+
+    return dataloaders_train, dataloaders_val, train_head_dims
