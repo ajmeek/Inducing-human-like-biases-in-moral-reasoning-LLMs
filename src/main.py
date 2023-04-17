@@ -236,6 +236,111 @@ def get_args() -> argparse.ArgumentParser:
 
     return parser
 
+def get_config():
+    args = get_args().parse_args()
+    config = vars(args)
+    for arg in config:
+        if isinstance(config[arg], list):
+            config[arg] = config[arg]
+        elif config[arg] in {'True', 'False'}:
+            config[arg] = config[arg] == 'True'
+        elif config[arg] == 'none':
+            config[arg] = None
+        elif 'subjects_per_dataset' in arg:
+            config[arg] = None if config[arg] == -1 else config[arg]
+    return config
+
+def get_args() -> argparse.ArgumentParser:
+    """Get command line arguments"""
+
+    parser = argparse.ArgumentParser(
+        description='run model training'
+    )
+    parser.add_argument(
+        '--num_epochs',
+        default='1',
+        type=int,
+        help='Number of epochs to fine tune a model on fMRI data.'
+             '(default: 1)'
+    )
+    parser.add_argument(
+        '--batches_per_epoch',
+        default='1',
+        type=int,
+        help='Batches per epoch.'
+             '(default: 1)'
+    )
+    parser.add_argument(
+        '--batch_size',
+        default='32',
+        type=int,
+        help='Batch size.'
+             '(default: 32)'
+    )
+    parser.add_argument(
+        '--regularize_from_init',
+        default='True',
+        type=str,
+        help='Regularize from init (base) model.'
+             '(default: True)'
+    )
+    parser.add_argument(
+        '--regularization_coef',
+        default='0.1',
+        type=float,
+        help='Regularization from init coef.'
+             '(default: 0.1)'
+    )
+    parser.add_argument(
+        '--num_samples_train',
+        default='100',
+        type=int,
+        help='Number of train samples (fine tuning).'
+             '(default: 100)'
+    )
+    parser.add_argument(
+        '--num_samples_test',
+        default='64',
+        type=int,
+        help='Number of test samples.'
+             '(default: 64)'
+    )
+    parser.add_argument(
+        '--only_train_head',
+        default='True',
+        type=str,
+        help='Train only attached head.'
+             '(default: True)'
+    )
+    parser.add_argument(
+        '--checkpoint',
+        default='bert-base-cased',
+        type=str,
+        help='HuggingFace model.'
+             '(default: bert-base-cased)'
+    )
+    parser.add_argument(
+        '--test_set',
+        default='commonsense/cm_train.csv',
+        type=str,
+        help='Path to test set starting from data/ethics directory.'
+    )
+    parser.add_argument(
+        '--loss_names',
+        nargs='+',
+        default=['mse'],
+        type=str,
+        help='Loss names.'
+    )
+    parser.add_argument(
+        '--loss_weights',
+        nargs='+',
+        default=[1.0],
+        type=float,
+        help='Loss names.'
+    )
+
+    return parser
 
 if __name__ == '__main__':
     main()
