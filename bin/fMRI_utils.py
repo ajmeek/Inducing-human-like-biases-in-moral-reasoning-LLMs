@@ -139,11 +139,6 @@ def init_scenarios():
         for row in reader:
             all_scenarios.append(row)
 
-def download_dataset():
-    cmd = 'cd data; datalad install --get-data https://github.com/OpenNeuroDatasets/ds000212.git'
-    cprocess = run(cmd, shell=True)
-    assert cprocess.returncode==0, f'"`{cmd}` failed: {cprocess}'
-
 def info(msg):
     print(msg)
 
@@ -161,13 +156,8 @@ event_to_scenario = {
 }
 
 def main():
-    download_dataset()
     init_scenarios()
     generate_flattened_data()
-
-    #load out of the numpy files as so
-    # test = np.load(datapath / 'functional_flattened/sub-03/1.npy')
-    # print(test)
 
 if __name__ == '__main__':
     assert datapath.exists(), "expect this run in base directory with data/"

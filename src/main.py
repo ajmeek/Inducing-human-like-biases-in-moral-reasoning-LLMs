@@ -30,6 +30,7 @@ def main():
     elif t.backends.mps.is_available(): device = 'mps'
     else: device = 'cpu'
     print(f"{device=}")
+    print(f'Config: {config}')
 
     # Define the tokenizer and model
     tokenizer = AutoTokenizer.from_pretrained(config['checkpoint'])
@@ -44,8 +45,7 @@ def main():
 
     # Load the dataset
     dataloaders, train_head_dims = multiple_dataset_loading(datapath, tokenizer, config,
-                                                            shuffle=config['shuffle_train'],
-                                                            normalize_fmri=config['normalize_fmri'])
+                                                            shuffle=config['shuffle_train'],                                                         normalize_fmri=config['normalize_fmri'])
 
     # Define the model
     model = BERT(
@@ -119,7 +119,6 @@ def get_config():
 
     return config
 
-
 def get_args() -> argparse.ArgumentParser:
     """Get command line arguments"""
 
@@ -192,6 +191,7 @@ def get_args() -> argparse.ArgumentParser:
         default='100',
         type=int,
         help='Number of test samples.'
+             '(default: 64)'
     )
     parser.add_argument(
         '--shuffle_test',

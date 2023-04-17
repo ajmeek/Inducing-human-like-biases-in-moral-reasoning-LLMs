@@ -9,4 +9,3 @@ bids
 nilearn
 nibabel
 sympy
-datalad
