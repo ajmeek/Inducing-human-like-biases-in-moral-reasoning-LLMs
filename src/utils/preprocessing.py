@@ -9,13 +9,17 @@ def preprocess(tokens: torch.tensor,
                masks: torch.tensor,
                target: torch.tensor,
                batch_size: int = 4,
-               shuffle: bool = True) -> DataLoader:
+               shuffle: bool = True,
+               fraction_train: float = 0.9) -> tuple[DataLoader, DataLoader]:
     """
     Given the tokens, masks, and targets, it returns a dataloader with the tokens, masks, and targets.
     """
     data = TensorDataset(tokens, masks, target)
-    data_loader = DataLoader(data, batch_size=batch_size, shuffle=shuffle)
-    return data_loader
+    data_train, data_val = torch.utils.data.random_split(data, [int(fraction_train * len(data)),
+                                                                len(data) - int(fraction_train * len(data))])
+    data_loader_train = DataLoader(data_train, batch_size=batch_size, shuffle=shuffle)
+    data_loader_val = DataLoader(data_val, batch_size=batch_size, shuffle=shuffle)
+    return data_loader_train, data_loader_val
 
 
 def preprocess_prediction(inputs: list[str],
