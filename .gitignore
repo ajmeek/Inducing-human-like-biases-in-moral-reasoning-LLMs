@@ -1,11 +1,5 @@
 .idea
-/ethics/**/*.csv
-/ethics/**/*.txt
-/lightning_logs
-/src/lightning_logs
-models
 *.log
 __pycache__
-data/ethics
-data/ds000212
+data/
 artifacts/
