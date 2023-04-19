@@ -47,7 +47,7 @@ def process_subject(subject):
     # cmd = 'echo hello'
     cmd = f'cd data/ds000212/derivatives/fmriprep/sub-{subject}/func/; find . -xtype l'
     result = run(cmd, cwd=cwd, stdout=PIPE, shell=True)
-    #print(result.stdout)  # checking this
+    # print(result.stdout) #checking this
 
     not_bytes = result.stdout.decode()
     list_of_invalid_symlinks_paths = not_bytes.split('\n')
@@ -86,6 +86,9 @@ def process_subject(subject):
     # the most elegant way to do this would be to have a tuple of bold file and associated brain mask. Then can just iterate
     # over all those and capture the runs simultaneously
 
+    # how to do this? Would it be best to separate out all the bold files, and then the brain masks, then combine them somehow?
+    # I suppose so
+
     bold_files = []
     brain_masks = []
     for file in valid_nifti_symlinks:
@@ -93,8 +96,8 @@ def process_subject(subject):
             bold_files.append(file)
         elif "brain" in file:
             brain_masks.append(file)
-    print("bold: ", bold_files)
-    print("brain: ", brain_masks)
+    # print("bold: ", bold_files)
+    # print("brain: ", brain_masks)
 
     # now combine them based on their task and run
     tasks = ['fb', 'dis']
@@ -107,7 +110,7 @@ def process_subject(subject):
                 if f'task-{i}' in k and f'run-{j + 1}' in k:
                     temp_bold = k
             for k in brain_masks:
-                if f'task-{i}' in k and f'run-{j + 1}' in k:
+                if f'task-{i}' in k and f'run-{j + 1}' in k:  # should this be f'run-0{j+1}' ? No - that's only for raw data
                     temp_brain = k
             # print(temp_bold)
             # print(temp_brain)
@@ -121,14 +124,22 @@ def process_subject(subject):
     #    print(i)
 
     for tuple in nifti_tuples:
-        for tuple in nifti_tuples:
-            full_path_bold = f"data/ds000212/derivatives/fmriprep/sub-{subject}/func/" + f'{tuple[0]}'
-            full_path_brain = f"data/ds000212/derivatives/fmriprep/sub-{subject}/func/" + f'{tuple[1]}'
-            masked_data = apply_mask(full_path_bold, full_path_brain)
+        full_path_bold = f"data/ds000212/derivatives/fmriprep/sub-{subject}/func/" + f'{tuple[0]}'
+        full_path_brain = f"data/ds000212/derivatives/fmriprep/sub-{subject}/func/" + f'{tuple[1]}'
+        masked_data = apply_mask(full_path_bold, full_path_brain)
 
-            print("masked data computed for ", tuple[0])
+        print("masked data computed for ", tuple[0])
+        print("shape of masked data: ", masked_data.shape)
 
-            pass
+        # Apr 19 - Right now want to use the scenario merging code. Go ahead and
+        # type it out here so I know this part works. Then change the code in those functions
+
+        scenarios = extract_scenarios(subject, tuple[0])
+        print(scenarios)
+
+        # need to change all that code first.
+        return
+        pass
 
     '''
     #change for fmriprep derivatives folder
@@ -173,6 +184,8 @@ def merge_fmri_and_scenarios(data, scenarios):
     SCENARIO_SEC = 22
     NUM_BEFORE_LAST = 1
     REST_SEC = 10
+    HEMODYNAMIC_LAG = 4  # 8 seconds after onput of story, biggest BOLD response in brain
+    # (6-8s generally, go with 8 for now). Taken in 2 second intervals, hence 4
     # assert data.shape[0] == TIME_SERIES_NUM, f"Expected fMRI time series number {TIME_SERIES_NUM} but {data.shape}"
     if not data.shape[0] == TIME_SERIES_NUM:
         info(f"Skipping. Expected fMRI time series number {TIME_SERIES_NUM} but {data.shape}")
@@ -222,15 +235,39 @@ def process_subject_roi(masker, subject):
                 np.save(events_f, scenarios)
 
 
-def extract_scenarios(subject, run_num, bold_f):
-    event_file = bold_f.parent / bold_f.name.replace('_bold.nii.gz', '_events.tsv')
+def extract_scenarios(subject, bold_f):
+    """
+    Changes to this are as follows:
+        The tsv file containing the events doesn't occur in the derivatives folder afaik.
+        So going up and into the raw data by relative path, which is annoying.
+
+    :param subject:
+    :param bold_f:
+    :return:
+    """
+
+    # extract task and run number from file name.
+    tasks = ['fb', 'dis']
+    task = ""
+    for i in tasks:
+        if f'task-{i}' in bold_f:
+            task = i
+    run = ""
+    for j in range(6):
+        if f'run-{j + 1}' in bold_f:
+            run = j + 1
+
+    event_file = datapath / f'ds000212/sub-{subject}/func/sub-{subject}_task-{task}_run-0{run}_events.tsv'
+    print(event_file)
+
     scenarios = []
     with open(event_file, newline='') as csvfile:
         reader = DictReader(csvfile, delimiter='\t', quotechar='"')
         for event in reader:
+            print(event)
             condition, item = event['condition'], event['item']
             if condition not in event_to_scenario:
-                info(f'Skipping event {event}: no scanario mapping.')
+                info(f'Skipping event {event}: no scenario mapping.')
                 continue
             skind, stype = event_to_scenario[condition]
             found = [s for s in all_scenarios if s['item'] == item]
