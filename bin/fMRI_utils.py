@@ -64,6 +64,8 @@ def merge_fmri_and_scenarios(data, scenarios):
     SCENARIO_SEC=22
     NUM_BEFORE_LAST=1
     REST_SEC=10
+    HEMODYNAMIC_LAG = 8 #8 seconds after onput of story, biggest BOLD response in brain
+                        # (6-8s generally, go with 8 for now)
     #assert data.shape[0] == TIME_SERIES_NUM, f"Expected fMRI time series number {TIME_SERIES_NUM} but {data.shape}"
     if not data.shape[0] == TIME_SERIES_NUM:
         info(f"Skipping. Expected fMRI time series number {TIME_SERIES_NUM} but {data.shape}")
@@ -75,7 +77,7 @@ def merge_fmri_and_scenarios(data, scenarios):
     # Add story end time points:
     nums_filter=[SCENARIO_SEC]
     for i in range(SCENARIOS_NUM-1):
-        nums_filter += [nums_filter[-1] + REST_SEC + SCENARIO_SEC]
+        nums_filter += [nums_filter[-1] + REST_SEC + SCENARIO_SEC + HEMODYNAMIC_LAG]
     # Convert to fMRI time series numbers (taken every 2 sec) (and correct if needed):
     nums_filter = [e//2 - NUM_BEFORE_LAST for e in nums_filter]
     filtered = data[nums_filter, :]
@@ -95,10 +97,10 @@ def process_subject_roi(masker, subject):
     for bold_f in subject_path.glob("*.nii.gz"):
         run_num = run_num+1
         info(f'Processing {bold_f.name}')
-        #masked_data = extract_fmri_data(subject, run_num, bold_f)
+        masked_data = extract_fmri_data(subject, run_num, bold_f)
 
-        data = nib.load(bold_f)  # no errors from this !
-        roi_time_series = masker.transform(data)
+        #data = nib.load(bold_f)  # no errors from this !
+        roi_time_series = masker.transform(masked_data)
 
         scenarios = extract_scenarios(subject, run_num, bold_f)
         if roi_time_series.shape[0] > 0 and len(scenarios) > 0:

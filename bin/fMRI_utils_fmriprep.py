@@ -30,14 +30,14 @@ def generate_flattened_data():
     fmri_path = datapath / "ds000212"
 
     # for generating ROI analysis
-    difumo_atlas = nilearn.datasets.fetch_atlas_difumo(dimension=64)
-    difumo_masker = nilearn.maskers.NiftiMapsMasker(difumo_atlas['maps'], resampling_target='data', detrend=True).fit()
+    # difumo_atlas = nilearn.datasets.fetch_atlas_difumo(dimension=64)
+    # difumo_masker = nilearn.maskers.NiftiMapsMasker(difumo_atlas['maps'], resampling_target='data', detrend=True).fit()
 
     # this data structure will allow us to capture anatomical or functional data dependent on run and subject
     layout = bids.BIDSLayout(fmri_path, config=['bids', 'derivatives'])
     for subject in list(layout.get_subjects()):
         process_subject(subject)
-        process_subject_roi(difumo_masker, subject)
+        # process_subject_roi(difumo_masker, subject)
 
 
 def process_subject(subject):
@@ -86,9 +86,6 @@ def process_subject(subject):
     # the most elegant way to do this would be to have a tuple of bold file and associated brain mask. Then can just iterate
     # over all those and capture the runs simultaneously
 
-    # how to do this? Would it be best to separate out all the bold files, and then the brain masks, then combine them somehow?
-    # I suppose so
-
     bold_files = []
     brain_masks = []
     for file in valid_nifti_symlinks:
@@ -131,45 +128,21 @@ def process_subject(subject):
         print("masked data computed for ", tuple[0])
         print("shape of masked data: ", masked_data.shape)
 
-        # Apr 19 - Right now want to use the scenario merging code. Go ahead and
-        # type it out here so I know this part works. Then change the code in those functions
-
         scenarios = extract_scenarios(subject, tuple[0])
         print(scenarios)
 
         # need to change all that code first.
-        return
-        pass
 
-    '''
-    #change for fmriprep derivatives folder
-    subject_path = datapath / f"ds000212/sub-{subject}/func/"
-    target_path = datapath / f"functional_flattened/sub-{subject}"
-    target_path.mkdir(parents=True, exist_ok=True)
-    run_num = 0
-    for bold_f in subject_path.glob("*.nii.gz"):
-        run_num = run_num + 1
-        info(f'Processing {bold_f.name}')
-
-        # TODO Apply binary brain masks specific to subject, task, and run
-        # core logic should just use nilearn.apply_mask. First parameter is 4d nifti files, second is 3d
-        # binary mask nifti file - true for brain regions
-
-
-
-        #masked_data = apply_mask(bold_f, brain_mask)
-
-        # masked_data = extract_fmri_data(subject, run_num, bold_f)
-        scenarios = extract_scenarios(subject, run_num, bold_f)
         if masked_data.shape[0] > 0 and len(scenarios) > 0:
             merged = merge_fmri_and_scenarios(masked_data, scenarios)
             if merged:
                 data, scenarios = merged
-                filename = datapath / f"functional_flattened/sub-{subject}/{run_num}.npy"
+                filename = datapath / f"fmriprep_functional_flattened/sub-{subject}/{tuple[0]}.npy"
                 np.save(filename, data)
-                events_f = datapath / f"functional_flattened/sub-{subject}/labels-{run_num}.npy"
+                events_f = datapath / f"fmriprep_functional_flattened/sub-{subject}/labels-{tuple[0]}.npy"
                 np.save(events_f, scenarios)
-    '''
+
+        pass
 
 
 def merge_fmri_and_scenarios(data, scenarios):
@@ -179,13 +152,16 @@ def merge_fmri_and_scenarios(data, scenarios):
     lasted 33.2 min. Rest blocks of 10 s were interleaved between each story.
     See https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4769633/
     '''
+
+    # TODO - have this run for false belief tasks too. Notable differences - time of 136 seconds, etc.
+
     TIME_SERIES_NUM = 166
     SCENARIOS_NUM = 10
     SCENARIO_SEC = 22
     NUM_BEFORE_LAST = 1
     REST_SEC = 10
-    HEMODYNAMIC_LAG = 4  # 8 seconds after onput of story, biggest BOLD response in brain
-    # (6-8s generally, go with 8 for now). Taken in 2 second intervals, hence 4
+    HEMODYNAMIC_LAG = 8  # 8 seconds after onput of story, biggest BOLD response in brain
+    # (6-8s generally, go with 8 for now)
     # assert data.shape[0] == TIME_SERIES_NUM, f"Expected fMRI time series number {TIME_SERIES_NUM} but {data.shape}"
     if not data.shape[0] == TIME_SERIES_NUM:
         info(f"Skipping. Expected fMRI time series number {TIME_SERIES_NUM} but {data.shape}")
@@ -197,7 +173,7 @@ def merge_fmri_and_scenarios(data, scenarios):
     # Add story end time points:
     nums_filter = [SCENARIO_SEC]
     for i in range(SCENARIOS_NUM - 1):
-        nums_filter += [nums_filter[-1] + REST_SEC + SCENARIO_SEC]
+        nums_filter += [nums_filter[-1] + REST_SEC + SCENARIO_SEC + HEMODYNAMIC_LAG]
     # Convert to fMRI time series numbers (taken every 2 sec) (and correct if needed):
     nums_filter = [e // 2 - NUM_BEFORE_LAST for e in nums_filter]
     filtered = data[nums_filter, :]
@@ -212,6 +188,8 @@ def extract_fmri_data(subject, run_num, bold_f):
 
 
 def process_subject_roi(masker, subject):
+    # Note - this is still computed on the raw data for now.
+
     subject_path = datapath / f"ds000212/sub-{subject}/func/"
     target_path = datapath / f"ds000212_difumo/sub-{subject}"
     target_path.mkdir(parents=True, exist_ok=True)
@@ -219,10 +197,10 @@ def process_subject_roi(masker, subject):
     for bold_f in subject_path.glob("*.nii.gz"):
         run_num = run_num + 1
         info(f'Processing {bold_f.name}')
-        # masked_data = extract_fmri_data(subject, run_num, bold_f)
+        masked_data = extract_fmri_data(subject, run_num, bold_f)
 
-        data = nib.load(bold_f)  # no errors from this !
-        roi_time_series = masker.transform(data)
+        # data = nib.load(bold_f)  # no errors from this !
+        roi_time_series = masker.transform(masked_data)
 
         scenarios = extract_scenarios(subject, run_num, bold_f)
         if roi_time_series.shape[0] > 0 and len(scenarios) > 0:
@@ -240,6 +218,7 @@ def extract_scenarios(subject, bold_f):
     Changes to this are as follows:
         The tsv file containing the events doesn't occur in the derivatives folder afaik.
         So going up and into the raw data by relative path, which is annoying.
+
 
     :param subject:
     :param bold_f:
@@ -260,11 +239,15 @@ def extract_scenarios(subject, bold_f):
     event_file = datapath / f'ds000212/sub-{subject}/func/sub-{subject}_task-{task}_run-0{run}_events.tsv'
     print(event_file)
 
+    # TODO - false belief event tsv files have different conditions. to properly label, amend mapping
+
     scenarios = []
     with open(event_file, newline='') as csvfile:
         reader = DictReader(csvfile, delimiter='\t', quotechar='"')
+        # print(reader)
+        # print("keys: ", reader.fieldnames)
         for event in reader:
-            print(event)
+            # print(event)
             condition, item = event['condition'], event['item']
             if condition not in event_to_scenario:
                 info(f'Skipping event {event}: no scenario mapping.')
@@ -310,13 +293,12 @@ event_to_scenario = {
 
 def main():
     # download_dataset() - use the script for this now
-    # init_scenarios()
-    # generate_flattened_data()
-    print("something")
+    init_scenarios()
+    generate_flattened_data()
     # load out of the numpy files as so
     # test = np.load(datapath / 'functional_flattened/sub-03/1.npy')
     # print(test)
-    process_subject(subject="03")
+    # process_subject(subject="03")
 
 
 if __name__ == '__main__':
