@@ -3,7 +3,7 @@
 # Script to run high level functions for development, maintenance, deployment, etc.
 
 USAGE=`cat<<EOF
-Usage: run.sh ( <function>... | <function> [parameters...] )
+Usage: run.sh <function> [parameters...]
 
 FUNCTIONS: 
   install           - installs environment to load data, train
@@ -21,9 +21,9 @@ script_dir="$(dirname "$script_path")"
 readonly script_dir
 root_dir=$( realpath "$script_dir" )
 
-GIT_REMOTE=git@github.com:ameek2/Inducing-human-like-biases-in-moral-reasoning-LLMs.git
 GIT_MAIN_BRANCH_NAME=main
-AISCIBB_GIT_TOKEN=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  
+GIT_REMOTE=github.com/ameek2/Inducing-human-like-biases-in-moral-reasoning-LLMs.git
+DEPLOYLOCKFILENAME=AISCBB_proj.lock
 
 ################################################################################
 
@@ -45,29 +45,40 @@ function train() {
 }
 
 function gcp() {
-    if ( printenv AISCIBB_GCP_FLAG > /dev/null ) ; then
 
-        echo At GCP. Running deployment...
+    if [[ -z ${AISCIBB_GCP_FLAG-} ]] ; then
+        [[ ! -z ${AISCIBB_GIT_TOKEN-} ]]  || ( echo Please set AISCIBB_GIT_TOKEN environment variable  ; exit 1 )
+        [[ ! -z ${AISCIBB_GCP_SSH_USERHOST-} ]]  || ( echo Please set AISCIBB_GCP_SSH_USERHOST environment variable  ; exit 1 )
 
-        echo Retrieving files.
-        GITBRANCH=${1-$GIT_MAIN_BRANCH_NAME}
-        git clone -b $GITBRANCH $GIT_REMOTE proj
-
-        git clone "https://$YOURTOKEN@github.com/ameek2/Inducing-human-like-biases-in-moral-reasoning-LLMs.git"
-        cd proj
-        
-        echo bash ./run.sh install 
-
-        echo bash ./run.sh datasets 
-
-    else
         echo Deploying to GCP...
         [[ "$AISCIBB_GCP_SSH_USERHOST" != "" ]] || ( echo 'Need SSH URL (AISCIBB_GCP_SSH_DESTINATION variable).' ; exit 1 )
         scp -q ./run.sh scp://$AISCIBB_GCP_SSH_USERHOST/run.sh
-        ssh ssh://$AISCIBB_GCP_SSH_USERHOST 'AISCIBB_GCP_FLAG=1 bash' ./run.sh gcp $( git rev-parse --abbrev-ref HEAD )
+        ssh ssh://$AISCIBB_GCP_SSH_USERHOST 'AISCIBB_GCP_FLAG=1 bash' ./run.sh gcp $( git rev-parse --abbrev-ref HEAD ) "$AISCIBB_GIT_TOKEN"
+    else
+        echo At GCP. Running deployment...
+        
+        echo Locking...
+        LOCK=/tmp/$DEPLOYLOCKFILENAME
+        [[ ! -e $LOCK ]] || ( echo "Failed to deploy: remote machine is locked (file $LOCK). Last access:"; stat $LOCK | grep Access ; exit 1 )
+        touch $LOCK
+
+        echo Retrieving files...
+        GITBRANCH=${1-$GIT_MAIN_BRANCH_NAME}
+        AISCIBB_GIT_TOKEN=$2
+
+        TARGETDIR=~/aiscbbproj
+        [[ ! -e %TARGETDIR ]] || rm -dr $TARGETDIR
+        git clone -b $GITBRANCH "https://$AISCIBB_GIT_TOKEN@$GIT_REMOTE" $TARGETDIR 
+        cd $TARGETDIR
+        
+        bash ./run.sh install  || ( echo 'Failed to install' ; exit 1)
+
+        # bash ./run.sh datasets  || ( echo 'Failed to install' ; exit 1)
+
+        [[ ! -e %TARGETDIR ]] || rm -dr $TARGETDIR
+        rm $LOCK
     fi
 }
-
 
 ################################################################################
 
@@ -75,15 +86,8 @@ function gcp() {
 if [[ $# == 0 ]] ; then 
     echo "$USAGE"
 else 
-    if [[ "$@" =~ '--' ]]; then 
-        cmd=$1
-        shift 1
-        $cmd "$@"
-    else
-        while [[ $# -ne 0 ]] ; do 
-            $1
-            shift 1
-        done
-    fi
+    cmd=$1
+    shift 1
+    $cmd "$@"
 fi
 
