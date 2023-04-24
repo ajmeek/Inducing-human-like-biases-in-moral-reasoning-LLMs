@@ -1,9 +1,9 @@
 import torch as t
 from pytorch_lightning.utilities import CombinedLoader
-from torch.utils.data import TensorDataset
+from torch.utils.data import TensorDataset, DataLoader
 from transformers import AutoTokenizer, AutoModel
-from utils.loading_data import load_csv_to_tensors, load_np_fmri_to_tensor, load_ds000212_dataset, \
-    multiple_dataset_loading
+from utils.loading_data import load_csv_to_tensors, load_np_fmri_to_tensor, \
+    load_ds000212_dataset, multiple_dataset_loading
 from utils.preprocessing import preprocess_prediction, preprocess
 from model import BERT
 from pl_model import LitBert
@@ -49,15 +49,8 @@ def main():
     #     base_model = modify_with_ia3(base_model, layers_to_replace_with_ia3)
 
     # Load the train dataset
-    train_dataloaders, val_dataloaders, train_head_dims = multiple_dataset_loading(
-        datapath,
-        tokenizer,
-        datasets=config['train_datasets'],
-        num_samples=config['num_samples_train'],
-        batch_size=config['batch_size'],
-        shuffle=config['shuffle_train'],
-        normalize_fmri=config['normalize_fmri'],
-        fraction_train=config['fraction_train'])
+    train_dataloaders, val_dataloaders, train_head_dims = \
+        multiple_dataset_loading(datapath, tokenizer, config)
 
     # Define the model
     model = BERT(
@@ -93,13 +86,17 @@ def main():
     )
     print('Fine tuning BERT...')
     # See documentation on multiple dataloaders here: https://pytorch-lightning.readthedocs.io/en/1.3.8/advanced/multiple_loaders.html
-    trainer.fit(lit_model, train_dataloaders=train_dataloaders, val_dataloaders=val_dataloaders)
+    trainer.fit(lit_model,
+                train_dataloaders=train_dataloaders,
+                val_dataloaders=val_dataloaders)
 
     # Test the model
     test_dataset_path = ethics_ds_path / config['test_set']
-    tokens, masks, targets = load_csv_to_tensors(test_dataset_path, tokenizer, num_samples=config['num_samples_test'])
-    _, test_loader = preprocess(tokens, masks, targets, batch_size=config['batch_size'], shuffle=config['shuffle_test'],
-                                fraction_train=0.0)
+    tokens, masks, targets = load_csv_to_tensors(
+        test_dataset_path, tokenizer, num_samples=config['num_samples_test'])
+    data = TensorDataset(tokens, masks, targets)
+    test_loader = DataLoader(
+        data, batch_size=config['batch_size'], shuffle=config['shuffle_test'])
 
     print('Testing on ETHICS...')
     trainer.test(lit_model, dataloaders=test_loader)
@@ -108,7 +105,8 @@ def main():
 
     # Make prediction on a single test example
     # example_text = "I am a sentence."
-    # prediction_dataloader = preprocess_prediction([example_text], tokenizer, batch_size=1)
+    # prediction_dataloader = preprocess_prediction(
+    #     [example_text], tokenizer, batch_size=1)
     # prediction = trainer.predict(lit_model, prediction_dataloader)
 
 
@@ -127,10 +125,13 @@ def get_config():
 
     # Check if parameters are valid
     for index, train_dataset in enumerate(config['train_datasets']):
-        if train_dataset not in ['ds000212'] and not train_dataset.startswith('ethics'):
+        if train_dataset not in ['ds000212'] and \
+                not train_dataset.startswith('ethics'):
             raise ValueError(f"Invalid train dataset: {train_dataset}")
-        if train_dataset == 'ethics' and config['loss_names'][index] != 'cross-entropy':
-            raise ValueError(f"Invalid loss for ethics dataset: {config['loss_names'][index]}. "
+        if train_dataset == 'ethics' \
+                and config['loss_names'][index] != 'cross-entropy':
+            raise ValueError(f"Invalid loss for ethics dataset: "
+                             f"{config['loss_names'][index]}. "
                              f"For classification can only use cross_entropy.")
 
     return config
@@ -145,9 +146,10 @@ def get_args() -> argparse.ArgumentParser:
     parser.add_argument(
         '--train_datasets',
         nargs='+',
-        default=['ethics/commonsense/cm_train.csv', 'ds000212'],
+        default=['ethics/commonsense/cm_train.csv'],
         type=str,
-        help='Datasets to train on. This can be multiple datasets, e.g. "ds000212 ethics/...".'
+        help='Datasets to train on. This can be multiple datasets, '
+             'e.g. "ds000212 ethics/...".'
              'Note that the same datasets are used for validation.'
     )
 

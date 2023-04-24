@@ -26,19 +26,19 @@ class BERT(nn.Module):
     def forward(self, tokens, mask):
         # tokens: [batch seq_len]
         # mask: [batch seq_len]
-        base_out = self.base(tokens, mask) # [batch seq_len d_model]
-        base_out = base_out.last_hidden_state # use last layer activations
-        base_out = base_out[:, 0, :] # only take the encoding of [CLS] -> [batch, d_model]
+        base_out = self.base(tokens, mask)  # [batch seq_len d_model]
+        base_out = base_out.last_hidden_state  # use last layer activations
+        base_out = base_out[:, 0, :]  # only take the encoding of [CLS] -> [batch, d_model]
 
         outs = []
         for head, head_d in zip(self.heads, self.head_dims):
-            head_out = head(base_out) # [batch d_out_flat]
+            head_out = head(base_out)  # [batch d_out_flat]
 
-            # if out_dim is multi-dimensional, reshape the output
+            # if out_dim is multidimensional, reshape the output
             if type(head_d) is tuple:
                 d_batch = head_out.shape[0]
                 # Unflatten the output again, note that targets are also not flat.
-                head_out = head_out.reshape((d_batch, *head_d)) # [batch *head_d]
+                head_out = head_out.reshape((d_batch, *head_d))  # [batch *head_d]
 
             outs.append(head_out)
 

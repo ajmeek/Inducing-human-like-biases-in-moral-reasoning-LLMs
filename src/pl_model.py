@@ -24,7 +24,8 @@ class LitBert(pl.LightningModule):
         self.model = model
         self.only_train_head = only_train_head
         self.loss_names = loss_names
-        self.loss_weights = [1 for _ in loss_names] if loss_weights is None else loss_weights
+        self.loss_weights = [1 for _ in loss_names] \
+            if loss_weights is None else loss_weights
         self.regularize_from_init = regularize_from_init
         self.regularization_coef = regularization_coef
         # store the initial weights of the model (used for regularization)
@@ -34,7 +35,8 @@ class LitBert(pl.LightningModule):
 
     def training_step(self, batch, _):
         loss = 0
-        for index, dataloader in enumerate(batch):  # Batch has now multiple dataloaders (can also still be 1)
+        # Batch has now multiple dataloaders (can also still be 1)
+        for index, dataloader in enumerate(batch):
             tokens, mask, target = dataloader
             predictions = self.model(tokens, mask)[index]
 
@@ -62,7 +64,7 @@ class LitBert(pl.LightningModule):
         self.log("train_loss", loss, prog_bar=True)
         return loss
 
-    def validation_step(self, batch, batch_idx, dataloader_idx):
+    def validation_step(self, batch, batch_idx, dataloader_idx: int = 0):
         dataset_name = self.dataset_names[dataloader_idx]
         if dataset_name.startswith('ethics'):
             return self.test_step(batch, batch_idx, dataloader_idx)
@@ -73,17 +75,19 @@ class LitBert(pl.LightningModule):
             self.log("val_mse", mse_loss, prog_bar=True)
             return mse_loss
 
-    def test_step(self, batch, batch_idx, dataloader_idx: int = 0) -> Optional[STEP_OUTPUT]:
+    def test_step(self, batch, batch_idx, dataloader_idx: int = 0):
         tokens, mask, target = batch
         predictions = self.model(tokens, mask)
-        logits = predictions[0]  # Note: take the first, so we use the ETHICS head to predict.
+        logits = predictions[0]  # Assume first predictions contain ETHICS head.
         probs = F.softmax(logits, dim=-1)
         predicted_label = probs.argmax(dim=-1)
-        # log the accuracy (this automatically accumulates it over the whole test set)
-        self.log("val|test_acc", (predicted_label == target).float().mean(), prog_bar=True)
+        # self.log automatically accumulates and averages over whole test set.
+        self.log("val_or_test_acc",
+                 (predicted_label == target).float().mean(),
+                 prog_bar=True)
         return predicted_label
 
-    def predict_step(self, batch: Any, batch_idx: int, dataloader_idx: int = 0) -> Any:
+    def predict_step(self, batch: Any, batch_idx: int, dataloader_idx: int = 0):
         tokens, mask, target, dataset_index = batch
         predictions = self.model(tokens, mask)
         logits = predictions[dataset_index[0].item()]
