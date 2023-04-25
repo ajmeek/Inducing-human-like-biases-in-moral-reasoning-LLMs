@@ -60,7 +60,8 @@ RUN python3 -m \
     nibabel  \
     sympy
 
-COPY . .
+WORKDIR proj
+COPY --from=builder . .
 
 RUN ls
 
