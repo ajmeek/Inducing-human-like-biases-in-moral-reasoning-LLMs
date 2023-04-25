@@ -12,14 +12,15 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 import argparse
+from os import environ
 from datetime import datetime
 
-datapath = Path('./data')
+datapath = Path(environ.get('AISCBB_DATA_DIR','./data'))
+artifactspath = Path(environ.get('AISCBB_ARTIFACTS_DIR','./artifacts'))
 
 def main():
     assert datapath.exists(), 'Expected data dir present.'
     ethics_ds_path = datapath / 'ethics'
-    artifactspath = Path('./artifacts')
     artifactspath.mkdir(exist_ok=True)
     difumo_ds_path = datapath / 'ds000212_difumo'
 

@@ -81,7 +81,16 @@ function gcp() {
 
         echo Running container...
         shift 2  # Remove first two params for gcp.
-        docker container run  -v ~/.gitconfig:/etc/gitconfig aiscbb bash run.sh "$@"
+        mkdir -p ~/artifacts
+        mkdir -p ~/data
+        docker container run \
+            -e AISCBB_ARTIFACTS_DIR=/asicbb_data \
+            -e AISCBB_DATA_DIR=/aiscbb_artifacts \
+            -v ~/artifacts:/aiscbb_artifacts \
+            -v ~/data:/asicbb_data \
+            -v ~/.gitconfig:/etc/gitconfig \
+            aiscbb \
+            bash run.sh "$@"
 
         [[ ! -e %TARGETDIR ]] || rm -dr $TARGETDIR
         echo At GCP. Finished.

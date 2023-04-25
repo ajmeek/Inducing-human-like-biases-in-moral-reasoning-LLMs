@@ -16,7 +16,8 @@ import numpy as np
 from subprocess import run
 from csv import DictReader
 
-datapath = Path('./data')
+datapath = Path(environ.get('AISCBB_DATA_DIR','./data'))
+artifactspath = Path(environ.get('AISCBB_ARTIFACTS_DIR','./artifacts'))
 all_scenarios = []
 
 #loop to turn all functional mri data by subject into 2d arrays. This can then be flattened for use in BERT linear layer fine tuning
