@@ -84,8 +84,8 @@ function gcp() {
         mkdir -p ~/artifacts
         mkdir -p ~/data
         docker container run \
-            -e AISCBB_ARTIFACTS_DIR=/asicbb_data \
-            -e AISCBB_DATA_DIR=/aiscbb_artifacts \
+            -e AISCBB_ARTIFACTS_DIR=/aiscbb_artifacts \
+            -e AISCBB_DATA_DIR=/asicbb_data \
             -v ~/artifacts:/aiscbb_artifacts \
             -v ~/data:/asicbb_data \
             -v ~/.gitconfig:/etc/gitconfig \

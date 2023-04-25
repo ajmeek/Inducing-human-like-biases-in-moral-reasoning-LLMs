@@ -15,6 +15,7 @@ import nibabel as nib
 import numpy as np
 from subprocess import run
 from csv import DictReader
+from os import environ
 
 datapath = Path(environ.get('AISCBB_DATA_DIR','./data'))
 artifactspath = Path(environ.get('AISCBB_ARTIFACTS_DIR','./artifacts'))
