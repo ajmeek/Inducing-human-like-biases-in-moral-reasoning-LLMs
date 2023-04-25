@@ -33,6 +33,7 @@ RUN apt install \
     tmux \
     unzip \
     vim \
+    datalad \
     wget
 
 RUN python3 -m \
@@ -53,10 +54,7 @@ RUN python3 -m \
     bids  \
     nilearn  \
     nibabel  \
-    sympy \
-    datalad-installer
-
-CMD datalad-installer --sudo ok datalad git-annex -m datalad/git-annex:release 
+    sympy 
 
 WORKDIR /src
 COPY . .
