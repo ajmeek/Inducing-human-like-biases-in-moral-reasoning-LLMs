@@ -81,7 +81,7 @@ function gcp() {
 
         echo Running container...
         shift 2  # Remove first two params for gcp.
-        docker container run  -v ~/.gitconfig:~/.gitconfig aiscbb bash run.sh "$@"
+        docker container run  -v ~/.gitconfig:/etc/gitconfig aiscbb bash run.sh "$@"
 
         [[ ! -e %TARGETDIR ]] || rm -dr $TARGETDIR
         echo At GCP. Finished.
