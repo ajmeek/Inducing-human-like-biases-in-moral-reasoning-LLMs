@@ -60,7 +60,7 @@ RUN python3 -m \
     nibabel  \
     sympy
 
-COPY . .
+COPY . ./
 
 RUN ls
 
