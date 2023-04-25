@@ -60,5 +60,8 @@ RUN python3 -m \
     nibabel  \
     sympy
 
+COPY . .
+
+RUN ls
 
 CMD echo Running inside container
