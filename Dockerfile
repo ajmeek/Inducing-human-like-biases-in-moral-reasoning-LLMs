@@ -23,6 +23,7 @@ RUN apt install \
     locales \
     nano \
     ninja-build \
+    python3==3.9 \
     python3-dev \
     python3-setuptools \
     python3-venv \
