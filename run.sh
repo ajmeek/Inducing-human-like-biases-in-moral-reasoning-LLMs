@@ -83,7 +83,7 @@ function gcp() {
         cd $TARGETDIR
 
         echo Building docker image...
-        docker image build -t aiscbb $TARGETDIR
+        docker buildx build -t aiscbb $TARGETDIR
 
         echo Running container...
         shift 2  # Remove first two params for gcp.
