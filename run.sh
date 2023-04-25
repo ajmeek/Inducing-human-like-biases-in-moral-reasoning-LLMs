@@ -23,6 +23,8 @@ root_dir=$( realpath "$script_dir" )
 
 GIT_MAIN_BRANCH_NAME=main
 GIT_REMOTE=github.com/ameek2/Inducing-human-like-biases-in-moral-reasoning-LLMs.git
+AISCBB_ARTIFACTS_DIR=${AISCBB_ARTIFACTS_DIR:-$root_dir/artifacts}
+AISCBB_DATA_DIR=${AISCBB_DATA_DIR:-$root_dir/data}
 
 ################################################################################
 
@@ -37,7 +39,7 @@ function train() {
 }
 
 function gcp() {
-    GCPUSAGE="Provide task after gcp like this: run.sh gcp my-task [parameter ...]"
+    GCPUSAGE="Runs tasks at Google Cloud Platform. Provide task after gcp like this: run.sh gcp my-task [parameter ...]"
 
     # If it is local or remote environment:
     if [[ -z ${AISCIBB_GCP_FLAG-} ]] ; then
@@ -81,13 +83,13 @@ function gcp() {
 
         echo Running container...
         shift 2  # Remove first two params for gcp.
-        mkdir -p ~/artifacts
-        mkdir -p ~/data
+        [[ -e $AISCBB_ARTIFACTS_DIR ]] || ( echo Failed: no artifacts dir found. ; exit 1 )
+        [[ -e $AISCBB_DATA_DIR ]] || ( echo Failed: no data dir found. ; exit 1 )
         docker container run \
             -e AISCBB_ARTIFACTS_DIR=/aiscbb_artifacts \
             -e AISCBB_DATA_DIR=/asicbb_data \
-            -v ~/artifacts:/aiscbb_artifacts \
-            -v ~/data:/asicbb_data \
+            -v $AISCBB_ARTIFACTS_DIR:/aiscbb_artifacts \
+            -v $AISCBB_DATA_DIR:/asicbb_data \
             -v ~/.gitconfig:/etc/gitconfig \
             aiscbb \
             bash run.sh "$@"
@@ -105,6 +107,6 @@ if [[ $# == 0 ]] ; then
 else 
     cmd=$1
     shift 1
-    $cmd "$@"
+    $cmd "$@"  
 fi
 
