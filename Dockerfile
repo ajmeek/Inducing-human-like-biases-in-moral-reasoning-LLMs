@@ -44,13 +44,8 @@ RUN python3 -m \
 RUN python3 -m \
     pip install \
     --no-cache-dir \
-    torch==1.13.1 \
-    --extra-index-url https://download.pytorch.org/whl/cu113
-
-RUN python3 -m \
-    pip install \
-    --no-cache-dir \
     transformers   \
+    torch==1.13.1 \
     torchaudio  \
     torchvision  \
     pandas  \
