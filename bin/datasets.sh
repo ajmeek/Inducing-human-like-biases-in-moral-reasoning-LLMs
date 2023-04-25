@@ -18,8 +18,8 @@ if [[ ! -e $DATADIR/ds000212  || ! -e $DATADIR/functional_flattened ]]; then
     echo Downloading and processing ds000212...
     ( pushd "$DATADIR" ; datalad install --get-data https://github.com/OpenNeuroDatasets/ds000212.git ; popd )
 
-    if [[ ! -e $DATADIR/scenarious.csv ]]; then
-        cp $root_dir/data/scenarious.csv $DATADIR/scenarious.csv
+    if [[ ! -e $DATADIR/scenarios.csv ]]; then
+        cp $root_dir/data/scenarios.csv $DATADIR/scenarios.csv
     fi
 
     python3 ./bin/fMRI_utils.py
