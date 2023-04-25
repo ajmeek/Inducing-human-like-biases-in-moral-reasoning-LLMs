@@ -1,8 +1,9 @@
 import torch as t
-from torch.utils.data import TensorDataset
+from pytorch_lightning.utilities import CombinedLoader
+from torch.utils.data import TensorDataset, DataLoader
 from transformers import AutoTokenizer, AutoModel
-from utils.loading_data import load_csv_to_tensors, load_np_fmri_to_tensor, load_ds000212_dataset, \
-    multiple_dataset_loading
+from utils.loading_data import load_csv_to_tensors, load_np_fmri_to_tensor, \
+    load_ds000212_dataset, multiple_dataset_loading
 from utils.preprocessing import preprocess_prediction, preprocess
 from model import BERT
 from pl_model import LitBert
@@ -16,6 +17,7 @@ from datetime import datetime
 
 datapath = Path('./data')
 
+
 def main():
     assert datapath.exists(), 'Expected data dir present.'
     ethics_ds_path = datapath / 'ethics'
@@ -26,10 +28,13 @@ def main():
     config = get_config()
 
     # determine the best device to run on
-    if t.cuda.is_available(): device = 'cuda'
-    elif t.backends.mps.is_available(): device = 'mps'
-    else: device = 'cpu'
-    print(f"Device: {device=}")
+    if t.cuda.is_available():
+        device = 'cuda'
+    elif t.backends.mps.is_available():
+        device = 'mps'
+    else:
+        device = 'cpu'
+    print(f"{device=}")
     print(f'Config: \n' + '\n'.join(f'{k:<40}{config[k]}' for k in config))
 
     # Define the tokenizer and model
@@ -37,15 +42,15 @@ def main():
     # TODO make sure it doesn't add SEP tokens when there's a full stop
     base_model = AutoModel.from_pretrained(config['checkpoint'])
 
-    #use_ia3_layers = False
+    # use_ia3_layers = False
     # if use_ia3_layers:
     #     from ia3_model_modifier import modify_with_ia3
     #     layers_to_replace_with_ia3 = "key|value|intermediate.dense"
     #     base_model = modify_with_ia3(base_model, layers_to_replace_with_ia3)
 
-    # Load the dataset
-    dataloaders, train_head_dims = multiple_dataset_loading(datapath, tokenizer, config,
-                                                            shuffle=config['shuffle_train'],                                                         normalize_fmri=config['normalize_fmri'])
+    # Load the train dataset
+    train_dataloaders, val_dataloaders, train_head_dims = \
+        multiple_dataset_loading(datapath, tokenizer, config)
 
     # Define the model
     model = BERT(
@@ -58,7 +63,8 @@ def main():
         config['loss_names'],
         loss_weights=config['loss_weights'],
         regularize_from_init=config['regularize_from_init'],
-        regularization_coef=config['regularization_coef']
+        regularization_coef=config['regularization_coef'],
+        dataset_names=config['train_datasets'],
     )
 
     logger = TensorBoardLogger(
@@ -75,15 +81,22 @@ def main():
         devices=1,
         logger=logger,
         log_every_n_steps=1,
-        default_root_dir=artifactspath
+        default_root_dir=artifactspath,
+        check_val_every_n_epoch=config['check_val_every_n_epoch'],
     )
     print('Fine tuning BERT...')
-    trainer.fit(lit_model, dataloaders)
+    # See documentation on multiple dataloaders here: https://pytorch-lightning.readthedocs.io/en/1.3.8/advanced/multiple_loaders.html
+    trainer.fit(lit_model,
+                train_dataloaders=train_dataloaders,
+                val_dataloaders=val_dataloaders)
 
     # Test the model
     test_dataset_path = ethics_ds_path / config['test_set']
-    tokens, masks, targets = load_csv_to_tensors(test_dataset_path, tokenizer, num_samples=config['num_samples_test'])
-    test_loader = preprocess(tokens, masks, targets, batch_size=config['batch_size'], shuffle=config['shuffle_test'])
+    tokens, masks, targets = load_csv_to_tensors(
+        test_dataset_path, tokenizer, num_samples=config['num_samples_test'])
+    data = TensorDataset(tokens, masks, targets)
+    test_loader = DataLoader(
+        data, batch_size=config['batch_size'], shuffle=config['shuffle_test'])
 
     print('Testing on ETHICS...')
     trainer.test(lit_model, dataloaders=test_loader)
@@ -92,7 +105,8 @@ def main():
 
     # Make prediction on a single test example
     # example_text = "I am a sentence."
-    # prediction_dataloader = preprocess_prediction([example_text], tokenizer, batch_size=1)
+    # prediction_dataloader = preprocess_prediction(
+    #     [example_text], tokenizer, batch_size=1)
     # prediction = trainer.predict(lit_model, prediction_dataloader)
 
 
@@ -111,13 +125,17 @@ def get_config():
 
     # Check if parameters are valid
     for index, train_dataset in enumerate(config['train_datasets']):
-        if train_dataset not in ['ds000212'] and not train_dataset.startswith('ethics'):
+        if train_dataset not in ['ds000212'] and \
+                not train_dataset.startswith('ethics'):
             raise ValueError(f"Invalid train dataset: {train_dataset}")
-        if train_dataset == 'ethics' and config['loss_names'][index] != 'cross-entropy':
-            raise ValueError(f"Invalid loss for ethics dataset: {config['loss_names'][index]}. "
+        if train_dataset == 'ethics' \
+                and config['loss_names'][index] != 'cross-entropy':
+            raise ValueError(f"Invalid loss for ethics dataset: "
+                             f"{config['loss_names'][index]}. "
                              f"For classification can only use cross_entropy.")
 
     return config
+
 
 def get_args() -> argparse.ArgumentParser:
     """Get command line arguments"""
@@ -128,19 +146,22 @@ def get_args() -> argparse.ArgumentParser:
     parser.add_argument(
         '--train_datasets',
         nargs='+',
-        default=['ethics/commonsense/cm_train.csv', 'ds000212'],
+        default=['ethics/commonsense/cm_train.csv'],
         type=str,
-        help='Datasets to train on. This can be multiple datasets, e.g. "ds000212 ethics/...".'
+        help='Datasets to train on. This can be multiple datasets, '
+             'e.g. "ds000212 ethics/...".'
+             'Note that the same datasets are used for validation.'
     )
+
     parser.add_argument(
         '--normalize_fmri',
-        default='False',
+        default='True',
         type=str,
         help='Normalize fMRI data.'
     )
     parser.add_argument(
         '--num_epochs',
-        default='1',
+        default='10',
         type=int,
         help='Number of epochs to fine tune a model on fMRI data.'
              '(default: 1)'
@@ -154,10 +175,10 @@ def get_args() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         '--batch_size',
-        default='15',
+        default='32',
         type=int,
         help='Batch size.'
-             '(default: 15)'
+             '(default: 32)'
     )
     parser.add_argument(
         '--regularize_from_init',
@@ -232,6 +253,19 @@ def get_args() -> argparse.ArgumentParser:
         default=[1.0, 1.0],
         type=float,
         help='Loss weights.'
+    )
+    parser.add_argument(
+        '--fraction_train',
+        default='0.9',
+        type=float,
+        help='Fraction of data to use for training.'
+    )
+
+    parser.add_argument(
+        '--check_val_every_n_epoch',
+        default='2',
+        type=int,
+        help='Check validation every n epochs.'
     )
 
     return parser

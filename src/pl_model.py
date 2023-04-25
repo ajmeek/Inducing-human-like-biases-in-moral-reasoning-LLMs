@@ -8,7 +8,6 @@ import copy
 import lightning.pytorch as pl
 
 
-
 # lightning wrapper for training (scaling, parallelization etc)
 class LitBert(pl.LightningModule):
     def __init__(
@@ -19,21 +18,25 @@ class LitBert(pl.LightningModule):
             loss_weights: list[float] = None,
             regularize_from_init: bool = False,
             regularization_coef: float = 0.,
-        ):
+            dataset_names: list[str] = None,
+    ):
         super().__init__()
         self.model = model
         self.only_train_head = only_train_head
         self.loss_names = loss_names
-        self.loss_weights = [1 for _ in loss_names] if loss_weights is None else loss_weights
+        self.loss_weights = [1 for _ in loss_names] \
+            if loss_weights is None else loss_weights
         self.regularize_from_init = regularize_from_init
         self.regularization_coef = regularization_coef
         # store the initial weights of the model (used for regularization)
         # note that we're not applying the regularization to the heads
         self.init_params = copy.deepcopy([p for p in model.base.parameters()])
-    
-    def training_step(self, batch, batch_idx):
+        self.dataset_names = dataset_names
+
+    def training_step(self, batch, _):
         loss = 0
-        for index, dataloader in enumerate(batch):  # Batch has now multiple dataloaders (can also still be 1)
+        # Batch has now multiple dataloaders (can also still be 1)
+        for index, dataloader in enumerate(batch):
             tokens, mask, target = dataloader
             predictions = self.model(tokens, mask)[index]
 
@@ -46,7 +49,7 @@ class LitBert(pl.LightningModule):
                 loss += loss_weight * F.mse_loss(predictions, target)
             else:
                 print(f"\n\nUnsupported loss name {loss_name}\n")
-        
+
         if self.regularize_from_init:
             # add regularization from the initial weights
             # (encourages staying closer to the pretrained base model weights)
@@ -56,29 +59,42 @@ class LitBert(pl.LightningModule):
                 w0 = w0.to(w.device)
                 reg_loss += torch.pow(w - w0, 2).sum()
             loss += self.regularization_coef * reg_loss
-        
+
         # log and return
         self.log("train_loss", loss, prog_bar=True)
         return loss
 
-    def test_step(self, batch, batch_idx) -> Optional[STEP_OUTPUT]:
+    def validation_step(self, batch, batch_idx, dataloader_idx: int = 0):
+        dataset_name = self.dataset_names[dataloader_idx]
+        if dataset_name.startswith('ethics'):
+            return self.test_step(batch, batch_idx, dataloader_idx)
+        elif dataset_name == 'ds000212':
+            tokens, mask, target = batch
+            predictions = self.model(tokens, mask)[dataloader_idx]
+            mse_loss = F.mse_loss(predictions, target)
+            self.log("val_mse", mse_loss, prog_bar=True)
+            return mse_loss
+
+    def test_step(self, batch, batch_idx, dataloader_idx: int = 0):
         tokens, mask, target = batch
         predictions = self.model(tokens, mask)
-        logits = predictions[0]  # Note: take the first, so we use the ETHICS head to predict.
+        logits = predictions[0]  # Assume first predictions contain ETHICS head.
         probs = F.softmax(logits, dim=-1)
         predicted_label = probs.argmax(dim=-1)
-        # log the accuracy (this automatically accumulates it over the whole test set)
-        self.log("test_acc", (predicted_label == target).float().mean(), prog_bar=True)
+        # self.log automatically accumulates and averages over whole test set.
+        self.log("val_or_test_acc",
+                 (predicted_label == target).float().mean(),
+                 prog_bar=True)
         return predicted_label
 
-    def predict_step(self, batch: Any, batch_idx: int, dataloader_idx: int = 0) -> Any:
+    def predict_step(self, batch: Any, batch_idx: int, dataloader_idx: int = 0):
         tokens, mask, target, dataset_index = batch
         predictions = self.model(tokens, mask)
         logits = predictions[dataset_index[0].item()]
         return F.softmax(logits, dim=-1)
-    
+
     def configure_optimizers(self):
-        #! FIXME this breaks if you first only train head and then train the whole thing
+        # ! FIXME this breaks if you first only train head and then train the whole thing
         if self.only_train_head:
             for param in self.model.base.parameters():
                 param.requires_grad = False
