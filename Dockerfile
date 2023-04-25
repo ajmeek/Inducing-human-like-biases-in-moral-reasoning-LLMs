@@ -58,11 +58,10 @@ RUN python3 -m \
     bids  \
     nilearn  \
     nibabel  \
-    sympy
+    sympy \
+    datalad-installer
+
+CMD datalad-installer --sudo ok datalad git-annex -m datalad/git-annex:release 
 
 WORKDIR /src
 COPY . .
-
-RUN ls
-
-CMD echo Running inside container

@@ -26,13 +26,6 @@ GIT_REMOTE=github.com/ameek2/Inducing-human-like-biases-in-moral-reasoning-LLMs.
 
 ################################################################################
 
-function install() {
-    echo Installing...
-    python3 -m pip install -r requirements.txt
-    python3 -m pip install datalad-installer
-    datalad-installer --sudo ok datalad git-annex -m datalad/git-annex:release 
-}
-
 function datasets() {
     echo Preparing datasets...
     source ./bin/datasets.sh
@@ -92,11 +85,6 @@ function gcp() {
         [[ ! -e %TARGETDIR ]] || rm -dr $TARGETDIR
         echo At GCP. Finished.
     fi
-}
-
-function test() {
-    echo Inside test ...
-
 }
 
 ################################################################################
