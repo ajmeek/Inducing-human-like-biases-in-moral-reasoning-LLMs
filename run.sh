@@ -88,6 +88,7 @@ function gcp() {
         docker container run \
             -e AISCBB_ARTIFACTS_DIR=/aiscbb_artifacts \
             -e AISCBB_DATA_DIR=/asicbb_data \
+            -e TZ=Europe/London \
             -v $AISCBB_ARTIFACTS_DIR:/aiscbb_artifacts \
             -v $AISCBB_DATA_DIR:/asicbb_data \
             -v ~/.gitconfig:/etc/gitconfig \
