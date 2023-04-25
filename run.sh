@@ -45,21 +45,34 @@ function train() {
 }
 
 function gcp() {
+    GCPUSAGE="Provide task after gcp like this: run.sh gcp my-task [parameter ...]"
 
+    # If it is local or remote environment:
     if [[ -z ${AISCIBB_GCP_FLAG-} ]] ; then
-        [[ ! -z ${AISCIBB_GIT_TOKEN-} ]]  || ( echo Please set AISCIBB_GIT_TOKEN environment variable  ; exit 1 )
-        [[ ! -z ${AISCIBB_GCP_SSH_USERHOST-} ]]  || ( echo Please set AISCIBB_GCP_SSH_USERHOST environment variable  ; exit 1 )
+        # If all prerequisits met:
+        if [[ $# -eq 0 ]]; then
+            echo Failed to run at GCP: \n $GCPUSAGE
+            exit 1
+        fi
+        [[ ! -z ${AISCIBB_GIT_TOKEN-} ]]  || ( echo "Please set AISCIBB_GIT_TOKEN environment variable (see https://github.com/settings/tokens)." ; exit 1 )
+        [[ ! -z ${AISCIBB_GCP_SSH_USERHOST-} ]]  || ( echo "Please set AISCIBB_GCP_SSH_USERHOST environment variable (example: user@123.123.123.123)." ; exit 1 )
 
         echo Deploying to GCP...
-        [[ "$AISCIBB_GCP_SSH_USERHOST" != "" ]] || ( echo 'Need SSH URL (AISCIBB_GCP_SSH_DESTINATION variable).' ; exit 1 )
         scp -q ./run.sh scp://$AISCIBB_GCP_SSH_USERHOST/run.sh
-        ssh ssh://$AISCIBB_GCP_SSH_USERHOST 'AISCIBB_GCP_FLAG=1 bash' ./run.sh gcp $( git rev-parse --abbrev-ref HEAD ) "$AISCIBB_GIT_TOKEN"
+        # Run remotely:
+        ssh ssh://$AISCIBB_GCP_SSH_USERHOST 'AISCIBB_GCP_FLAG=1 bash' ./run.sh gcp $( git rev-parse --abbrev-ref HEAD ) "$AISCIBB_GIT_TOKEN" "$@"
     else
+        # If all prerequisits met:
+        if [[ $# -le 2 ]]; then
+            echo Failed to run at GCP: $GCPUSAGE
+            exit 1
+        fi
+
         echo At GCP. Running deployment...
         
-        echo Locking...
         LOCK=/tmp/$DEPLOYLOCKFILENAME
         [[ ! -e $LOCK ]] || ( echo "Failed to deploy: remote machine is locked (file $LOCK). Last access:"; stat $LOCK | grep Access ; exit 1 )
+        echo Locking...
         touch $LOCK
 
         echo Retrieving files...
@@ -67,17 +80,28 @@ function gcp() {
         AISCIBB_GIT_TOKEN=$2
 
         TARGETDIR=~/aiscbbproj
-        [[ ! -e %TARGETDIR ]] || rm -dr $TARGETDIR
+        if [[ -e $TARGETDIR ]] ; then 
+            echo Removing old directory
+            rm -rf $TARGETDIR
+        fi
+
         git clone -b $GITBRANCH "https://$AISCIBB_GIT_TOKEN@$GIT_REMOTE" $TARGETDIR 
         cd $TARGETDIR
-        
-        bash ./run.sh install  || ( echo 'Failed to install' ; exit 1)
 
-        # bash ./run.sh datasets  || ( echo 'Failed to install' ; exit 1)
+        shift 2  # Remove first two params for gcp.
+        echo Running $@
+        bash ./run.sh "$@"  || echo "Failed to run '$@'"
 
         [[ ! -e %TARGETDIR ]] || rm -dr $TARGETDIR
         rm $LOCK
+        echo Unlocked
+        echo At GCP. Finished.
     fi
+}
+
+function test() {
+    echo running test
+    return 0
 }
 
 ################################################################################
