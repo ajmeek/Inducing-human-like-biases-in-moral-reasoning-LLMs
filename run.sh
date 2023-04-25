@@ -23,7 +23,6 @@ root_dir=$( realpath "$script_dir" )
 
 GIT_MAIN_BRANCH_NAME=main
 GIT_REMOTE=github.com/ameek2/Inducing-human-like-biases-in-moral-reasoning-LLMs.git
-DEPLOYLOCKFILENAME=AISCBB_proj.lock
 
 ################################################################################
 
@@ -70,11 +69,6 @@ function gcp() {
 
         echo At GCP. Running deployment...
         
-        LOCK=/tmp/$DEPLOYLOCKFILENAME
-        [[ ! -e $LOCK ]] || ( echo "Failed to deploy: remote machine is locked (file $LOCK). Last access:"; stat $LOCK | grep Access ; exit 1 )
-        echo Locking...
-        touch $LOCK
-
         echo Retrieving files...
         GITBRANCH=${1-$GIT_MAIN_BRANCH_NAME}
         AISCIBB_GIT_TOKEN=$2
@@ -88,15 +82,21 @@ function gcp() {
         git clone -b $GITBRANCH "https://$AISCIBB_GIT_TOKEN@$GIT_REMOTE" $TARGETDIR 
         cd $TARGETDIR
 
+        echo Building docker image...
+        docker image build -t aiscbb $TARGETDIR
+
+        echo Running container...
         shift 2  # Remove first two params for gcp.
-        echo Running $@
-        bash ./run.sh "$@"  || echo "Failed to run '$@'"
+        docker container run aiscbb bash run.sh "$@"
 
         [[ ! -e %TARGETDIR ]] || rm -dr $TARGETDIR
-        rm $LOCK
-        echo Unlocked
         echo At GCP. Finished.
     fi
+}
+
+function test() {
+    echo Inside test ...
+
 }
 
 ################################################################################
