@@ -50,6 +50,7 @@ function gcp() {
         [[ ! -z ${AISCIBB_GCP_SSH_USERHOST-} ]]  || ( echo "Please set AISCIBB_GCP_SSH_USERHOST environment variable (example: user@123.123.123.123)." ; exit 1 )
 
         echo Deploying to GCP...
+        scp -q ~/.gitconfig scp://$AISCIBB_GCP_SSH_USERHOST/.gitconfig
         scp -q ./run.sh scp://$AISCIBB_GCP_SSH_USERHOST/run.sh
         # Run remotely:
         ssh ssh://$AISCIBB_GCP_SSH_USERHOST 'AISCIBB_GCP_FLAG=1 bash' ./run.sh gcp $( git rev-parse --abbrev-ref HEAD ) "$AISCIBB_GIT_TOKEN" "$@"
@@ -80,7 +81,7 @@ function gcp() {
 
         echo Running container...
         shift 2  # Remove first two params for gcp.
-        docker container run aiscbb bash run.sh "$@"
+        docker container run  -v ~/.gitconfig:~/.gitconfig aiscbb bash run.sh "$@"
 
         [[ ! -e %TARGETDIR ]] || rm -dr $TARGETDIR
         echo At GCP. Finished.
