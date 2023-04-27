@@ -1,6 +1,7 @@
 FROM nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04
 
-ENV TZ="Europe/Berlin"
+ENV TZ=Europe/London
+ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt update && \
     apt install \
