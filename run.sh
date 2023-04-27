@@ -95,7 +95,7 @@ function gcp() {
             -v $AISCBB_DATA_DIR:/asicbb_data \
             -v ~/.gitconfig:/etc/gitconfig \
             --detach \
-            --name $CONNAM \
+            --name $CONNAME \
             aiscbb \
             bash run.sh "$@" 
 
