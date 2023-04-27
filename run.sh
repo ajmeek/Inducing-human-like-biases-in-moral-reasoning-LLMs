@@ -99,7 +99,7 @@ function gcp() {
             aiscbb \
             bash run.sh "$@" 
 
-        docker logs $CONNAME --timestamps 2| tee $( date date +%Y-%m-%d-%H% )_run_sh.log
+        docker logs --follow --timestamps $CONNAME | tee $( date date +%Y-%m-%d-%H% )_run_sh.log
 
         [[ ! -e %TARGETDIR ]] || rm -dr $TARGETDIR
         echo At GCP. Finished. Use run.sh gcp-sync to get results.
