@@ -2,8 +2,9 @@ FROM nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04
 
 RUN add-apt-repository universe && \
     apt update && \
-    apt install python3.9 && \
-    apt install \
+    apt install python3.9
+
+RUN apt install \
         -y \
         --no-install-recommends \
         apt-utils \
