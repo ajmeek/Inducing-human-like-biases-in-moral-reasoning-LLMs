@@ -76,7 +76,8 @@ def main():
         devices=1,
         logger=logger,
         log_every_n_steps=1,
-        default_root_dir=artifactspath
+        default_root_dir=artifactspath,
+        enable_checkpointing=False  # Avoid saving full model into a disk (GBs)
     )
     print('Fine tuning BERT...')
     trainer.fit(lit_model, dataloaders)
