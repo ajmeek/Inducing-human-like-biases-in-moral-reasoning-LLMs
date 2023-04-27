@@ -1,6 +1,6 @@
 FROM nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04
 
-ENV TZ="Europe/London"
+ENV TZ="Europe/Berlin"
 
 RUN apt update && \
     apt install \
