@@ -87,14 +87,19 @@ function gcp() {
         [[ -e $AISCBB_DATA_DIR ]] || ( echo Failed: no data dir found. ; exit 1 )
         echo AISCBB_ARTIFACTS_DIR=$AISCBB_ARTIFACTS_DIR 
         echo AISCBB_DATA_DIR=$AISCBB_DATA_DIR 
+        CONNAME=AISCBB_Container
         docker container run \
             -e AISCBB_ARTIFACTS_DIR=/aiscbb_artifacts \
             -e AISCBB_DATA_DIR=/asicbb_data \
             -v $AISCBB_ARTIFACTS_DIR:/aiscbb_artifacts \
             -v $AISCBB_DATA_DIR:/asicbb_data \
             -v ~/.gitconfig:/etc/gitconfig \
+            --detach \
+            --name $CONNAM \
             aiscbb \
-            bash run.sh "$@"  | tee $( date date +%Y-%m-%d-%H% )_run_sh.log
+            bash run.sh "$@" 
+
+        docker logs $CONNAME --timestamps 2| tee $( date date +%Y-%m-%d-%H% )_run_sh.log
 
         [[ ! -e %TARGETDIR ]] || rm -dr $TARGETDIR
         echo At GCP. Finished. Use run.sh gcp-sync to get results.
