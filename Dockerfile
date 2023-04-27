@@ -42,13 +42,13 @@ RUN apt update && \
     datalad \
     wget
 
-RUN python3 -m \
+RUN python3.9 -m \
     pip install \
     --no-cache-dir \
     --upgrade \
     pip
 
-RUN python3 -m \
+RUN python3.9 -m \
     pip install \
     --no-cache-dir \
     transformers   \
