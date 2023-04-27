@@ -85,6 +85,8 @@ function gcp() {
         shift 2  # Remove first two params for gcp.
         [[ -e $AISCBB_ARTIFACTS_DIR ]] || ( echo Failed: no artifacts dir found. ; exit 1 )
         [[ -e $AISCBB_DATA_DIR ]] || ( echo Failed: no data dir found. ; exit 1 )
+        echo AISCBB_ARTIFACTS_DIR=$AISCBB_ARTIFACTS_DIR 
+        echo AISCBB_DATA_DIR=$AISCBB_DATA_DIR 
         docker container run \
             -e AISCBB_ARTIFACTS_DIR=/aiscbb_artifacts \
             -e AISCBB_DATA_DIR=/asicbb_data \
@@ -92,11 +94,24 @@ function gcp() {
             -v $AISCBB_DATA_DIR:/asicbb_data \
             -v ~/.gitconfig:/etc/gitconfig \
             aiscbb \
-            bash run.sh "$@"
+            bash run.sh "$@"  | tee $( date date +%Y-%m-%d-%H% )_run_sh.log
 
         [[ ! -e %TARGETDIR ]] || rm -dr $TARGETDIR
-        echo At GCP. Finished.
+        echo At GCP. Finished. Use run.sh gcp-sync to get results.
     fi
+}
+
+function gcp-sync() {
+    echo Sync with GCP...
+
+    echo Current tasks:
+    ssh ssh://$AISCIBB_GCP_SSH_USERHOST sudo docker stats --no-stream
+
+    echo Syncing artifacts...
+    # TODO: configure artifacts dir at remote.
+    rsync -rP $AISCIBB_GCP_SSH_USERHOST:~/artifacts $AISCBB_ARTIFACTS_DIR
+    echo Done. Artifacts at $AISCBB_ARTIFACTS_DIR
+
 }
 
 ################################################################################
