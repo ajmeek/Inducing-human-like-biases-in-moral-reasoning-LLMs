@@ -1,7 +1,8 @@
 FROM nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04
 
+# To avoid being asked re timezone by tzdata:
 ENV TZ=Europe/London
-ENV DEBIAN_FRONTEND=noninteractive
+ENV DEBIAN_FRONTEND=noninteractive  
 
 RUN apt update && \
     apt install \

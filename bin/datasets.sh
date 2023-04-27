@@ -22,6 +22,6 @@ if [[ ! -e $DATADIR/ds000212  || ! -e $DATADIR/functional_flattened ]]; then
         cp $root_dir/data/scenarios.csv $DATADIR/scenarios.csv
     fi
 
-    python3 ./bin/fMRI_utils.py
+    python3.9 ./bin/fMRI_utils.py
     echo 'done'
 fi
