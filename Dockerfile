@@ -6,6 +6,7 @@ RUN apt update && \
     apt install \
     -y \
     --no-install-recommends \
+    tzdata \
     apt-utils \
     binutils \
     build-essential \
