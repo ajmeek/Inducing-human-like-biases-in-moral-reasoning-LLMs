@@ -40,7 +40,7 @@ function train() {
 
 # TODO: refactor, move to its file.
 function gcp() {
-    cat - <<-END 
+    cat - <<END 
         Runs tasks at Google Cloud Platform. 
         Provide task after gcp like this: run.sh gcp my-task [parameter ...].  
         If no tasks provided (run.sh gcp) it syncs remote and local files (gets results)."
@@ -58,73 +58,75 @@ END
             ssh ssh://$AISCIBB_GCP_SSH_USERHOST 'AISCIBB_GCP_FLAG=1 bash' ./run.sh gcp $( git rev-parse --abbrev-ref HEAD ) "$AISCIBB_GIT_TOKEN" "$@"
         fi
 
-        echo Fetching results from GCP...
-        echo Current tasks at GCP:
-        ssh ssh://$AISCIBB_GCP_SSH_USERHOST sudo docker stats --no-stream 
+        echo Getting results
+        ssh ssh://$AISCIBB_GCP_SSH_USERHOST 'AISCIBB_GCP_FLAG=1 bash' ./run.sh gcp
 
         echo Syncing artifacts from GCP...
         # TODO: configure artifacts dir at remote.
         rsync -rP $AISCIBB_GCP_SSH_USERHOST:~/artifacts $AISCBB_ARTIFACTS_DIR
         echo Done. Artifacts at $AISCBB_ARTIFACTS_DIR
     else
-        # In remote environment.
+        echo At GCP.
 
+        # In remote environment.
         # If all prerequisits met:
-        if [[ $# -le 2 ]]; then
-            echo Failed to run at GCP: no task given.
-            exit 1
-        fi
         mkdir -vp $AISCBB_ARTIFACTS_DIR
         mkdir -vp $AISCBB_DATA_DIR
 
-        # If there is a command then run it:
-        echo At GCP. Running deployment...
-
-        echo Stoping current task if any.
         C_ID_FILE=./aiscbb_container_id
-        if [[ -e $C_ID_FILE && $( docker stats --no-stream $( cat $C_ID_FILE ) ) ]]; then
+        if [[ $# -eq 0 ]]; then
+            echo Reporting progress...
+            sudo docker stats --no-stream 
+            if [[ -e $C_ID_FILE ]]
+                C_ID=$( cat)
+                sudo docker top $C_ID ps -x
+                C_LOG_FILE="$AISCBB_ARTIFACTS_DIR/$( date +%Y-%m-%d-%H%M )_run_sh.log "
+                docker container logs $C_ID 2> $C_LOG_FILE
+            fi
+        else
+            echo Run a task...
+            echo Stoping current task if any.
+            if [[ -e $C_ID_FILE && $( docker stats --no-stream $( cat $C_ID_FILE ) ) ]]; then
+                C_ID=$( cat $C_ID_FILE )
+                echo There is container running: $( docker top $C_ID ps -x ). Stoppping...
+                docker stop $C_ID
+                rm $C_ID_FILE
+            fi
+            
+            echo Clonning repository...
+            GITBRANCH=${1-$GIT_MAIN_BRANCH_NAME}
+            AISCIBB_GIT_TOKEN=$2
+            TARGETDIR=~/aiscbbproj
+            if [[ -e $TARGETDIR ]] ; then 
+                echo Removing old repo directory
+                rm -rf $TARGETDIR
+            fi
+            git clone -b $GITBRANCH "https://$AISCIBB_GIT_TOKEN@$GIT_REMOTE" $TARGETDIR 
+
+            echo Building docker image...
+            ( cd $TARGETDIR ; docker buildx build -t aiscbb . )
+
+            echo Running container...
+            shift 2  # Remove first two params for gcp.
+            >$C_ID_FILE docker container run \
+                -e AISCBB_ARTIFACTS_DIR=/aiscbb_artifacts \
+                -e AISCBB_DATA_DIR=/asicbb_data \
+                -v $AISCBB_ARTIFACTS_DIR:/aiscbb_artifacts \
+                -v $AISCBB_DATA_DIR:/asicbb_data \
+                -v ~/.gitconfig:/etc/gitconfig \
+                --detach \
+                aiscbb \
+                bash run.sh "$@" 
             C_ID=$( cat $C_ID_FILE )
-            echo There is container running: $( docker top $C_ID ps -x ). Stoppping...
-            docker stop $C_ID
-            rm $C_ID_FILE
+
+            docker container attach $C_ID
+            
+            C_LOG_FILE="$AISCBB_ARTIFACTS_DIR/$( date +%Y-%m-%d-%H% )_run_sh.log "
+            docker container logs $C_ID 2> $C_LOG_FILE
+
+            [[ ! -e %TARGETDIR ]] || rm -dr $TARGETDIR
+            echo At GCP. Finished.
         fi
-        
-        echo Clonning repository...
-        GITBRANCH=${1-$GIT_MAIN_BRANCH_NAME}
-        AISCIBB_GIT_TOKEN=$2
-        TARGETDIR=~/aiscbbproj
-        if [[ -e $TARGETDIR ]] ; then 
-            echo Removing old repo directory
-            rm -rf $TARGETDIR
-        fi
-        git clone -b $GITBRANCH "https://$AISCIBB_GIT_TOKEN@$GIT_REMOTE" $TARGETDIR 
-
-        echo Building docker image...
-        ( cd $TARGETDIR ; docker buildx build -t aiscbb . )
-
-        echo Running container...
-        shift 2  # Remove first two params for gcp.
-        >$C_ID_FILE docker container run \
-            -e AISCBB_ARTIFACTS_DIR=/aiscbb_artifacts \
-            -e AISCBB_DATA_DIR=/asicbb_data \
-            -v $AISCBB_ARTIFACTS_DIR:/aiscbb_artifacts \
-            -v $AISCBB_DATA_DIR:/asicbb_data \
-            -v ~/.gitconfig:/etc/gitconfig \
-            --detach \
-            aiscbb \
-            bash run.sh "$@" 
-        C_ID=$( cat $C_ID_FILE )
-        
-        C_LOG_FILE="$AISCBB_ARTIFACTS_DIR/$( date +%Y-%m-%d-%H%M )_run_sh.log "
-        docker container logs $C_ID 2> $C_LOG_FILE
-
-        docker container attach $C_ID
-        
-        C_LOG_FILE="$AISCBB_ARTIFACTS_DIR/$( date +%Y-%m-%d-%H% )_run_sh.log "
-        docker container logs $C_ID 2> $C_LOG_FILE
-
-        [[ ! -e %TARGETDIR ]] || rm -dr $TARGETDIR
-        echo At GCP. Finished.
     fi
 }
 
