@@ -38,43 +38,63 @@ function train() {
     bash ./bin/train.sh "$@"
 }
 
+# TODO: refactor, move to its file.
 function gcp() {
-    GCPUSAGE="Runs tasks at Google Cloud Platform. Provide task after gcp like this: run.sh gcp my-task [parameter ...]"
+    echo "Runs tasks at Google Cloud Platform. 
+        Provide task after gcp like this: run.sh gcp my-task [parameter ...]. 
+        If no tasks provided (run.sh gcp) it syncs remote and local files (gets results)."
 
-    # If it is local or remote environment:
     if [[ -z ${AISCIBB_GCP_FLAG-} ]] ; then
-        # If all prerequisits met:
-        if [[ $# -eq 0 ]]; then
-            echo Failed to run at GCP: \n $GCPUSAGE
-            exit 1
-        fi
+        # In local environment.
         [[ ! -z ${AISCIBB_GIT_TOKEN-} ]]  || ( echo "Please set AISCIBB_GIT_TOKEN environment variable (see https://github.com/settings/tokens)." ; exit 1 )
         [[ ! -z ${AISCIBB_GCP_SSH_USERHOST-} ]]  || ( echo "Please set AISCIBB_GCP_SSH_USERHOST environment variable (example: user@123.123.123.123)." ; exit 1 )
 
-        echo Deploying to GCP...
-        scp -q ~/.gitconfig scp://$AISCIBB_GCP_SSH_USERHOST/.gitconfig
-        scp -q ./run.sh scp://$AISCIBB_GCP_SSH_USERHOST/run.sh
-        # Run remotely:
-        ssh ssh://$AISCIBB_GCP_SSH_USERHOST 'AISCIBB_GCP_FLAG=1 bash' ./run.sh gcp $( git rev-parse --abbrev-ref HEAD ) "$AISCIBB_GIT_TOKEN" "$@"
+        if [[ $# -gt 0 ]]; then
+            echo Calling GCP to run a task...
+            scp -q ~/.gitconfig scp://$AISCIBB_GCP_SSH_USERHOST/.gitconfig
+            scp -q ./run.sh scp://$AISCIBB_GCP_SSH_USERHOST/run.sh
+            ssh ssh://$AISCIBB_GCP_SSH_USERHOST 'AISCIBB_GCP_FLAG=1 bash' ./run.sh gcp $( git rev-parse --abbrev-ref HEAD ) "$AISCIBB_GIT_TOKEN" "$@"
+        fi
+
+        echo Fetching results from GCP...
+        echo Current tasks at GCP:
+        ssh ssh://$AISCIBB_GCP_SSH_USERHOST sudo docker stats --no-stream 
+
+        echo Syncing artifacts from GCP...
+        # TODO: configure artifacts dir at remote.
+        rsync -rP $AISCIBB_GCP_SSH_USERHOST:~/artifacts $AISCBB_ARTIFACTS_DIR
+        echo Done. Artifacts at $AISCBB_ARTIFACTS_DIR
     else
+        # In remote environment.
+
         # If all prerequisits met:
         if [[ $# -le 2 ]]; then
-            echo Failed to run at GCP: $GCPUSAGE
+            echo Failed to run at GCP: no task given.
             exit 1
         fi
+        mkdir -vp $AISCBB_ARTIFACTS_DIR
+        mkdir -vp $AISCBB_DATA_DIR
 
+        # If there is a command then run it:
         echo At GCP. Running deployment...
+
+        echo Stoping current task if any.
+        C_ID_FILE=./aiscbb_container_id
+        if [[ -e $C_ID_FILE && docker stats --no-stream $( cat $C_ID_FILE ) ]]; then
+            C_ID=$( cat $C_ID_FILE )
+            echo There is container running: $( docker top $C_ID ps -x ). Stoppping...
+            docker stop $C_ID
+            rm $C_ID_FILE
+        fi
         
-        echo Retrieving files...
+        echo Clonning repository...
         GITBRANCH=${1-$GIT_MAIN_BRANCH_NAME}
         AISCIBB_GIT_TOKEN=$2
-
         TARGETDIR=~/aiscbbproj
         if [[ -e $TARGETDIR ]] ; then 
-            echo Removing old directory
+            echo Removing old repo directory
             rm -rf $TARGETDIR
         fi
-
         git clone -b $GITBRANCH "https://$AISCIBB_GIT_TOKEN@$GIT_REMOTE" $TARGETDIR 
         cd $TARGETDIR
 
@@ -83,40 +103,25 @@ function gcp() {
 
         echo Running container...
         shift 2  # Remove first two params for gcp.
-        [[ -e $AISCBB_ARTIFACTS_DIR ]] || ( echo Failed: no artifacts dir found. ; exit 1 )
-        [[ -e $AISCBB_DATA_DIR ]] || ( echo Failed: no data dir found. ; exit 1 )
-        echo AISCBB_ARTIFACTS_DIR=$AISCBB_ARTIFACTS_DIR 
-        echo AISCBB_DATA_DIR=$AISCBB_DATA_DIR 
-        CONNAME=AISCBB_Container
-        docker container run \
+        >$C_ID_FILE docker container run \
             -e AISCBB_ARTIFACTS_DIR=/aiscbb_artifacts \
             -e AISCBB_DATA_DIR=/asicbb_data \
             -v $AISCBB_ARTIFACTS_DIR:/aiscbb_artifacts \
             -v $AISCBB_DATA_DIR:/asicbb_data \
             -v ~/.gitconfig:/etc/gitconfig \
             --detach \
-            --name $CONNAME \
             aiscbb \
             bash run.sh "$@" 
 
-        docker logs --follow --timestamps $CONNAME | tee $( date date +%Y-%m-%d-%H% )_run_sh.log
+        docker container attach $C_ID
+        
+        C_ID=$( cat $C_ID_FILE )
+        C_LOG_FILE="$AISCBB_ARTIFACTS_DIR/$( date +%Y-%m-%d-%H% )_run_sh.log "
+        docker container logs $C_ID 2> $C_LOG_FILE
 
         [[ ! -e %TARGETDIR ]] || rm -dr $TARGETDIR
-        echo At GCP. Finished. Use run.sh gcp-sync to get results.
+        echo At GCP. Finished.
     fi
-}
-
-function gcp-sync() {
-    echo Sync with GCP...
-
-    echo Current tasks:
-    ssh ssh://$AISCIBB_GCP_SSH_USERHOST sudo docker stats --no-stream
-
-    echo Syncing artifacts...
-    # TODO: configure artifacts dir at remote.
-    rsync -rP $AISCIBB_GCP_SSH_USERHOST:~/artifacts $AISCBB_ARTIFACTS_DIR
-    echo Done. Artifacts at $AISCBB_ARTIFACTS_DIR
-
 }
 
 ################################################################################
