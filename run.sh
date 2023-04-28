@@ -40,8 +40,8 @@ function train() {
 
 # TODO: refactor, move to its file.
 function gcp() {
-    GCPUSAGE="Runs tasks at Google Cloud Platform. 
-        Provide task after gcp like this: run.sh gcp my-task [parameter ...].  
+    GCPUSAGE="Runs tasks at Google Cloud Platform.\n
+        Provide task after gcp like this: run.sh gcp my-task [parameter ...]. \n
         If no tasks provided (run.sh gcp) it syncs remote and local files (gets results)."
 
     if [[ -z ${AISCIBB_GCP_FLAG-} ]] ; then
@@ -77,7 +77,7 @@ function gcp() {
             if [[ -e $C_ID_FILE ]]; then
                 C_ID=$( cat $C_ID_FILE )
                 C_LOG_FILE="$AISCBB_ARTIFACTS_DIR/$( date +%Y-%m-%d-%H%M )_run_sh.log "
-                docker container logs $C_ID 2> $C_LOG_FILE
+                docker container logs $C_ID > $C_LOG_FILE
             fi
         else
             echo [GCP] Run a task...
