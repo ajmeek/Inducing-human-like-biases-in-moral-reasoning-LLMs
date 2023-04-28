@@ -96,10 +96,9 @@ function gcp() {
             rm -rf $TARGETDIR
         fi
         git clone -b $GITBRANCH "https://$AISCIBB_GIT_TOKEN@$GIT_REMOTE" $TARGETDIR 
-        cd $TARGETDIR
 
         echo Building docker image...
-        docker buildx build -t aiscbb $TARGETDIR
+        ( cd $TARGETDIR ; docker buildx build -t aiscbb . )
 
         echo Running container...
         shift 2  # Remove first two params for gcp.
@@ -112,6 +111,9 @@ function gcp() {
             --detach \
             aiscbb \
             bash run.sh "$@" 
+        
+        C_LOG_FILE="$AISCBB_ARTIFACTS_DIR/$( date +%Y-%m-%d-%H%M )_run_sh.log "
+        docker container logs $C_ID 2> $C_LOG_FILE
 
         C_ID=$( cat $C_ID_FILE )
         docker container attach $C_ID
