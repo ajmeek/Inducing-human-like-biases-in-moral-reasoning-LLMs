@@ -40,11 +40,10 @@ function train() {
 
 # TODO: refactor, move to its file.
 function gcp() {
-    cat - <<END 
-        Runs tasks at Google Cloud Platform. 
+    echo "Runs tasks at Google Cloud Platform. 
         Provide task after gcp like this: run.sh gcp my-task [parameter ...].  
         If no tasks provided (run.sh gcp) it syncs remote and local files (gets results)."
-END
+
 
     if [[ -z ${AISCIBB_GCP_FLAG-} ]] ; then
         # In local environment.
