@@ -78,7 +78,6 @@ function gcp() {
             sudo docker stats --no-stream 
             if [[ -e $C_ID_FILE ]]; then
                 C_ID=$( cat)
-                sudo docker top $C_ID ps -x
                 C_LOG_FILE="$AISCBB_ARTIFACTS_DIR/$( date +%Y-%m-%d-%H%M )_run_sh.log "
                 docker container logs $C_ID 2> $C_LOG_FILE
             fi
