@@ -74,7 +74,7 @@ function gcp() {
 
         C_ID_FILE=./aiscbb_container_id
         if [[ $# -eq 0 ]]; then
-            echo Reporting progress...
+            echo Current running tasks:
             sudo docker stats --no-stream 
             if [[ -e $C_ID_FILE ]]; then
                 C_ID=$( cat)
