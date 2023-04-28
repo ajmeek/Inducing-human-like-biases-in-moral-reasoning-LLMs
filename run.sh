@@ -76,7 +76,7 @@ function gcp() {
             sudo docker stats --no-stream 
             if [[ -e $C_ID_FILE ]]; then
                 C_ID=$( cat $C_ID_FILE )
-                C_LOG_FILE="$AISCBB_ARTIFACTS_DIR/$( date +%Y-%m-%d-%H%M )_run_sh.log "
+                C_LOG_FILE="$AISCBB_ARTIFACTS_DIR/$( date -Is )_run_sh.log "
                 docker container logs $C_ID > $C_LOG_FILE
             fi
         else
@@ -117,7 +117,7 @@ function gcp() {
 
             docker container attach $C_ID
             
-            C_LOG_FILE="$AISCBB_ARTIFACTS_DIR/$( date +%Y-%m-%d-%H% )_run_sh.log "
+            C_LOG_FILE="$AISCBB_ARTIFACTS_DIR/$( date -Is )_run_sh.log "
             docker container logs $C_ID 2> $C_LOG_FILE
 
             [[ ! -e %TARGETDIR ]] || rm -dr $TARGETDIR
