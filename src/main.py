@@ -12,14 +12,15 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 import argparse
+from os import environ
 from datetime import datetime
 
-datapath = Path('./data')
+datapath = Path(environ.get('AISCBB_DATA_DIR','./data'))
+artifactspath = Path(environ.get('AISCBB_ARTIFACTS_DIR','./artifacts'))
 
 def main():
     assert datapath.exists(), 'Expected data dir present.'
     ethics_ds_path = datapath / 'ethics'
-    artifactspath = Path('./artifacts')
     artifactspath.mkdir(exist_ok=True)
     difumo_ds_path = datapath / 'ds000212_difumo'
 
@@ -75,7 +76,8 @@ def main():
         devices=1,
         logger=logger,
         log_every_n_steps=1,
-        default_root_dir=artifactspath
+        default_root_dir=artifactspath,
+        enable_checkpointing=False  # Avoid saving full model into a disk (GBs)
     )
     print('Fine tuning BERT...')
     trainer.fit(lit_model, dataloaders)
