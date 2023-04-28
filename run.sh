@@ -74,8 +74,8 @@ function gcp() {
 
         C_ID_FILE=./aiscbb_container_id
         if [[ $# -eq 0 ]]; then
-            echo Current running tasks:
-            sudo docker stats --no-stream 
+            #echo Current running tasks:
+            #sudo docker stats --no-stream 
             if [[ -e $C_ID_FILE ]]; then
                 C_ID=$( cat)
                 C_LOG_FILE="$AISCBB_ARTIFACTS_DIR/$( date +%Y-%m-%d-%H%M )_run_sh.log "
