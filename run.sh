@@ -80,7 +80,7 @@ function gcp() {
 
         echo Stoping current task if any.
         C_ID_FILE=./aiscbb_container_id
-        if [[ -e $C_ID_FILE && docker stats --no-stream $( cat $C_ID_FILE ) ]]; then
+        if [[ -e $C_ID_FILE && $( docker stats --no-stream $( cat $C_ID_FILE ) ) ]]; then
             C_ID=$( cat $C_ID_FILE )
             echo There is container running: $( docker top $C_ID ps -x ). Stoppping...
             docker stop $C_ID
