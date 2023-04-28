@@ -40,8 +40,8 @@ function train() {
 
 # TODO: refactor, move to its file.
 function gcp() {
-    GCPUSAGE="Runs tasks at Google Cloud Platform.\n
-        Provide task after gcp like this: run.sh gcp my-task [parameter ...]. \n
+    GCPUSAGE="Runs tasks at Google Cloud Platform.
+        Provide task after gcp like this: run.sh gcp my-task [parameter ...].
         If no tasks provided (run.sh gcp) it syncs remote and local files (gets results)."
 
     if [[ -z ${AISCIBB_GCP_FLAG-} ]] ; then
