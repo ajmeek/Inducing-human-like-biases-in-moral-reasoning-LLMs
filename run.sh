@@ -65,8 +65,6 @@ function gcp() {
         rsync -rP $AISCIBB_GCP_SSH_USERHOST:~/artifacts $AISCBB_ARTIFACTS_DIR
         echo Done. Artifacts at $AISCBB_ARTIFACTS_DIR
     else
-        echo At GCP.
-
         # In remote environment.
         # If all prerequisits met:
         mkdir -vp $AISCBB_ARTIFACTS_DIR
@@ -82,8 +80,8 @@ function gcp() {
                 docker container logs $C_ID 2> $C_LOG_FILE
             fi
         else
-            echo Run a task...
-            echo Stoping current task if any.
+            echo [GCP] Run a task...
+            echo [GCP] Stoping current task if any.
             if [[ -e $C_ID_FILE && $( docker stats --no-stream $( cat $C_ID_FILE ) ) ]]; then
                 C_ID=$( cat $C_ID_FILE )
                 echo There is container running: $( docker top $C_ID ps -x ). Stoppping...
