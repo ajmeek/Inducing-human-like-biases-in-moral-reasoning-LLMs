@@ -62,7 +62,7 @@ function gcp() {
 
         echo Syncing artifacts from GCP...
         # TODO: configure artifacts dir at remote.
-        rsync -rP '$AISCIBB_GCP_SSH_USERHOST:~/artifacts/*' $AISCBB_ARTIFACTS_DIR
+        rsync -rP $AISCIBB_GCP_SSH_USERHOST:~/artifacts/\* $AISCBB_ARTIFACTS_DIR
         echo Done. Artifacts at $AISCBB_ARTIFACTS_DIR
     else
         # In remote environment.
