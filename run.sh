@@ -113,9 +113,9 @@ function gcp() {
             aiscbb \
             bash run.sh "$@" 
 
+        C_ID=$( cat $C_ID_FILE )
         docker container attach $C_ID
         
-        C_ID=$( cat $C_ID_FILE )
         C_LOG_FILE="$AISCBB_ARTIFACTS_DIR/$( date +%Y-%m-%d-%H% )_run_sh.log "
         docker container logs $C_ID 2> $C_LOG_FILE
 
