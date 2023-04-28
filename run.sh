@@ -40,12 +40,12 @@ function train() {
 
 # TODO: refactor, move to its file.
 function gcp() {
-    echo "Runs tasks at Google Cloud Platform. 
+    GCPUSAGE="Runs tasks at Google Cloud Platform. 
         Provide task after gcp like this: run.sh gcp my-task [parameter ...].  
         If no tasks provided (run.sh gcp) it syncs remote and local files (gets results)."
 
-
     if [[ -z ${AISCIBB_GCP_FLAG-} ]] ; then
+        echo $GCPUSAGE
         # In local environment.
         [[ ! -z ${AISCIBB_GIT_TOKEN-} ]]  || ( echo "Please set AISCIBB_GIT_TOKEN environment variable (see https://github.com/settings/tokens)." ; exit 1 )
         [[ ! -z ${AISCIBB_GCP_SSH_USERHOST-} ]]  || ( echo "Please set AISCIBB_GCP_SSH_USERHOST environment variable (example: user@123.123.123.123)." ; exit 1 )
