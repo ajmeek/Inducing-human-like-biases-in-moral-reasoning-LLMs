@@ -70,22 +70,28 @@ If no tasks provided (run.sh gcp) it syncs remote and local files (gets results)
         mkdir -vp $AISCBB_ARTIFACTS_DIR
         mkdir -vp $AISCBB_DATA_DIR
 
-        C_ID_FILE=./aiscbb_container_id
+        C_ID_FILE=./aiscbb_container_id.cid
         if [[ $# -eq 0 ]]; then
-            echo Current running tasks:
-            sudo docker stats --no-stream 
+            echo "Containers (tasks):"
+            sudo docker ps
             if [[ -e $C_ID_FILE ]]; then
-                C_ID=$( cat $C_ID_FILE )
-                C_LOG_FILE="$AISCBB_ARTIFACTS_DIR/$( date +%Y-%m-%d-%H%M )_run_sh.log "
-                docker container logs $C_ID > $C_LOG_FILE
+                CID=$( cat $C_ID_FILE ) 
+                if docker ps | grep $CID ; then 
+                    C_LOG_FILE="$AISCBB_ARTIFACTS_DIR/$( date +%Y-%m-%d-%H%M )_run_sh.log "
+                    docker logs -f $CID |& tee $C_LOG_FILE
+                fi
             fi
         else
             echo [GCP] Run a task...
             echo [GCP] Stoping current task if any.
-            if [[ -e $C_ID_FILE && $( docker stats --no-stream $( cat $C_ID_FILE ) ) ]]; then
-                C_ID=$( cat $C_ID_FILE )
-                echo There is container running: $( docker top $C_ID ps -x ). Stoppping...
-                docker stop $C_ID
+            if [[ -e $C_ID_FILE ]] ; then 
+                CID=$( cat $C_ID_FILE ) 
+                if docker ps | grep $CID ; then 
+                    echo There is $CID container running. Stoppping...
+                    C_LOG_FILE="$AISCBB_ARTIFACTS_DIR/$( date +%Y-%m-%d-%H%M )_run_sh.log "
+                    docker logs -f $CID &> $C_LOG_FILE
+                    docker rm $CID
+                fi
                 rm $C_ID_FILE
             fi
             
@@ -104,21 +110,20 @@ If no tasks provided (run.sh gcp) it syncs remote and local files (gets results)
 
             echo Running container...
             shift 2  # Remove first two params for gcp.
-            >$C_ID_FILE docker container run \
+
+            docker container run \
                 -e AISCBB_ARTIFACTS_DIR=/aiscbb_artifacts \
                 -e AISCBB_DATA_DIR=/asicbb_data \
                 -v $AISCBB_ARTIFACTS_DIR:/aiscbb_artifacts \
                 -v $AISCBB_DATA_DIR:/asicbb_data \
                 -v ~/.gitconfig:/etc/gitconfig \
+                --cidfile="$C_ID_FILE" \
                 --detach \
-                aiscbb \
-                bash run.sh "$@" 
-            C_ID=$( cat $C_ID_FILE )
-
-            docker container attach $C_ID
-            
+                --name=aiscbb \
+                aiscbb bash run.sh "$@"
+            CID=$( cat $C_ID_FILE )
             C_LOG_FILE="$AISCBB_ARTIFACTS_DIR/$( date +%Y-%m-%d-%H%M )_run_sh.log "
-            docker container logs $C_ID 2> $C_LOG_FILE
+            docker logs -f $CID |& tee $C_LOG_FILE
 
             [[ ! -e %TARGETDIR ]] || rm -dr $TARGETDIR
             echo At GCP. Finished.
