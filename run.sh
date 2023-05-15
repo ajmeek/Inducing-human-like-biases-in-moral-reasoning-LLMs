@@ -21,10 +21,10 @@ script_dir="$(dirname "$script_path")"
 readonly script_dir
 root_dir=$( realpath "$script_dir" )
 
-GIT_MAIN_BRANCH_NAME=main
-GIT_REMOTE=github.com/ameek2/Inducing-human-like-biases-in-moral-reasoning-LLMs.git
-AISCBB_ARTIFACTS_DIR=${AISCBB_ARTIFACTS_DIR:-$root_dir/artifacts}
-AISCBB_DATA_DIR=${AISCBB_DATA_DIR:-$root_dir/data}
+export GIT_MAIN_BRANCH_NAME=main
+export GIT_REMOTE=github.com/ameek2/Inducing-human-like-biases-in-moral-reasoning-LLMs.git
+export AISCBB_ARTIFACTS_DIR=${AISCBB_ARTIFACTS_DIR:-$root_dir/artifacts}
+export AISCBB_DATA_DIR=${AISCBB_DATA_DIR:-$root_dir/data}
 
 ################################################################################
 
@@ -35,7 +35,10 @@ function datasets() {
 
 function train() {
     echo Training...
-    bash ./bin/train.sh "$@"
+    pushd $root_dir > /dev/null
+    python3.9 "$root_dir/src/main.py" "$@"  || popd
+    popd
+
 }
 
 # TODO: refactor, move to its file.
@@ -119,7 +122,6 @@ If no tasks provided (run.sh gcp) it syncs remote and local files (gets results)
                 -v ~/.gitconfig:/etc/gitconfig \
                 --cidfile="$C_ID_FILE" \
                 --detach \
-                --name=aiscbb \
                 aiscbb bash run.sh "$@"
             CID=$( cat $C_ID_FILE )
             C_LOG_FILE="$AISCBB_ARTIFACTS_DIR/$( date +%Y-%m-%d-%H%M )_run_sh.log "

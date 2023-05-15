@@ -45,7 +45,9 @@ def process_subject(subject):
         run_num = run_num+1
         info(f'Processing {bold_f.name}')
         masked_data = extract_fmri_data(subject, run_num, bold_f)
-        scenarios = extract_scenarios(subject, run_num, bold_f)
+        scenarios, skipped_n = extract_scenarios(subject, run_num, bold_f)
+        print(f'Skipped {skipped_n} scenarios for {subject} subject.')
+        skipped_scenarios_num += skipped_n
         if masked_data.shape[0] > 0 and len(scenarios) > 0:
             merged = merge_fmri_and_scenarios(masked_data, scenarios)
             if merged:
@@ -56,34 +58,46 @@ def process_subject(subject):
                 np.save(events_f, scenarios)
 
 def merge_fmri_and_scenarios(data, scenarios):
+    # assert len(scenarios) == SCENARIOS_NUM, f"Expected {SCENARIOS_NUM} scenarios but {len(scenarios)}"
+    if not data.shape[0] == TIME_SERIES_NUM:
+        info(f"Expected {SCENARIOS_NUM} scenarios but {len(scenarios)}")
+        return
+    nums_filter = get_fmri_time_points_filter(data.shape)
+    filtered = data[nums_filter, :]
+    assert filtered.shape[0] == len(scenarios), f"Expected {filtered.shape[0]=} == {len(scenarios)=}"
+    return (filtered, scenarios)
+
+def get_fmri_time_points_filter(
+    data_shape,
+    num_before_last=1,
+    time_series_num=166,
+    scenarios_num=10,
+    scenario_sec=22,
+    rest_sec=10,
+    hymodynamic_lag = 8 #8 seconds after onput of story, biggest BOLD response in brain
+                        # (6-8s generally, go with 8 for now)
+):
     '''
     Merges fMRI data with text (scenarios). Masked data in format (time series, voxels). 
     Ten stories were presented in each 5.5 min run; the total experiment, involving six runs, 
     lasted 33.2 min. Rest blocks of 10 s were interleaved between each story. 
     See https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4769633/
     '''
-    TIME_SERIES_NUM=166
-    SCENARIOS_NUM=10
-    SCENARIO_SEC=22
-    NUM_BEFORE_LAST=1
-    REST_SEC=10
-    #assert data.shape[0] == TIME_SERIES_NUM, f"Expected fMRI time series number {TIME_SERIES_NUM} but {data.shape}"
-    if not data.shape[0] == TIME_SERIES_NUM:
-        info(f"Skipping. Expected fMRI time series number {TIME_SERIES_NUM} but {data.shape}")
+
+    #assert data_shape[0] == TIME_SERIES_NUM, f"Expected fMRI time series number {TIME_SERIES_NUM} but {data_shape}"
+    if not data_shape[0] == time_series_num:
+        info(f"Skipping. Expected fMRI time series number {time_series_num} but {data_shape}")
         return 
-    # assert len(scenarios) == SCENARIOS_NUM, f"Expected {SCENARIOS_NUM} scenarios but {len(scenarios)}"
-    if not data.shape[0] == TIME_SERIES_NUM:
-        info(f"Expected {SCENARIOS_NUM} scenarios but {len(scenarios)}")
-        return
     # Add story end time points:
-    nums_filter=[SCENARIO_SEC]
-    for i in range(SCENARIOS_NUM-1):
-        nums_filter += [nums_filter[-1] + REST_SEC + SCENARIO_SEC]
+    nums_filter=[scenario_sec-hymodynamic_lag]
+    for i in range(scenarios_num-1):
+        #nums_filter += [nums_filter[-1] + REST_SEC + SCENARIO_SEC]
+        nums_filter += [nums_filter[-1] + rest_sec + scenario_sec]
+
     # Convert to fMRI time series numbers (taken every 2 sec) (and correct if needed):
-    nums_filter = [e//2 - NUM_BEFORE_LAST for e in nums_filter]
-    filtered = data[nums_filter, :]
-    assert filtered.shape[0] == len(scenarios), f"Expected {filtered.shape[0]=} == {len(scenarios)=}"
-    return (filtered, scenarios)
+    nums_filter = [e//2 - num_before_last for e in nums_filter]
+    return nums_filter
+
 
 def extract_fmri_data(subject, run_num, bold_f):
     bold_symlink_f = str(bold_f.resolve())
@@ -103,7 +117,7 @@ def process_subject_roi(masker, subject):
         data = nib.load(bold_f)  # no errors from this !
         roi_time_series = masker.transform(data)
 
-        scenarios = extract_scenarios(subject, run_num, bold_f)
+        scenarios, _ = extract_scenarios(subject, run_num, bold_f)
         if roi_time_series.shape[0] > 0 and len(scenarios) > 0:
             merged = merge_fmri_and_scenarios(roi_time_series, scenarios)
             if merged:
@@ -116,23 +130,26 @@ def process_subject_roi(masker, subject):
 def extract_scenarios(subject, run_num, bold_f):
     event_file = bold_f.parent / bold_f.name.replace('_bold.nii.gz', '_events.tsv')
     scenarios = []
+    skipped_num = 0
     with open(event_file, newline='') as csvfile:
         reader = DictReader(csvfile, delimiter='\t', quotechar='"')
         for event in reader:
             condition, item = event['condition'], event['item']
             if condition not in event_to_scenario:
-                info(f'Skipping event {event}: no scanario mapping.')
+                skipped_num += 1
+                #info(f'Skipping event {event}: no scanario mapping.')
                 continue
             skind, stype = event_to_scenario[condition]
             found = [s for s in all_scenarios if s['item'] == item]
             if not found:
-                info(f'Skipping event {event}: no scenario with this item found.')
+                skipped_num += 1
+                #info(f'Skipping event {event}: no scenario with this item found.')
                 continue
             found = found[0]
             assert found['type'] == stype, f"Scenario with {item} item does not match the '{stype}' expected type. Scenario: {found}. Event: {event}."
             text = f"{found['background']} {found['action']} {found['outcome']} {found[skind]}"
             scenarios.append(text)
-    return scenarios
+    return scenarios, skipped_num
 
 def init_scenarios():
     global all_scenarios

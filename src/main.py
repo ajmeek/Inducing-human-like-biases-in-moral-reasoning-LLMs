@@ -1,9 +1,8 @@
 import torch as t
 from torch.utils.data import TensorDataset
 from transformers import AutoTokenizer, AutoModel
-from utils.loading_data import load_csv_to_tensors, load_np_fmri_to_tensor, load_ds000212_dataset, \
-    multiple_dataset_loading
-from utils.preprocessing import preprocess_prediction, preprocess
+from utils.loading_data import load_ethics_ds, multiple_dataset_loading
+from utils.preprocessing import preprocess_prediction
 from model import BERT
 from pl_model import LitBert
 import lightning.pytorch as pl
@@ -20,9 +19,7 @@ artifactspath = Path(environ.get('AISCBB_ARTIFACTS_DIR','./artifacts'))
 
 def main():
     assert datapath.exists(), 'Expected data dir present.'
-    ethics_ds_path = datapath / 'ethics'
     artifactspath.mkdir(exist_ok=True)
-    difumo_ds_path = datapath / 'ds000212_difumo'
 
     config = get_config()
 
@@ -45,8 +42,7 @@ def main():
     #     base_model = modify_with_ia3(base_model, layers_to_replace_with_ia3)
 
     # Load the dataset
-    dataloaders, train_head_dims = multiple_dataset_loading(datapath, tokenizer, config,
-                                                            shuffle=config['shuffle_train'],                                                         normalize_fmri=config['normalize_fmri'])
+    dataloaders, train_head_dims = multiple_dataset_loading(datapath, tokenizer, config)
 
     # Define the model
     model = BERT(
@@ -83,10 +79,12 @@ def main():
     trainer.fit(lit_model, dataloaders)
 
     # Test the model
-    test_dataset_path = ethics_ds_path / config['test_set']
-    tokens, masks, targets = load_csv_to_tensors(test_dataset_path, tokenizer, num_samples=config['num_samples_test'])
-    test_loader = preprocess(tokens, masks, targets, batch_size=config['batch_size'], shuffle=config['shuffle_test'])
-
+    test_loader, _ = load_ethics_ds(
+        datapath,
+        tokenizer,
+        config,
+        is_train=False
+    )
     print('Testing on ETHICS...')
     trainer.test(lit_model, dataloaders=test_loader)
     logger.save()
@@ -126,19 +124,6 @@ def get_args() -> argparse.ArgumentParser:
 
     parser = argparse.ArgumentParser(
         description='run model training'
-    )
-    parser.add_argument(
-        '--train_datasets',
-        nargs='+',
-        default=['ethics/commonsense/cm_train.csv', 'ds000212'],
-        type=str,
-        help='Datasets to train on. This can be multiple datasets, e.g. "ds000212 ethics/...".'
-    )
-    parser.add_argument(
-        '--normalize_fmri',
-        default='False',
-        type=str,
-        help='Normalize fMRI data.'
     )
     parser.add_argument(
         '--num_epochs',
@@ -183,17 +168,17 @@ def get_args() -> argparse.ArgumentParser:
              '(default: 100)'
     )
     parser.add_argument(
-        '--shuffle_train',
-        default='True',
-        type=str,
-        help='If we should shuffle train data.'
-    )
-    parser.add_argument(
         '--num_samples_test',
         default='100',
         type=int,
         help='Number of test samples.'
              '(default: 64)'
+    )
+    parser.add_argument(
+        '--shuffle_train',
+        default='True',
+        type=str,
+        help='If we should shuffle train data.'
     )
     parser.add_argument(
         '--shuffle_test',
@@ -216,10 +201,11 @@ def get_args() -> argparse.ArgumentParser:
              '(default: bert-base-cased)'
     )
     parser.add_argument(
-        '--test_set',
-        default='commonsense/cm_test.csv',
+        '--train_datasets',
+        nargs='+',
+        default=['ethics', 'ds000212'],
         type=str,
-        help='Path to test set starting from data/ethics directory.'
+        help='Datasets to train on. This can be multiple datasets, e.g. "ds000212 ethics/...".'
     )
     parser.add_argument(
         '--loss_names',

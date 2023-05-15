@@ -64,7 +64,8 @@ class LitBert(pl.LightningModule):
     def test_step(self, batch, batch_idx) -> Optional[STEP_OUTPUT]:
         tokens, mask, target = batch
         predictions = self.model(tokens, mask)
-        logits = predictions[0]  # Note: take the first, so we use the ETHICS head to predict.
+        logits = predictions[0]  # Note: take the first, so we use the ETHICS head to predict.  # TODO not first head?
+
         probs = F.softmax(logits, dim=-1)
         predicted_label = probs.argmax(dim=-1)
         # log the accuracy (this automatically accumulates it over the whole test set)
@@ -74,7 +75,7 @@ class LitBert(pl.LightningModule):
     def predict_step(self, batch: Any, batch_idx: int, dataloader_idx: int = 0) -> Any:
         tokens, mask, target, dataset_index = batch
         predictions = self.model(tokens, mask)
-        logits = predictions[dataset_index[0].item()]
+        logits = predictions[dataset_index[0].item()]  # TODO not first head?
         return F.softmax(logits, dim=-1)
     
     def configure_optimizers(self):
