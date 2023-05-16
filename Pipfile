@@ -15,6 +15,7 @@ nibabel = "*"
 sympy = "*"
 numpy = "*"
 lightning = {extras = ["extra"], version = "*"}
+datalad = "*"
 
 [dev-packages]
 
