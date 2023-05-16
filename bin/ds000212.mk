@@ -15,9 +15,10 @@ target_files = $(patsubst $(source_dir)%.nii.gz,$(target_dir)%.npz,$(source_file
 # Normilized targets to signal that a .npz file was normilized.
 normalized_targets = $(subst .npz,-normalized,$(target_files))
 procesed_file = $(target_dir)/processed
-
 # Default task. Finish when all .npz files are normilized.
+
 all : $(normalized_targets)
+	echo $$SHELL
 	echo Done normalization.
 
 $(normalized_targets) : $(procesed_file) 
