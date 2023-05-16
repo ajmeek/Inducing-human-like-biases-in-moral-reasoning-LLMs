@@ -18,7 +18,6 @@ procesed_file = $(target_dir)/processed
 # Default task. Finish when all .npz files are normilized.
 
 all : $(normalized_targets)
-	echo $$SHELL
 	echo Done normalization.
 
 $(normalized_targets) : $(procesed_file) 
@@ -36,6 +35,7 @@ $(procesed_file) : $(target_files)
 
 # Static pattern rule to run per each .nii.gz file to get .npz file.
 $(target_dir)%.npz : $(source_dir)%.nii.gz
+	echo shell in recipe: $$SHELL
 	from_niigz=$<
 	if [[ ! "$$from_niigz" =~ "task-dis" ]]; then 
 		# Take only dis (ignore false believe) 

@@ -30,7 +30,7 @@ num_cpus=$( python -c "import psutil; print(max(1, psutil.cpu_count(logical=True
     export SOURCE_DS_NAME=ds000212
     export IS_ROI_ARG=--no-roi
     echo Running make for $TARGET_DS_NAME
-    echo $SHELL
+    echo Shell in datasets.sh: $SHELL
     make -f ./bin/ds000212.mk all  --jobs $num_cpus --silent
 )
 (
