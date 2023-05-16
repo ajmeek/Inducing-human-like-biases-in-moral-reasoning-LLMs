@@ -1,3 +1,4 @@
+#!/bin/bash
 # Makefile for the dataset in data/ds000212 that converts .nii.gz files into .npz files (Numpy files).
 # Note: Intended to be run in a Linux environment. It is not guaranteed to work on other operating systems.
 

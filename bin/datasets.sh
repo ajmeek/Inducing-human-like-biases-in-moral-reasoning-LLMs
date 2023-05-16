@@ -1,3 +1,4 @@
+#!/bin/bash
 [[ -e "$root_dir" ]] || ( echo "root dir not found: '$root_dir'"  ; exit 1 )
 DATADIR=${AISCBB_DATA_DIR:-$root_dir/data}
 [[ -e "$DATADIR" ]] || ( echo "data dir not found: '$DATADIR'"  ; exit 1 )
