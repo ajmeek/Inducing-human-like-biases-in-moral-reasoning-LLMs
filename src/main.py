@@ -67,9 +67,10 @@ def main():
         dataset_names=config['train_datasets'],
     )
 
+    logging_dir_name = f'{datetime.utcnow():%y%m%d-%H%M%S}'
     logger = TensorBoardLogger(
         save_dir=artifactspath,
-        name=f'{datetime.utcnow():%y%m%d-%H%M%S}'
+        name=logging_dir_name,
     )
     logger.log_hyperparams(config)
 
@@ -89,6 +90,12 @@ def main():
     trainer.fit(lit_model,
                 train_dataloaders=train_dataloaders,
                 val_dataloaders=val_dataloaders)
+
+    # Save the base model
+    print('Saving model...')
+    model_path = artifactspath / logging_dir_name / 'model.pt'
+    model_path.parent.mkdir(exist_ok=True, parents=True)
+    t.save(model.state_dict(), model_path)
 
     # Test the model
     test_dataset_path = ethics_ds_path / config['test_set']
@@ -146,7 +153,7 @@ def get_args() -> argparse.ArgumentParser:
     parser.add_argument(
         '--train_datasets',
         nargs='+',
-        default=['ethics/commonsense/cm_train.csv'],
+        default=['ethics/commonsense/cm_train.csv', 'ds000212'],
         type=str,
         help='Datasets to train on. This can be multiple datasets, '
              'e.g. "ds000212 ethics/...".'
