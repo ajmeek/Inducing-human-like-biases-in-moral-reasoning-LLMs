@@ -23,23 +23,24 @@ def main():
     data = in_files['data_items'].copy()
     labels = in_files['labels'].copy()
 
-    # Normalize:
-    data = (data - data.mean(axis=1, keepdims=True)) / \
-        data.std(axis=1, keepdims=True)
-    diff = max_l - data.shape[-1]
-    data = np.pad(data, ((0, 0), (0, diff)), **pad_args)
+    if data.shape[1] != max_l:
+        # Normalize:
+        data = (data - data.mean(axis=1, keepdims=True)) / \
+            data.std(axis=1, keepdims=True)
+        diff = max_l - data.shape[-1]
+        data = np.pad(data, ((0, 0), (0, diff)), **pad_args)
 
-    # Save:
-    np.savez(f, data_items=data, labels=labels)
-    to_npz_description = Path(str(f).replace('.npz', '-description.txt'))
-    to_npz_description.write_text(
-        f"""
+        # Save:
+        np.savez(f, data_items=data, labels=labels)
+        to_npz_description = Path(str(f).replace('.npz', '-description.txt'))
+        to_npz_description.write_text(
+            f"""
 data shape: {data.shape}
 labels shape: {labels.shape}
 processed at {datetime.now()}
-        """)
-    report.write_text(
-        f"Result shape: {data.shape}. Diff: {str(diff) if diff > 0 else ''}")
+            """)
+        report.write_text(
+            f"Result shape: {data.shape}. Diff: {str(diff) if diff > 0 else ''}")
 
 
 if __name__ == '__main__':
