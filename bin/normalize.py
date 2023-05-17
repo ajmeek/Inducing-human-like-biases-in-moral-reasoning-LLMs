@@ -5,7 +5,7 @@ of the same shape, with 0 mean, and 1 std.
 from sys import argv
 from pathlib import Path
 import numpy as np
-
+from datetime import datetime
 
 def main():
     if len(argv) != 4 or not str.isdigit(argv[1]):
@@ -33,7 +33,11 @@ def main():
     np.savez(f, data_items=data, labels=labels)
     to_npz_description = Path(str(f).replace('.npz', '-description.txt'))
     to_npz_description.write_text(
-        f"data shape: {data.shape}\nlabels shape: {labels.shape}\n")
+        f"""
+data shape: {data.shape}
+labels shape: {labels.shape}
+processed at {datetime.now()}
+        """)
     report.write_text(
         f"Result shape: {data.shape}. Diff: {str(diff) if diff > 0 else ''}")
 
