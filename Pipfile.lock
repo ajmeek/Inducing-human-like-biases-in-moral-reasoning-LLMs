@@ -550,11 +550,11 @@
         },
         "datalad": {
             "hashes": [
-                "sha256:2da57df609f62a52a6652ade802e8ce0f229d498a5b93b15df2b8c69f8875b6e",
-                "sha256:a2607b592be02b7dbb5633484fd7055f3d7d6c1bd8c8490e80b85d49010ab69e"
+                "sha256:75bf85db017bb5cff0e62b6e75ba282bf04d061e1410017e132320dd6a4e79e4",
+                "sha256:d832f3d70b79b7b66519ca30315791a6a265bdf8a86ddac5846489b75385cb09"
             ],
             "index": "pypi",
-            "version": "==0.18.3"
+            "version": "==0.18.4"
         },
         "dateutils": {
             "hashes": [

@@ -1,3 +1,7 @@
+DESCRIPTION = '''
+This script converts .nii.gz and .tsv files into .npy files
+suitable for fine tuning a language model.
+'''
 from re import search
 import argparse
 import nibabel as nib
@@ -8,10 +12,7 @@ from csv import DictReader
 import numpy as np
 from pathlib import Path
 from sys import argv
-DESCRIPTION = '''
-This script converts .nii.gz and .tsv files into .npy files
-suitable for fine tuning a language model.
-'''
+from datetime import datetime
 
 
 def main():
@@ -22,6 +23,9 @@ def main():
     if not args.from_tsv.exists():
         print(f"File {args.from_tsv} not found.")
         exit(1)
+    if 'dis_run' not in str(args.from_niigz):
+        print(f"File {args.from_niigz} ignored: not 'dis'.")
+        exit(0)
     process(
         args.from_niigz,
         args.from_tsv,
@@ -75,9 +79,11 @@ def process(
         data_items=data_items,
         labels=labels,
     )
-    with open(to_npz_description, 'w') as f:
-        f.write(f'data shape: {data_items.shape}\n')
-        f.write(f'labels shape: {labels.shape}\n')
+    to_npz_description.write_text(f"""
+data shape: {data_items.shape}
+labels shape: {labels.shape}
+processed at {datetime.now()}
+    """)
 
 
 _difumo_masker = None
