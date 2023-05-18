@@ -27,7 +27,8 @@ function ds000212() {
 
     if [[ ! -e $DATADIR/ds000212 ]] ; then
         echo Downloading ds000212...
-        ( pushd "$DATADIR" ; datalad install --get-data https://github.com/OpenNeuroDatasets/ds000212.git ; popd )
+        # TODO : make similar to 
+        datalad install --get-data -s https://github.com/OpenNeuroDatasets/ds000212.git $DATADIR/ds000212
     fi
 
     # (
@@ -45,17 +46,16 @@ function ds000212() {
     #     make -f ./bin/ds000212.mk all  --jobs $num_cpus  --silent
     # )
 
-    if [[ ! -e $DATADIR/ds000212-fmriprep ]] ; then
-        echo Downloading ds000212-fmriprep...
-        pushd "$DATADIR" 
-        datalad install https://github.com/OpenNeuroDerivatives/ds000212-fmriprep.git
-        popd
-    fi
     (
-        export TARGET_DS_NAME=ds000212_fmriprep_done
-        export SOURCE_DS_NAME=ds000212_fmriprep
+        export TARGET_DS_NAME=ds000212_fmriprep
+        export SOURCE_DS_NAME=ds000212/derivatives/ds000212-fmriprep
+        if [[ ! -e $DATADIR/$SOURCE_DS_NAME ]] ; then
+            echo Downloading $DATADIR/$SOURCE_DS_NAME...
+            datalad install -s https://github.com/OpenNeuroDerivatives/ds000212-fmriprep.git "$DATADIR/$SOURCE_DS_NAME"
+        fi
         echo Running make for $TARGET_DS_NAME
-        make -f ./bin/ds000212prep.mk all  --jobs $num_cpus --silent
+        #make -f ./bin/ds000212prep.mk all  --jobs $num_cpus --silent
+        make -f ./bin/ds000212prep.mk all  --jobs 1 
     )
 }
 

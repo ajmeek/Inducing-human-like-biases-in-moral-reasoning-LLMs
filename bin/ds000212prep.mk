@@ -1,6 +1,6 @@
-#!/bin/bash
 
 .ONESHELL:
+
 niigz_script = ./bin/ds000212prep_process_niigz.py
 target_name = $(TARGET_DS_NAME)
 source_name = $(SOURCE_DS_NAME)
@@ -15,24 +15,25 @@ all : $(target_files)
 	echo brain_source_niigz_files: $(brain_source_niigz_files)
 	echo target_files: $(target_files)
 
+
 $(target_dir)%.npz : $(source_dir)%.nii.gz
 	brain_niigz=$<
 	brain_json=$(subst .nii.gz,.json,$<)
 	mask_niigz=$(subst preproc_bold,brain_mask,$<)
 	mask_json=$(subst  .nii.gz,.json,$(mask_niigz))
 
-	datalad get $(brain_niigz)
-	datalad get $(brain_json)
-	datalad get $(mask_niigz)
-	datalad get $(mask_json)
+	datalad get "$$brain_json"
+	datalad get "$$mask_niigz"
+	datalad get "$$mask_json"
 
 	to_npz=$@
-	python $(niigz_script) \
-		$(brain_niigz) \
-		$(mask_niigz) \
-		$(to_npz)
+	mkdir -p "$$( dirname $$to_npz )"
+	python $(niigz_script) "$$brain_niigz" "$$mask_niigz" "$$to_npz"
 	
-	datalad drop $(brain_niigz)
-	datalad drop $(brain_json)
-	datalad drop $(mask_niigz)
-	datalad drop $(mask_json)
+	#datalad drop "$$brain_niigz"
+	#datalad drop "$$brain_json"
+	#datalad drop "$$mask_niigz"
+	#datalad drop "$$mask_json"
+
+ $(source_dir)%.nii.gz :
+	datalad get "$@"

@@ -1,23 +1,24 @@
 DESCRIPTION = '''
 This script converts .nii.gz into .npy files
 '''
-from re import search
-import argparse
-import nibabel as nib
-import nilearn.maskers
-import nilearn
-from nilearn.masking import compute_epi_mask, apply_mask
-from csv import DictReader
-import numpy as np
-from pathlib import Path
-from sys import argv
+
 from datetime import datetime
+from sys import argv
+from pathlib import Path
+import numpy as np
+from csv import DictReader
+from nilearn.masking import compute_epi_mask, apply_mask
+import nilearn
+import nilearn.maskers
+import nibabel as nib
+import argparse
+from re import search
 
 
 def main():
     a = get_args().parse_args()
-	masked_data = apply_mask(a.brain_niigz, a.mask_niigz)
-	np.savez(a.to_npz, masked_data)
+    masked_data = apply_mask(a.brain_niigz, a.mask_niigz)
+    np.savez(a.to_npz, masked_data)
 
 
 def get_args() -> argparse.ArgumentParser:
