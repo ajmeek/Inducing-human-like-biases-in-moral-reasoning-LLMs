@@ -31,13 +31,13 @@ function ds000212() {
         datalad install --get-data -s https://github.com/OpenNeuroDatasets/ds000212.git $DATADIR/ds000212
     fi
 
-    # (
-    #     export TARGET_DS_NAME=ds000212_raw
-    #     export SOURCE_DS_NAME=ds000212
-    #     export IS_ROI_ARG=--no-roi
-    #     echo Running make for $TARGET_DS_NAME
-    #     make -f ./bin/ds000212.mk all  --jobs $num_cpus --silent
-    # )
+    (
+        export TARGET_DS_NAME=ds000212_raw
+        export SOURCE_DS_NAME=ds000212
+        export IS_ROI_ARG=--no-roi
+        echo Running make for $TARGET_DS_NAME
+        make -f ./bin/ds000212.mk all  --jobs $num_cpus --silent
+    )
     # (
     #     export TARGET_DS_NAME=ds000212_roi
     #     export SOURCE_DS_NAME=ds000212
@@ -47,6 +47,7 @@ function ds000212() {
     # )
 
     (
+        exit 0
         export TARGET_DS_NAME=ds000212_fmriprep
         export SOURCE_DS_NAME=ds000212/derivatives/ds000212-fmriprep
         if [[ ! -e $DATADIR/$SOURCE_DS_NAME ]] ; then
