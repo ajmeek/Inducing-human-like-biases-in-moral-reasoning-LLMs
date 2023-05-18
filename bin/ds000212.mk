@@ -3,6 +3,7 @@
 
 .ONESHELL:
 
+py = python3.9
 niigz_script = bin/ds000212_process_niigz.py
 target_name = $(TARGET_DS_NAME)
 source_name = $(SOURCE_DS_NAME)
@@ -39,7 +40,7 @@ $(target_dir)%.npz : $(source_dir)%.nii.gz
 	to_npz=$@
 	mkdir -p $$( dirname $$to_npz )
 	d_file=$(subst .npz,-description.txt,$@)
-	python $(niigz_script) \
+	$(py) $(niigz_script) \
 		"$$from_niigz" \
 		"$$from_tsv_file" \
 		"$$to_npz" \
@@ -49,5 +50,5 @@ $(target_dir)%.npz : $(source_dir)%.nii.gz
 # Static pattern rule to run per each .npz file to get it normalized.
 $(target_dir)%-normalized : $(target_dir)%.npz 
 	max_len=$$( cat $(procesed_file) )
-	python bin/normalize.py $$max_len "$<" "$@"
+	$(py) bin/normalize.py $$max_len "$<" "$@"
 	
