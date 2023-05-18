@@ -30,10 +30,10 @@ $(target_dir)%.npz : $(source_dir)%.nii.gz
 	mkdir -p "$$( dirname $$to_npz )"
 	python $(niigz_script) "$$brain_niigz" "$$mask_niigz" "$$to_npz"
 	
-	#datalad drop "$$brain_niigz"
-	#datalad drop "$$brain_json"
-	#datalad drop "$$mask_niigz"
-	#datalad drop "$$mask_json"
+	datalad drop "$$brain_niigz"
+	datalad drop "$$brain_json"
+	datalad drop "$$mask_niigz"
+	datalad drop "$$mask_json"
 
  $(source_dir)%.nii.gz :
 	datalad get "$@"
