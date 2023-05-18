@@ -53,6 +53,7 @@ If no tasks provided (run.sh gcp) it syncs remote and local files (gets results)
         [[ ! -z ${AISCIBB_GIT_TOKEN-} ]]  || ( echo "Please set AISCIBB_GIT_TOKEN environment variable (see https://github.com/settings/tokens)." ; exit 1 )
         [[ ! -z ${AISCIBB_GCP_SSH_USERHOST-} ]]  || ( echo "Please set AISCIBB_GCP_SSH_USERHOST environment variable (example: user@123.123.123.123)." ; exit 1 )
 
+        echo Uploading files required to run commands...
         scp -q ~/.gitconfig scp://$AISCIBB_GCP_SSH_USERHOST/.gitconfig
         scp -q ./run.sh scp://$AISCIBB_GCP_SSH_USERHOST/run.sh
         if [[ $# -gt 0 ]]; then
@@ -79,9 +80,9 @@ If no tasks provided (run.sh gcp) it syncs remote and local files (gets results)
             sudo docker ps
             if [[ -e $C_ID_FILE ]]; then
                 CID=$( cat $C_ID_FILE ) 
-                if docker ps | grep $CID ; then 
+                if sudo docker ps | grep $CID ; then 
                     C_LOG_FILE="$AISCBB_ARTIFACTS_DIR/$( date +%Y-%m-%d-%H%M )_run_sh.log "
-                    docker logs -f $CID |& tee $C_LOG_FILE
+                    sudo docker logs -f $CID |& tee $C_LOG_FILE
                 fi
             fi
         else
@@ -89,11 +90,11 @@ If no tasks provided (run.sh gcp) it syncs remote and local files (gets results)
             echo [GCP] Stoping current task if any.
             if [[ -e $C_ID_FILE ]] ; then 
                 CID=$( cat $C_ID_FILE ) 
-                if docker ps | grep $CID ; then 
+                if sudo docker ps | grep $CID ; then 
                     echo There is $CID container running. Stoppping...
                     C_LOG_FILE="$AISCBB_ARTIFACTS_DIR/$( date +%Y-%m-%d-%H%M )_run_sh.log "
-                    docker logs -f $CID &> $C_LOG_FILE
-                    docker rm $CID
+                    sudo docker logs -f $CID &> $C_LOG_FILE
+                    sudo docker rm $CID
                 fi
                 rm $C_ID_FILE
             fi
@@ -109,12 +110,12 @@ If no tasks provided (run.sh gcp) it syncs remote and local files (gets results)
             git clone -b $GITBRANCH "https://$AISCIBB_GIT_TOKEN@$GIT_REMOTE" $TARGETDIR 
 
             echo Building docker image...
-            ( cd $TARGETDIR ; docker buildx build -t aiscbb . )
+            ( cd $TARGETDIR ; sudo docker buildx build -t aiscbb . )
 
             echo Running container...
             shift 2  # Remove first two params for gcp.
 
-            docker container run \
+            sudo docker container run \
                 -e AISCBB_ARTIFACTS_DIR=/aiscbb_artifacts \
                 -e AISCBB_DATA_DIR=/asicbb_data \
                 -v $AISCBB_ARTIFACTS_DIR:/aiscbb_artifacts \
@@ -125,7 +126,7 @@ If no tasks provided (run.sh gcp) it syncs remote and local files (gets results)
                 aiscbb bash run.sh "$@"
             CID=$( cat $C_ID_FILE )
             C_LOG_FILE="$AISCBB_ARTIFACTS_DIR/$( date +%Y-%m-%d-%H%M )_run_sh.log "
-            docker logs -f $CID |& tee $C_LOG_FILE
+            sudo docker logs -f $CID |& tee $C_LOG_FILE
 
             [[ ! -e %TARGETDIR ]] || rm -dr $TARGETDIR
             echo At GCP. Finished.
