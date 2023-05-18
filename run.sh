@@ -36,7 +36,7 @@ function datasets() {
 function train() {
     echo Training...
     pushd $root_dir > /dev/null
-    python "$root_dir/src/main.py" "$@"  || popd
+    python3.9 "$root_dir/src/main.py" "$@"  || popd
     popd
 
 }

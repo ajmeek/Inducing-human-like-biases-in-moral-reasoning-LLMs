@@ -4,7 +4,7 @@
 DATADIR=${AISCBB_DATA_DIR:-$root_dir/data}
 [[ -e "$DATADIR" ]] || ( echo "data dir not found: '$DATADIR'"  ; exit 1 )
 
-num_cpus=$( python -c "import psutil; print(max(1, psutil.cpu_count(logical=True) - 2))" )
+num_cpus=$( python3.9 -c "import psutil; print(max(1, psutil.cpu_count(logical=True) - 2))" )
 
 function ethics() { 
     if [[ ! -e $DATADIR/ethics ]]; then 
