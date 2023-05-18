@@ -34,6 +34,8 @@ $(target_dir)%.npz : $(source_dir)%.nii.gz
 	datalad drop "$$brain_json"
 	datalad drop "$$mask_niigz"
 	datalad drop "$$mask_json"
+	echo Stoppiing
+	exit 1
 
  $(source_dir)%.nii.gz :
 	datalad get "$@"

@@ -22,12 +22,6 @@ def main():
     artifactspath.mkdir(exist_ok=True)
 
     config = get_config()
-
-    # determine the best device to run on
-    if t.cuda.is_available(): device = 'cuda'
-    elif t.backends.mps.is_available(): device = 'mps'
-    else: device = 'cpu'
-    print(f"Device: {device=}")
     print(f'Config: \n' + '\n'.join(f'{k:<40}{config[k]}' for k in config))
 
     # Define the tokenizer and model
@@ -68,8 +62,9 @@ def main():
     trainer = pl.Trainer(
         limit_train_batches=config['batches_per_epoch'],
         max_epochs=config['num_epochs'],
-        accelerator=device,
-        devices=1,
+        accelerator='auto',
+        devices='auto',
+        strategy='auto',
         logger=logger,
         log_every_n_steps=1,
         default_root_dir=artifactspath,

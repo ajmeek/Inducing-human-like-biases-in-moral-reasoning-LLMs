@@ -58,7 +58,7 @@ class LitBert(pl.LightningModule):
             loss += self.regularization_coef * reg_loss
         
         # log and return
-        self.log("train_loss", loss, prog_bar=True)
+        self.log("train_loss", loss, prog_bar=True, sync_dist=True)
         return loss
 
     def test_step(self, batch, batch_idx) -> Optional[STEP_OUTPUT]:
@@ -69,7 +69,7 @@ class LitBert(pl.LightningModule):
         probs = F.softmax(logits, dim=-1)
         predicted_label = probs.argmax(dim=-1)
         # log the accuracy (this automatically accumulates it over the whole test set)
-        self.log("test_acc", (predicted_label == target).float().mean(), prog_bar=True)
+        self.log("test_acc", (predicted_label == target).float().mean(), prog_bar=True, sync_dist=True)
         return predicted_label
 
     def predict_step(self, batch: Any, batch_idx: int, dataloader_idx: int = 0) -> Any:

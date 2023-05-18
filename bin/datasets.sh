@@ -4,25 +4,25 @@
 DATADIR=${AISCBB_DATA_DIR:-$root_dir/data}
 [[ -e "$DATADIR" ]] || ( echo "data dir not found: '$DATADIR'"  ; exit 1 )
 
-num_cpus=$( python -c "import psutil; print(max(1, psutil.cpu_count(logical=True) - 2))" )
+num_cpus=$( python3 -c "import psutil; print(max(1, psutil.cpu_count(logical=True) - 2))" )
 
 function ethics() { 
-    if [[ ! -e $DATADIR/ethics ]]; then 
-        echo Downloading and processing ETHICS...
-        pushd "$DATADIR"
-        [[ -e ethics.tar ]] || curl -O 'https://people.eecs.berkeley.edu/~hendrycks/ethics.tar' 
-        mkdir -p ethics
-        tar -xvf ethics.tar 
-        rm ./ethics.tar
-        popd
-        [[ -e "$DATADIR/ethics/commonsense/cm_train.csv" ]] || ( echo 'downloading ethics ds failed'  ; exit 1 )
-        echo 'done'
-    fi
+if [[ ! -e $DATADIR/ethics ]]; then 
+    echo Downloading and processing ETHICS...
+    pushd "$DATADIR"
+    [[ -e ethics.tar ]] || curl -O 'https://people.eecs.berkeley.edu/~hendrycks/ethics.tar' 
+    mkdir -p ethics
+    tar -xvf ethics.tar 
+    rm ./ethics.tar
+    popd
+    [[ -e "$DATADIR/ethics/commonsense/cm_train.csv" ]] || ( echo 'downloading ethics ds failed'  ; exit 1 )
+    echo 'done'
+fi
 }
 
 function ds000212() {
-    if [[ ! -e $DATADIR/ds000212_scenarios.csv ]]; then
-        cp $root_dir/data/ds000212_scenarios.csv $DATADIR/ds000212_scenarios.csv
+    if [[ ! -e $DATADIR/scenarios.csv ]]; then
+        cp $root_dir/data/scenarios.csv $DATADIR/scenarios.csv
     fi
 
     if [[ ! -e $DATADIR/ds000212 ]] ; then
@@ -47,6 +47,7 @@ function ds000212() {
     # )
 
     (
+        exit 0
         export TARGET_DS_NAME=ds000212_fmriprep
         export SOURCE_DS_NAME=ds000212/derivatives/ds000212-fmriprep
         if [[ ! -e $DATADIR/$SOURCE_DS_NAME ]] ; then

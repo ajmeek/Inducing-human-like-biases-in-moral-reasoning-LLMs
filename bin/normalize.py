@@ -17,7 +17,8 @@ def main():
     report = Path(argv[3])
     if not f.exists():
         return
-    pad_args = {'mode': 'constant', 'constant_values': 0}
+    EPSILON = 1e-9
+    pad_args = {'mode': 'constant', 'constant_values': EPSILON}
 
     in_files = np.load(f)
     data = in_files['data_items'].copy()
