@@ -37,10 +37,7 @@ function train() {
     echo Training...
     pushd $root_dir > /dev/null
 
-    if [[ ! -z ${AISCIBB_GCP_FLAG-} ]] ; then
-        # Enabling TPU on GCP: https://cloud.google.com/tpu/docs/run-calculation-pytorch
-        export PJRT_DEVICE=TPU
-    fi
+    export PJRT_DEVICE=TPU
     python3 "$root_dir/src/main.py" "$@"  || popd
 }
 
