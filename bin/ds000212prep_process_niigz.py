@@ -13,12 +13,15 @@ import nilearn.maskers
 import nibabel as nib
 import argparse
 from re import search
+import torch as t
 
 
 def main():
     a = get_args().parse_args()
     masked_data = apply_mask(a.brain_niigz, a.mask_niigz)
-    np.savez(a.to_npz, masked_data)
+    # Reduce the size in 10 times:
+    masked_data = t.nn.Conv1d(1, 1, kernel_size=10,stride=10)(masked_data.view(masked_data.shape[0], 1, -1))
+    np.savez(a.to_npz, masked_data.view(masked_data.shape[0],-1))
 
 
 def get_args() -> argparse.ArgumentParser:
