@@ -38,13 +38,13 @@ function ds000212() {
         echo Running make for $TARGET_DS_NAME
         make -f ./bin/ds000212.mk all  --jobs $num_cpus --silent
     )
-    (
-        export TARGET_DS_NAME=ds000212_roi
-        export SOURCE_DS_NAME=ds000212
-        export IS_ROI_ARG=--roi
-        echo Running make for $TARGET_DS_NAME
-        make -f ./bin/ds000212.mk all  --jobs $num_cpus  --silent
-    )
+    # (
+    #     export TARGET_DS_NAME=ds000212_roi
+    #     export SOURCE_DS_NAME=ds000212
+    #     export IS_ROI_ARG=--roi
+    #     echo Running make for $TARGET_DS_NAME
+    #     make -f ./bin/ds000212.mk all  --jobs $num_cpus  --silent
+    # )
 
     #(
     #    export TARGET_DS_NAME=ds000212_fmriprep
