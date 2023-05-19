@@ -41,7 +41,7 @@ function train() {
         # Enabling TPU on GCP: https://cloud.google.com/tpu/docs/run-calculation-pytorch
         export PJRT_DEVICE=TPU
     fi
-    python3.9 "$root_dir/src/main.py" "$@"  || popd
+    python3 "$root_dir/src/main.py" "$@"  || popd
 }
 
 # TODO: refactor, move to its file.
