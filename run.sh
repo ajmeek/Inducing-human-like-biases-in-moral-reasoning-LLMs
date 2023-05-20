@@ -26,7 +26,14 @@ export GIT_REMOTE=github.com/ameek2/Inducing-human-like-biases-in-moral-reasonin
 export AISCBB_ARTIFACTS_DIR=${AISCBB_ARTIFACTS_DIR:-$root_dir/artifacts}
 export AISCBB_DATA_DIR=${AISCBB_DATA_DIR:-$root_dir/data}
 
+export pycmd=$( which python3.10 )
+export pecmd=pipenv --python $pycmd
+
 ################################################################################
+
+function provision() {
+    $pecmd install
+}
 
 function datasets() {
     echo Preparing datasets...
@@ -38,7 +45,7 @@ function train() {
     pushd $root_dir > /dev/null
 
     export PJRT_DEVICE=TPU
-    python3 "$root_dir/src/main.py" "$@"  || popd
+    $pecmd run "$root_dir/src/main.py" "$@"  || popd
 }
 
 # TODO: refactor, move to its file.

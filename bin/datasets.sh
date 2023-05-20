@@ -1,10 +1,12 @@
 #!/bin/bash
 
+[[ -e "$pecmd" ]] || ( echo "Unknown pipenv command. Hint: do you run from run.sh?"  ; exit 1 )
+[[ -e "$pycmd" ]] || ( echo "Unknown python command. Hint: do you run from run.sh?"  ; exit 1 )
 [[ -e "$root_dir" ]] || ( echo "root dir not found: '$root_dir'"  ; exit 1 )
 DATADIR=${AISCBB_DATA_DIR:-$root_dir/data}
 [[ -e "$DATADIR" ]] || ( echo "data dir not found: '$DATADIR'"  ; exit 1 )
 
-num_cpus=$( python3 -c "import psutil; print(max(1, psutil.cpu_count(logical=True) - 2))" )
+num_cpus=$( $pycmd -c "import psutil; print(max(1, psutil.cpu_count(logical=True) - 2))" )
 
 function ethics() { 
 if [[ ! -e $DATADIR/ethics ]]; then 
@@ -28,7 +30,7 @@ function ds000212() {
     if [[ ! -e $DATADIR/ds000212 ]] ; then
         echo Downloading ds000212...
         # TODO : make similar to 
-        datalad install --get-data -s https://github.com/OpenNeuroDatasets/ds000212.git $DATADIR/ds000212
+        $pecmd datalad install --get-data -s https://github.com/OpenNeuroDatasets/ds000212.git $DATADIR/ds000212
     fi
 
     (

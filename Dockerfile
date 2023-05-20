@@ -28,11 +28,12 @@ RUN apt update && \
     locales \
     nano \
     ninja-build \
-    python3.9 \
+    python3.10 \
     python3-dev \
     python3-setuptools \
     python3-venv \
     python3-pip \
+    pipenv \
     screen \
     ssh \
     sudo \
@@ -42,25 +43,7 @@ RUN apt update && \
     datalad \
     wget
 
-RUN python3.9 -m \
-    pip install \
-    --no-cache-dir \
-    --upgrade \
-    pip
-
-RUN python3.9 -m \
-    pip install \
-    --no-cache-dir \
-    transformers   \
-    torch==1.13.1 \
-    torchaudio  \
-    torchvision  \
-    pandas  \
-    lightning[extra]  \
-    bids  \
-    nilearn  \
-    nibabel  \
-    sympy 
+RUN pipenv --python $( which python3.10 ) install
 
 WORKDIR /src
 COPY . .
