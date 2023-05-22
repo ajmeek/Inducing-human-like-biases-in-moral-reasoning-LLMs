@@ -1,10 +1,11 @@
 from pathlib import Path
 
+import numpy as np
 import torch
 import torch.nn as nn
 from torch import optim
 from tqdm import tqdm
-from transformers import AutoModel, AutoTokenizer
+from transformers import AutoModel, AutoTokenizer, AutoConfig, RobertaModel
 
 from src.model import BERT
 from src.utils.loading_data import load_ds000212_dataset
@@ -13,14 +14,12 @@ from sklearn.linear_model import RidgeCV
 
 
 def calculate_brain_scores(model: nn.Module,
-                           model_input: torch.tensor,
-                           test_data: torch.tensor,
-                           epochs_to_train_head: int):
+                           model_inputs: torch.tensor,
+                           test_data: torch.tensor):
 
-    # print(model)
     activations = {}
-    layers = ['3', '4', '5']
-    modules = ['intermediate.dense']
+    layers = ['23']
+    modules = ['output.dense']
     all_layer_names = []
     for layer in layers:
         for module in modules:
@@ -31,15 +30,6 @@ def calculate_brain_scores(model: nn.Module,
             if any(x in name for x in all_layer_names):
                 activations[name] = output.detach()
 
-            # The below code might be needed depending on the layers we want to inspect.
-            # if isinstance(output, tuple) and len(output) == 1:
-            #     activations[name] = output[0].detach()
-            # elif isinstance(output, BaseModelOutputWithPastAndCrossAttentions) or isinstance(output, BaseModelOutputWithPoolingAndCrossAttentions):
-            #     pass  # TODO: not sure what happens here, have to check.
-            # elif isinstance(intermediate_model, model.__class__):  # Ths is the whole model with as output the last layer. Which is not interesting for us.
-            #     pass
-            # else:
-
         return hook
 
     # Attach the hook to every layer
@@ -49,72 +39,54 @@ def calculate_brain_scores(model: nn.Module,
     # Run the model
     model.eval()
     with torch.no_grad():
-        tokens = torch.tensor(model_input['input_ids'])
-        attention_mask = torch.tensor(model_input['attention_mask'])
-        output = model(tokens, attention_mask)
+        tokens, attention_mask = model_inputs[0], model_inputs[1]
+        model(tokens, attention_mask)
 
     # Calculate the brain scores
     brain_scores = {}
     for layer_name, activation in activations.items():
         print('Calculating brain score for layer:', layer_name,
               'and activation dims: ', activation.shape, '...')
-        activations_flattened = activation.flatten().unsqueeze(0)
+        activations_flattened = activation.reshape(activation.shape[0], -1)
 
-        clf = RidgeCV(alphas=[1e-3, 1e-2, 1e-1, 1]).fit(activations_flattened, test_data[:, 1000])
-        print(clf.score(activations_flattened, test_data[:, 1000]))
+        part_activations_flattened = activations_flattened
+        part_test_data = test_data[:, :50]
 
-        # class LinearClass(nn.Module):
-        #     def __init__(self, in_features: int, out_features: int):
-        #         super().__init__()
-        #         self.linear_1 = nn.Linear(in_features, 50)
-        #         self.linear_2 = nn.Linear(50, out_features)
-        #
-        #     def forward(self, x):
-        #         x = self.linear_1(x)
-        #         x = self.linear_2(x)
-        #         return x
-        #
-        # linear_model = LinearClass(activations_flattened.shape[1], test_data.shape[1])
-        # loss_function = nn.MSELoss()
-        # optimizer = optim.SGD(linear_model.parameters(), lr=1e-6)
-        #
-        # Calculate the brain score by training the linear layer on the test data.
-        # for i in tqdm(range(epochs_to_train_head)):
-        #     # output = linear_model(activations_flattened)
-        #     # loss = loss_function(output, test_data)
-        #
-        #     # optimizer.zero_grad()
-        #     # loss.backward()
-        #     # optimizer.step()
-        #     print(loss)
-        #
-        # brain_scores[layer_name] = loss.item()
+        part_activations_flattened = part_activations_flattened.\
+            repeat(activation.shape[0], 1)
+        part_test_data = part_test_data.\
+            repeat_interleave(activation.shape[0], dim=0)
+        clf = RidgeCV(alphas=[1e-3, 1e-2, 1e-1, 1]).\
+            fit(part_activations_flattened, part_test_data)
+        brain_scores[layer_name] = clf.score(part_activations_flattened,
+                                             part_test_data)
 
     return brain_scores
 
 
 if __name__ == '__main__':
     # Specify parameters
-    checkpoint_name = 'bert-base-cased'
-    path_to_model = r'..\artifacts\230515-101547\model.pt'  # Specify the path to the model.
+    path_to_model = r'..\models\cm_roberta-large.pt'  # Specify the path to the model.
+    checkpoint_name = 'roberta-large'  # Specify the checkpoint name of the model. 'bert-base-cased' | 'roberta-large'
     train_head_dims = [2, 39127]  # Need to fill this in to not get an error when loading the model. This is not used in the brain score calculation.
 
-    epochs_to_train_head = 50
-
     # Load the model
-    base_model = AutoModel.from_pretrained(checkpoint_name)
-    model = BERT(base_model, head_dims=train_head_dims)
-    model.load_state_dict(torch.load(path_to_model))
+    # model = AutoModel.from_pretrained(checkpoint_name)
+    # # model = BERT(model, head_dims=train_head_dims)
+    # model.load_state_dict(torch.load(path_to_model))
+
+    config = AutoConfig.from_pretrained('roberta-large', num_labels=1)
+    model = RobertaModel.from_pretrained('../models/cm_roberta-large.pt', local_files_only=True, config=config)
+    # for name, layer in model.named_modules():
+    #     print(name)
 
     # Load the data
     tokenizer = AutoTokenizer.from_pretrained(checkpoint_name)
-    # path_to_data = r'C:..\data\ethics\train.csv'
-    model_input = 'I told my baby I loved her when she cried.'  # Example of the commonsense test csv.
-    tokenized = tokenizer([model_input], padding='max_length', truncation=True)
 
     test_data_path = Path(r'..\data')
-    test_data = load_ds000212_dataset(test_data_path, tokenizer, num_samples=1, normalize=True)[2]
-
+    fmri_data = load_ds000212_dataset(test_data_path, tokenizer, num_samples=999999, normalize=True)
+    test_data = fmri_data[2]
+    model_inputs = fmri_data[:2]
     # Calculate the brain scores
-    brain_scores = calculate_brain_scores(model, tokenized, test_data, epochs_to_train_head)
+    brain_scores = calculate_brain_scores(model, model_inputs, test_data)
     print(brain_scores)
