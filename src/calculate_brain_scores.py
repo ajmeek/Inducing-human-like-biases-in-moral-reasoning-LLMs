@@ -15,18 +15,18 @@ from sklearn.linear_model import RidgeCV
 
 def calculate_brain_scores(model: nn.Module,
                            model_inputs: torch.tensor,
-                           test_data: torch.tensor):
-
+                           test_data: torch.tensor,
+                           layers: list,
+                           modules: list,
+                           max_fmri_features: int):
     activations = {}
-    layers = ['23']
-    modules = ['output.dense']
     all_layer_names = []
     for layer in layers:
         for module in modules:
             all_layer_names.append(f'{layer}.{module}')
 
     def get_activation(name):
-        def hook(intermediate_model, input, output):
+        def hook(model, input, output):
             if any(x in name for x in all_layer_names):
                 activations[name] = output.detach()
 
@@ -50,13 +50,13 @@ def calculate_brain_scores(model: nn.Module,
         activations_flattened = activation.reshape(activation.shape[0], -1)
 
         part_activations_flattened = activations_flattened
-        part_test_data = test_data[:, :50]
+        part_test_data = test_data[:, :max_fmri_features]
 
-        part_activations_flattened = part_activations_flattened.\
+        part_activations_flattened = part_activations_flattened. \
             repeat(activation.shape[0], 1)
-        part_test_data = part_test_data.\
+        part_test_data = part_test_data. \
             repeat_interleave(activation.shape[0], dim=0)
-        clf = RidgeCV(alphas=[1e-3, 1e-2, 1e-1, 1]).\
+        clf = RidgeCV(alphas=[1e-3, 1e-2, 1e-1, 1]). \
             fit(part_activations_flattened, part_test_data)
         brain_scores[layer_name] = clf.score(part_activations_flattened,
                                              part_test_data)
@@ -84,9 +84,12 @@ if __name__ == '__main__':
     tokenizer = AutoTokenizer.from_pretrained(checkpoint_name)
 
     test_data_path = Path(r'..\data')
-    fmri_data = load_ds000212_dataset(test_data_path, tokenizer, num_samples=999999, normalize=True)
+    fmri_data = load_ds000212_dataset(test_data_path, tokenizer, num_samples=20, normalize=True, participant_num=3)
     test_data = fmri_data[2]
     model_inputs = fmri_data[:2]
     # Calculate the brain scores
-    brain_scores = calculate_brain_scores(model, model_inputs, test_data)
+    layers = ['23']   # The layers to calculate the brain scores for.
+    modules = ['output.dense']  # The layer and module will be combined to 'layer.module' to get the activations.
+    max_fmri_features = 1000  # This is used to limit the size of the data so that everything can still fit in memory.
+    brain_scores = calculate_brain_scores(model, model_inputs, test_data, layers, modules, max_fmri_features)
     print(brain_scores)

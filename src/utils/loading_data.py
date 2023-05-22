@@ -77,13 +77,19 @@ def load_ds000212_dataset(
         datapath: Path,
         tokenizer: PreTrainedTokenizer,
         num_samples: int,
-        normalize=True) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor
+        normalize=True,
+        participant_num: int = None) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor
 ]:
     print('Loading ds000212_dataset')
     assert datapath.exists()
     scenarios = []
     fmri_items = []
-    for subject_dir in Path(datapath / 'functional_flattened').glob('sub-*'):
+    if participant_num is not None:
+        assert 3 <= participant_num <= 47, 'Participant number must be between 3 and 47'
+        sub = f'sub-{participant_num:02d}'
+    else:
+        sub = 'sub-*'
+    for subject_dir in Path(datapath / 'functional_flattened').glob(sub):
         for runpath in subject_dir.glob('[0-9]*.npy'):
             scenario_path = runpath.parent / f'labels-{runpath.name}'
             fmri_items += torch.tensor(np.load(runpath.resolve()))
