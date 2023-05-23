@@ -8,39 +8,39 @@ RUN apt update && \
     apt install \
     -y \
     --no-install-recommends \
-    tzdata \
     apt-utils \
     binutils \
     build-essential \
     ca-certificates \
     curl \
+    datalad \
     gcc \
     git \
     htop \
     less \
     libaio-dev \
-    libxext6 \
-    libx11-6 \
     libglib2.0-0 \
+    libx11-6 \
+    libxext6 \
+    libxi6 \
     libxrender1 \
     libxtst6 \
-    libxi6 \
     locales \
     nano \
     ninja-build \
-    python3.10 \
+    pipenv \
     python3-dev \
+    python3-pip \
     python3-setuptools \
     python3-venv \
-    python3-pip \
-    pipenv \
+    python3.10 \
     screen \
     ssh \
     sudo \
     tmux \
+    tzdata \
     unzip \
     vim \
-    datalad \
     wget
 
 RUN pipenv --python $( which python3.10 ) install
