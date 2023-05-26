@@ -13,19 +13,22 @@ from utils.DS000212RawDataSet import DS000212RawDataset
 
 
 # returns a pandas dataframe of the CM training set (excluding long ones)
-def load_csv_to_tensors(path: os.PathLike,
-                        tokenizer: PreTrainedTokenizer,
-                        num_samples: int) -> tuple[
-    torch.Tensor, torch.Tensor, torch.Tensor]:
+def load_ethics_ds(datapath: os.PathLike,
+                   tokenizer: PreTrainedTokenizer,
+                   config,
+                   is_train=True
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    # Load csv:
+    path = datapath / 'ethics/commonsense' / ('cm_train.csv' if is_train else 'cm_test.csv' )
+    num_samples = config['num_samples_train'] if is_train else config['num_samples_test']
     df = pd.read_csv(os.path.abspath(path))
     df = df.drop(df[df.is_short == False].index)
-    inputs, labels = df['input'].tolist()[:num_samples], df['label'][
-                                                         :num_samples]
+    inputs, labels = df['input'].tolist()[:num_samples], df['label'][:num_samples]
+    head_dims = len(set((df['label'])))
+    # Tokenize:
     tokenized = tokenizer(inputs, padding='max_length', truncation=True)
-    tokens = torch.tensor(
-        tokenized['input_ids'])  # shape: (num_samples, max_seq_len)
-    masks = torch.tensor(
-        tokenized['attention_mask'])  # shape: (num_samples, max_seq_len)
+    tokens = torch.tensor(tokenized['input_ids'])  # shape: (num_samples, max_seq_len)
+    masks = torch.tensor(tokenized['attention_mask'])  # shape: (num_samples, max_seq_len)
     target_tensors = torch.tensor(labels.tolist())  # shape: (num_samples, 1)
     # Create DataLoader
     data = TensorDataset(tokens, masks, target_tensors)
