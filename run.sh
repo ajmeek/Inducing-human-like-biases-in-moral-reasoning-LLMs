@@ -3,7 +3,7 @@
 # Script to run high level functions for development, maintenance, deployment, etc.
 
 USAGE=`cat<<EOF
-Usage: run.sh ( <function>... | <function> [parameters...] )
+Usage: run.sh <function> [parameters...]
 
 FUNCTIONS: 
   install           - installs environment to load data, train
@@ -21,26 +21,31 @@ script_dir="$(dirname "$script_path")"
 readonly script_dir
 root_dir=$( realpath "$script_dir" )
 
+export GIT_MAIN_BRANCH_NAME=main
+export GIT_REMOTE=github.com/ameek2/Inducing-human-like-biases-in-moral-reasoning-LLMs.git
+export AISCBB_ARTIFACTS_DIR=${AISCBB_ARTIFACTS_DIR:-$root_dir/artifacts}
+export AISCBB_DATA_DIR=${AISCBB_DATA_DIR:-$root_dir/data}
 
 ################################################################################
 
-function install() {
-    echo Installing...
-    python3 -m pip install -r requirements.txt
+function provision() {
+    python3 -m pip install pipenv 
+    pipenv --python 3.10 install
     python3 -m pip install datalad-installer
-    datalad-installer --sudo ok datalad git-annex -m datalad/git-annex:release 
+    datalad-installer --sudo ok git-annex -m datalad/git-annex:release
 }
 
 function datasets() {
-    echo Preparing datasets...
-    source ./bin/datasets.sh
+    source ./bin/_datasets.sh
+}
+
+function gcp() {
+    source ./bin/_gcp.sh
 }
 
 function train() {
-    echo Training...
-    bash ./bin/train.sh "$@"
+    pipenv run python3 "$root_dir/src/main.py" "$@"
 }
-
 
 ################################################################################
 
@@ -48,15 +53,7 @@ function train() {
 if [[ $# == 0 ]] ; then 
     echo "$USAGE"
 else 
-    if [[ "$@" =~ '--' ]]; then 
-        cmd=$1
-        shift 1
-        $cmd "$@"
-    else
-        while [[ $# -ne 0 ]] ; do 
-            $1
-            shift 1
-        done
-    fi
+    cmd=$1
+    shift 1
+    $cmd "$@"  
 fi
-
