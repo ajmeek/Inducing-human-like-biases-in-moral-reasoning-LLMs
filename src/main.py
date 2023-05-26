@@ -1,5 +1,6 @@
 import torch as t
-from torch.utils.data import TensorDataset
+from pytorch_lightning.utilities import CombinedLoader
+from torch.utils.data import TensorDataset, DataLoader
 from transformers import AutoTokenizer, AutoModel
 from utils.loading_data import load_ethics_ds, multiple_dataset_loading
 from utils.preprocessing import preprocess_prediction
@@ -17,6 +18,7 @@ from datetime import datetime
 datapath = Path(environ.get('AISCBB_DATA_DIR','./data'))
 artifactspath = Path(environ.get('AISCBB_ARTIFACTS_DIR','./artifacts'))
 
+
 def main():
     assert datapath.exists(), 'Expected data dir present.'
     artifactspath.mkdir(exist_ok=True)
@@ -29,7 +31,7 @@ def main():
     # TODO make sure it doesn't add SEP tokens when there's a full stop
     base_model = AutoModel.from_pretrained(config['checkpoint'])
 
-    #use_ia3_layers = False
+    # use_ia3_layers = False
     # if use_ia3_layers:
     #     from ia3_model_modifier import modify_with_ia3
     #     layers_to_replace_with_ia3 = "key|value|intermediate.dense"
@@ -49,7 +51,8 @@ def main():
         config['loss_names'],
         loss_weights=config['loss_weights'],
         regularize_from_init=config['regularize_from_init'],
-        regularization_coef=config['regularization_coef']
+        regularization_coef=config['regularization_coef'],
+        dataset_names=config['train_datasets'],
     )
 
     logger = TensorBoardLogger(
@@ -68,10 +71,14 @@ def main():
         logger=logger,
         log_every_n_steps=1,
         default_root_dir=artifactspath,
-        enable_checkpointing=False  # Avoid saving full model into a disk (GBs)
+        enable_checkpointing=False,  # Avoid saving full model into a disk (GBs)
+        check_val_every_n_epoch=config['check_val_every_n_epoch']
     )
     print('Fine tuning BERT...')
-    trainer.fit(lit_model, dataloaders)
+    # See documentation on multiple dataloaders here: https://pytorch-lightning.readthedocs.io/en/1.3.8/advanced/multiple_loaders.html
+    trainer.fit(lit_model,
+                train_dataloaders=train_dataloaders,
+                val_dataloaders=val_dataloaders)
 
     # Test the model
     test_loader, _ = load_ethics_ds(
@@ -87,7 +94,8 @@ def main():
 
     # Make prediction on a single test example
     # example_text = "I am a sentence."
-    # prediction_dataloader = preprocess_prediction([example_text], tokenizer, batch_size=1)
+    # prediction_dataloader = preprocess_prediction(
+    #     [example_text], tokenizer, batch_size=1)
     # prediction = trainer.predict(lit_model, prediction_dataloader)
 
 
@@ -106,13 +114,17 @@ def get_config():
 
     # Check if parameters are valid
     for index, train_dataset in enumerate(config['train_datasets']):
-        if train_dataset not in ['ds000212'] and not train_dataset.startswith('ethics'):
+        if train_dataset not in ['ds000212'] and \
+                not train_dataset.startswith('ethics'):
             raise ValueError(f"Invalid train dataset: {train_dataset}")
-        if train_dataset == 'ethics' and config['loss_names'][index] != 'cross-entropy':
-            raise ValueError(f"Invalid loss for ethics dataset: {config['loss_names'][index]}. "
+        if train_dataset == 'ethics' \
+                and config['loss_names'][index] != 'cross-entropy':
+            raise ValueError(f"Invalid loss for ethics dataset: "
+                             f"{config['loss_names'][index]}. "
                              f"For classification can only use cross_entropy.")
 
     return config
+
 
 def get_args() -> argparse.ArgumentParser:
     """Get command line arguments"""
@@ -122,7 +134,7 @@ def get_args() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         '--num_epochs',
-        default='1',
+        default='10',
         type=int,
         help='Number of epochs to fine tune a model on fMRI data.'
              '(default: 1)'
@@ -136,10 +148,10 @@ def get_args() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         '--batch_size',
-        default='15',
+        default='32',
         type=int,
         help='Batch size.'
-             '(default: 15)'
+             '(default: 32)'
     )
     parser.add_argument(
         '--regularize_from_init',
@@ -215,6 +227,19 @@ def get_args() -> argparse.ArgumentParser:
         default=[1.0, 1.0],
         type=float,
         help='Loss weights.'
+    )
+    parser.add_argument(
+        '--fraction_train',
+        default='0.9',
+        type=float,
+        help='Fraction of data to use for training.'
+    )
+
+    parser.add_argument(
+        '--check_val_every_n_epoch',
+        default='2',
+        type=int,
+        help='Check validation every n epochs.'
     )
 
     return parser
