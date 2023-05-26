@@ -31,7 +31,7 @@ export AISCBB_DATA_DIR=${AISCBB_DATA_DIR:-$root_dir/data}
 function provision() {
     python3 -m pip install pipenv 
     pipenv --python 3.10 install
-    python3 --user -m pip install datalad-installer
+    python3 -m pip install datalad-installer
     datalad-installer --sudo ok git-annex -m datalad/git-annex:release
 }
 
