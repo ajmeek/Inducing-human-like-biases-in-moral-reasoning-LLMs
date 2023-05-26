@@ -1,6 +1,7 @@
 
 .ONESHELL:
 
+py = python3
 niigz_script = ./bin/ds000212prep_process_niigz.py
 target_name = $(TARGET_DS_NAME)
 source_name = $(SOURCE_DS_NAME)
@@ -28,7 +29,7 @@ $(target_dir)%.npz : $(source_dir)%.nii.gz
 
 	to_npz=$@
 	mkdir -p "$$( dirname $$to_npz )"
-	python $(niigz_script) "$$brain_niigz" "$$mask_niigz" "$$to_npz"
+	$(py) $(niigz_script) "$$brain_niigz" "$$mask_niigz" "$$to_npz"
 	
 	datalad drop "$$brain_niigz"
 	datalad drop "$$brain_json"

@@ -26,21 +26,12 @@ export GIT_REMOTE=github.com/ameek2/Inducing-human-like-biases-in-moral-reasonin
 export AISCBB_ARTIFACTS_DIR=${AISCBB_ARTIFACTS_DIR:-$root_dir/artifacts}
 export AISCBB_DATA_DIR=${AISCBB_DATA_DIR:-$root_dir/data}
 
-function pycmd { 
-    $( which python3 ) $@ 
-}
-function pecmd { 
-    pipenv $@
-}
-
 ################################################################################
 
 function provision() {
-    pycmd -m pip install pipenv 
-
-    pecmd install
-
-    pycmd --user -m pip install datalad-installer
+    python3 -m pip install pipenv 
+    pipenv --python 3.10 install
+    python3 --user -m pip install datalad-installer
     datalad-installer --sudo ok git-annex -m datalad/git-annex:release
 }
 
@@ -53,7 +44,7 @@ function gcp() {
 }
 
 function train() {
-    pecmd run "$root_dir/src/main.py" "$@"
+    pipenv run python3 "$root_dir/src/main.py" "$@"
 }
 
 ################################################################################
@@ -66,4 +57,3 @@ else
     shift 1
     $cmd "$@"  
 fi
-

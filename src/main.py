@@ -62,7 +62,7 @@ def main():
     trainer = pl.Trainer(
         limit_train_batches=config['batches_per_epoch'],
         max_epochs=config['num_epochs'],
-        accelerator='tpu',
+        accelerator='auto',
         devices='auto',
         strategy='auto',
         logger=logger,
