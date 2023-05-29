@@ -1,10 +1,7 @@
 from pathlib import Path
 
-import numpy as np
 import torch
 import torch.nn as nn
-from torch import optim
-from tqdm import tqdm
 from transformers import AutoModel, AutoTokenizer, AutoConfig, RobertaModel
 
 from src.model import BERT
@@ -52,10 +49,6 @@ def calculate_brain_scores(model: nn.Module,
         part_activations_flattened = activations_flattened
         part_test_data = test_data[:, :max_fmri_features]
 
-        part_activations_flattened = part_activations_flattened. \
-            repeat(activation.shape[0], 1)
-        part_test_data = part_test_data. \
-            repeat_interleave(activation.shape[0], dim=0)
         clf = RidgeCV(alphas=[1e-3, 1e-2, 1e-1, 1]). \
             fit(part_activations_flattened, part_test_data)
         brain_scores[layer_name] = clf.score(part_activations_flattened,
@@ -82,11 +75,11 @@ if __name__ == '__main__':
 
     # Load the data
     tokenizer = AutoTokenizer.from_pretrained(checkpoint_name)
-
     test_data_path = Path(r'..\data')
     fmri_data = load_ds000212_dataset(test_data_path, tokenizer, num_samples=20, normalize=True, participant_num=3)
     test_data = fmri_data[2]
     model_inputs = fmri_data[:2]
+
     # Calculate the brain scores
     layers = ['23']   # The layers to calculate the brain scores for.
     modules = ['output.dense']  # The layer and module will be combined to 'layer.module' to get the activations.
