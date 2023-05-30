@@ -52,3 +52,5 @@ $(target_dir)%-normalized : $(target_dir)%.npz
 	max_len=$$( cat $(procesed_file) )
 	$(py) bin/normalize.py $$max_len "$<" "$@"
 	
+ $(source_dir)%.nii.gz :
+	datalad get "$@"

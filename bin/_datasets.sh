@@ -25,8 +25,7 @@ function ds000212() {
 
     if [[ ! -e $AISCBB_DATA_DIR/ds000212 ]] ; then
         echo Downloading ds000212...
-        # TODO : make similar to 
-        pipenv run datalad install --get-data -s https://github.com/OpenNeuroDatasets/ds000212.git $AISCBB_DATA_DIR/ds000212
+        pipenv run datalad install -s https://github.com/OpenNeuroDatasets/ds000212.git $AISCBB_DATA_DIR/ds000212
     fi
 
     (
