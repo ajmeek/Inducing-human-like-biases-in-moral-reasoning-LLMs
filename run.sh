@@ -112,6 +112,7 @@ function gcp() {
             shift 2  # Remove first two params for gcp.
 
             sudo docker container run \
+                --privileged \
                 -e AISCBB_ARTIFACTS_DIR=/aiscbb_artifacts \
                 -e AISCBB_DATA_DIR=/asicbb_data \
                 -v $AISCBB_ARTIFACTS_DIR:/aiscbb_artifacts \
