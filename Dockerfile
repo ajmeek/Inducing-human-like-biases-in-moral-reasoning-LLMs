@@ -43,7 +43,7 @@ RUN apt update && \
     vim \
     wget
 
-RUN pipenv --python $( which python3 ) install
+RUN python3 -m pipenv --python $( which python3 ) install
 
 WORKDIR /src
 COPY . .
