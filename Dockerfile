@@ -33,7 +33,7 @@ RUN apt update && \
     python3-pip \
     python3-setuptools \
     python3-venv \
-    python3.10 \
+    python3 \
     screen \
     ssh \
     sudo \
@@ -43,7 +43,7 @@ RUN apt update && \
     vim \
     wget
 
-RUN pipenv --python $( which python3.10 ) install
+RUN pipenv --python $( which python3 ) install
 
 WORKDIR /src
 COPY . .
