@@ -111,8 +111,10 @@ function gcp() {
             echo Running container...
             shift 2  # Remove first two params for gcp.
 
+            # See https://github.com/pytorch/xla/blob/master/docs/pjrt.md#docker
+            #sudo docker container run \
+            #    --privileged --net=host \
             sudo docker container run \
-                --privileged \
                 -e AISCBB_ARTIFACTS_DIR=/aiscbb_artifacts \
                 -e AISCBB_DATA_DIR=/asicbb_data \
                 -v $AISCBB_ARTIFACTS_DIR:/aiscbb_artifacts \
