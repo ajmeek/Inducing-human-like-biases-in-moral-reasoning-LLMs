@@ -5,6 +5,7 @@ ENV TZ=Europe/London
 ENV DEBIAN_FRONTEND=noninteractive  
 
 RUN apt update && \
+    apt upgrade -y && \
     apt install \
     -y \
     --no-install-recommends \
@@ -33,7 +34,7 @@ RUN apt update && \
     python3-pip \
     python3-setuptools \
     python3-venv \
-    python3 \
+    python3.10 \
     screen \
     ssh \
     sudo \
@@ -43,7 +44,7 @@ RUN apt update && \
     vim \
     wget
 
-RUN python3 -m pipenv --python $( which python3 ) install
+RUN python3 -m pip install pipenv && pipenv --python $( which python3.10 ) install
 
 WORKDIR /src
 COPY . .
