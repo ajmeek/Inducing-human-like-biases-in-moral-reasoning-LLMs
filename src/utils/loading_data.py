@@ -10,6 +10,7 @@ from pathlib import Path
 from torch.nn import functional as F
 
 from utils.DS000212RawDataSet import DS000212RawDataset
+from utils.DS000212_LFB_Dataset import DS000212_LFB_Dataset
 
 
 # returns a pandas dataframe of the CM training set (excluding long ones)
@@ -42,15 +43,20 @@ def load_ethics_ds(datapath: os.PathLike,
 def load_ds000212(datapath: os.PathLike,
                    tokenizer: PreTrainedTokenizer,
                    config):
-    ds000212 = DS000212RawDataset(
-        datapath / 'ds000212_raw',
+    #ds000212 = DS000212RawDataset(
+    #    datapath / 'ds000212_raw',
+    #    datapath / 'ds000212_scenarios.csv',
+    #    tokenizer
+    #)
+    ds000212 = DS000212_LFB_Dataset(
+        datapath / 'ds000212_learning-from-brains',
         datapath / 'ds000212_scenarios.csv',
         tokenizer
     )
     data_loader = DataLoader(
         ds000212,
         batch_size=config['batch_size'], 
-        shuffle=config['shuffle_train']
+        shuffle=False #shuffle=config['shuffle_train']
     )
     return data_loader, ds000212.target_head_dim
 

@@ -31,7 +31,6 @@ class DS000212_LFB_Dataset(IterableDataset):
 
         assert dataset_path.exists()
         assert scenarios_csv.exists()
-        #assert tokenizer
         self.target_head_dim = None
         self._dataset_path = dataset_path
         self._init_scenarios(scenarios_csv)
@@ -40,6 +39,8 @@ class DS000212_LFB_Dataset(IterableDataset):
 
         tarfiles=[str(f) for f in Path(dataset_path).glob('*.tar')]
         self.wdataset = wds.WebDataset(tarfiles).decode("pil").compose(self._get_samples)
+
+        self.target_head_dim = 1024
 
     def __iter__(self):
         return iter(self.wdataset)
@@ -88,11 +89,21 @@ class DS000212_LFB_Dataset(IterableDataset):
                     #out['__key__'] = f"{key} {start}-{end}"
                     out['start'] = start
                     out['end'] = end
-                    out["inputs"] = torch.from_numpy(bold[start:end+1]).to(torch.float)
+                    out["inputs"] =  torch.from_numpy(np.average(bold[start:end+1], axis=0)).to(torch.float)
                     out["inputsshape"] = out["inputs"].shape
                     out['label'] = self._parse_label(label)
                     if out['label'] is not None:
-                        yield out.copy()
+                        if self._tokenizer is not None:
+                            tokenized = self._tokenizer(
+                                out['label'], padding='max_length', truncation=True)
+                            tokens = torch.tensor(tokenized['input_ids'])
+                            mask = torch.tensor(tokenized['attention_mask'])
+                            target = out['inputs']
+                            assert target.shape == (self.target_head_dim,), f"target.shape: {target.shape}"
+                            yield tokens, mask, target
+                        else:
+                            # Debug:
+                            yield out.copy()
 
     def _process_tsv(self, from_tsv: Path):
         scenarios = []
