@@ -70,11 +70,9 @@ class DS000212_LFB_Dataset(IterableDataset):
 
     def _get_samples(self, src):
         for sample in src:
-            #key = sample['__key__']
             out = dict()
             bold = None
             for key, value in sample.items():
-                #print(f" {key=} {value=}")
                 if key == "bold.pyd":
                     bold = np.array(value).astype(float)
                 else:
@@ -91,8 +89,10 @@ class DS000212_LFB_Dataset(IterableDataset):
                     out['start'] = start
                     out['end'] = end
                     out["inputs"] = torch.from_numpy(bold[start:end+1]).to(torch.float)
+                    out["inputsshape"] = out["inputs"].shape
                     out['label'] = self._parse_label(label)
-                    yield out.copy()
+                    if out['label'] is not None:
+                        yield out.copy()
 
     def _process_tsv(self, from_tsv: Path):
         scenarios = []
