@@ -61,7 +61,7 @@ class LitBert(pl.LightningModule):
             loss += self.regularization_coef * reg_loss
 
         # log and return
-        self.log("train_loss", loss, prog_bar=True)
+        self.log("train_loss", loss, prog_bar=True, sync_dist=True)
         return loss
 
     def validation_step(self, batch, batch_idx, dataloader_idx: int = 0):
@@ -78,13 +78,12 @@ class LitBert(pl.LightningModule):
     def test_step(self, batch, batch_idx, dataloader_idx: int = 0):
         tokens, mask, target = batch
         predictions = self.model(tokens, mask)
-        logits = predictions[0]  # Assume first predictions contain ETHICS head.
+        logits = predictions[0]  # Note: take the first, so we use the ETHICS head to predict.
+
         probs = F.softmax(logits, dim=-1)
         predicted_label = probs.argmax(dim=-1)
-        # self.log automatically accumulates and averages over whole test set.
-        self.log("val_or_test_acc",
-                 (predicted_label == target).float().mean(),
-                 prog_bar=True)
+        # log the accuracy (this automatically accumulates it over the whole test set)
+        self.log("test_acc", (predicted_label == target).float().mean(), prog_bar=True, sync_dist=True)
         return predicted_label
 
     def predict_step(self, batch: Any, batch_idx: int, dataloader_idx: int = 0):
