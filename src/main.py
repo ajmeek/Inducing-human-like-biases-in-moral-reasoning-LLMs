@@ -6,13 +6,14 @@ from utils.preprocessing import preprocess_prediction
 from model import BERT
 from pl_model import LitBert
 import lightning.pytorch as pl
-from lightning.pytorch.loggers import TensorBoardLogger
+from lightning.pytorch.loggers import TensorBoardLogger, WandbLogger
 from pathlib import Path
 import pandas as pd
 import numpy as np
 import argparse
 from os import environ
 from datetime import datetime
+import wandb
 
 datapath = Path(environ.get('AISCBB_DATA_DIR','./data'))
 artifactspath = Path(environ.get('AISCBB_ARTIFACTS_DIR','./artifacts'))
@@ -52,10 +53,11 @@ def main():
         regularization_coef=config['regularization_coef']
     )
 
-    logger = TensorBoardLogger(
-        save_dir=artifactspath,
-        name=f'{datetime.utcnow():%y%m%d-%H%M%S}'
-    )
+    # logger = TensorBoardLogger(
+    #     save_dir=artifactspath,
+    #     name=f'{datetime.utcnow():%y%m%d-%H%M%S}'
+    # )
+    logger = WandbLogger(save_dir=artifactspath, project="AISC_BB")
     logger.log_hyperparams(config)
 
     # train the model
@@ -83,6 +85,7 @@ def main():
     print('Testing on ETHICS...')
     trainer.test(lit_model, dataloaders=test_loader)
     logger.save()
+    wandb.finish()
     print('Done')
 
     # Make prediction on a single test example
