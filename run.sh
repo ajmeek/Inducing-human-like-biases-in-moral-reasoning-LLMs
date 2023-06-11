@@ -36,7 +36,7 @@ function provision() {
 }
 
 function datasets() {
-    source ./bin/_datasets.sh
+    source ./bin/_datasets.sh "$@"
 }
 
 function gcp() {
