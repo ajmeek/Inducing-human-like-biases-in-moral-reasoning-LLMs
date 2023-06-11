@@ -58,6 +58,6 @@ function ds000212() {
 
 
 ethics
-ds000212
+#ds000212
 
 echo 'done'

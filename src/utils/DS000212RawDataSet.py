@@ -5,7 +5,6 @@ import torch
 from re import search
 from csv import DictReader
 
-
 class DS000212RawDataset(Dataset):
     """
     Map-style dataset that loads ds000212 dataset with its scenarios from disk and
