@@ -44,14 +44,22 @@ def calculate_brain_scores(model: nn.Module,
     for layer_name, activation in activations.items():
         print('Calculating brain score for layer:', layer_name,
               'and activation dims: ', activation.shape, '...')
-        activations_flattened = activation.reshape(activation.shape[0], -1)
+        # activations_flattened = activation.reshape(activation.shape[0], -1)
+        activations_indices_last_token = torch.sum(model_inputs[1], dim=1) - 1
 
-        part_activations_flattened = activations_flattened
+        index_tensor = activations_indices_last_token.long()
+
+        # We need to create an additional dimension for the index tensor
+        index_tensor = index_tensor.view(-1, 1, 1)
+
+        # Now we can gather along the second dimension
+        activations_last_token = torch.gather(activation, 1, index_tensor.expand(-1, -1, activation.shape[-1])).squeeze(1)
+
         part_test_data = test_data[:, :max_fmri_features]
 
         clf = RidgeCV(alphas=[1e-3, 1e-2, 1e-1, 1]). \
-            fit(part_activations_flattened, part_test_data)
-        brain_scores[layer_name] = clf.score(part_activations_flattened,
+            fit(activations_last_token, part_test_data)
+        brain_scores[layer_name] = clf.score(activations_last_token,
                                              part_test_data)
 
     return brain_scores
