@@ -89,7 +89,7 @@ class DS000212_LFB_Dataset(IterableDataset):
                     #out['__key__'] = f"{key} {start}-{end}"
                     out['start'] = start
                     out['end'] = end
-                    out["inputs"] =  torch.from_numpy(np.average(bold[start:end+1], axis=0)).to(torch.float)
+                    out["inputs"] =  torch.from_numpy((bold[start] + bold[(end+start)//2] + bold[end]) / 3).to(torch.float)
                     out["inputsshape"] = out["inputs"].shape
                     out['label'] = self._parse_label(label)
                     if out['label'] is not None:
