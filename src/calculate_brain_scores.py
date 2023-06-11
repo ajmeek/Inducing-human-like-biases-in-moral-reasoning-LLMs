@@ -1,11 +1,13 @@
-from pathlib import Path
+from os import environ
+from pathlib import Path, WindowsPath
 
 import torch
 import torch.nn as nn
 from transformers import AutoModel, AutoTokenizer, AutoConfig, RobertaModel
 
+from src.main import get_config
 from src.model import BERT
-from src.utils.loading_data import load_ds000212_dataset
+from src.utils.loading_data import load_ds000212
 
 from sklearn.linear_model import RidgeCV
 
@@ -66,8 +68,9 @@ def calculate_brain_scores(model: nn.Module,
 
 
 if __name__ == '__main__':
+    # Note, this is expected to be run from the root of the project. (not src)
     # Specify parameters
-    path_to_model = r'..\models\cm_roberta-large.pt'  # Specify the path to the model.
+    path_to_model = r'models\cm_roberta-large.pt'  # Specify the path to the model.
     checkpoint_name = 'roberta-large'  # Specify the checkpoint name of the model. 'bert-base-cased' | 'roberta-large'
     train_head_dims = [2, 39127]  # Need to fill this in to not get an error when loading the model. This is not used in the brain score calculation.
 
@@ -76,15 +79,16 @@ if __name__ == '__main__':
     # # model = BERT(model, head_dims=train_head_dims)
     # model.load_state_dict(torch.load(path_to_model))
 
-    config = AutoConfig.from_pretrained('roberta-large', num_labels=1)
-    model = RobertaModel.from_pretrained('../models/cm_roberta-large.pt', local_files_only=True, config=config)
+    model_config = AutoConfig.from_pretrained('roberta-large', num_labels=1)
+    model = RobertaModel.from_pretrained('models/cm_roberta-large.pt', local_files_only=True, config=model_config)
     # for name, layer in model.named_modules():
     #     print(name)
 
     # Load the data
     tokenizer = AutoTokenizer.from_pretrained(checkpoint_name)
-    test_data_path = Path(r'..\data')
-    fmri_data = load_ds000212_dataset(test_data_path, tokenizer, num_samples=20, normalize=True, participant_num=3)
+    test_data_path = Path(environ.get('AISCBB_DATA_DIR','./data'))
+    config = get_config()
+    fmri_data = load_ds000212(test_data_path, tokenizer, config)
     test_data = fmri_data[2]
     model_inputs = fmri_data[:2]
 
