@@ -16,6 +16,7 @@ sympy = "*"
 numpy = "*"
 lightning = {extras = ["extra"], version = "*"}
 datalad = "*"
+webdataset = "*"
 
 [dev-packages]
 

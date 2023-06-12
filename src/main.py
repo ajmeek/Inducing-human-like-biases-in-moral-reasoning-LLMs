@@ -106,8 +106,6 @@ def get_config():
 
     # Check if parameters are valid
     for index, train_dataset in enumerate(config['train_datasets']):
-        if train_dataset not in ['ds000212'] and not train_dataset.startswith('ethics'):
-            raise ValueError(f"Invalid train dataset: {train_dataset}")
         if train_dataset == 'ethics' and config['loss_names'][index] != 'cross-entropy':
             raise ValueError(f"Invalid loss for ethics dataset: {config['loss_names'][index]}. "
                              f"For classification can only use cross_entropy.")
