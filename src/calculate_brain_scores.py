@@ -1,7 +1,11 @@
+import csv
+import os
+from datetime import datetime
 from os import environ
 from pathlib import Path, WindowsPath
 from typing import Optional
 
+import pandas as pd
 import torch
 import torch.nn as nn
 from transformers import AutoModel, AutoTokenizer, AutoConfig, RobertaModel
@@ -64,7 +68,7 @@ def calculate_brain_scores(model: nn.Module,
         model(tokens, attention_mask)
 
     # Calculate the brain scores
-    brain_scores = {}
+    brain_scores = {'layer.module': [], 'brain_score': []}
     for layer_name, activation in activations.items():
         print('Calculating brain score for layer:', layer_name,
               'and activation dims: ', activation.shape, '...')
@@ -107,11 +111,13 @@ def calculate_brain_scores(model: nn.Module,
                 feature_val = test_data_val[:, index]
                 brain_score_list.append(clf.score(activations_last_token_val, feature_val))
                 # print(f'Brain score for feature {index}: {brain_score_list[-1]}')
-            brain_scores[layer_name] = sum(brain_score_list) / len(brain_score_list)  # Average
+            brain_scores['layer.module'].append(layer_name)
+            brain_scores['brain_score'].append(sum(brain_score_list) / len(brain_score_list))  # Average
         else:
             clf = RidgeCV(alphas=[1e-3, 1e-2, 1e-1, 1]).fit(activations_last_token_train,
                                                             test_data_train)
-            brain_scores[layer_name] = clf.score(activations_last_token_val, test_data_val)
+            brain_scores['layer.module'].append(layer_name)
+            brain_scores['brain_score'].append(clf.score(activations_last_token_val, test_data_val))
 
     return brain_scores
 
@@ -150,25 +156,42 @@ if __name__ == '__main__':
     # Load the data
     test_data_path = Path(environ.get('AISCBB_DATA_DIR','./data'))
     config = get_config()
-    config['batch_size'] = 20  # Make the batch large enough so we definitely have one subject. This is a bit hacky but works for now.
-    fmri_data = load_ds000212(test_data_path, tokenizer, config, subject='sub-03')
-    data = iter(fmri_data[0]).next()  # Get the first batch of data which is one entire subject.
-    model_inputs = (data[0], data[1])
-    test_data = data[2]  # Shape (batch_size, num_features) (60, 1024) for a single participant.
+    config['batch_size'] = 2  # Make the batch large enough so we definitely have one subject. This is a bit hacky but works for now.
+    subjects = [f'sub-{i:02}' for i in range(3, 5)]
 
-    # Calculate the brain scores
-    layers = ['23']   # The layers to calculate the brain scores for.
-    modules = ['output.dense']  # The layer and module will be combined to 'layer.module' to get the activations.
-    max_fmri_features = None  # This is used to limit the size of the data so that everything can still fit in memory. If None, all features are used.
-    score_per_feature = False  # If True, a separate model is fitted for every feature. If False, a single model is fitted for all features.
-    train_perc = 1.0  # The percentage of the data to use for training.
-    val_perc = 0.0  # The percentage of the data to use for validation. If setting validation on 0, use the training data for validation too.
-    brain_scores = calculate_brain_scores(model,
-                                          model_inputs,
-                                          test_data,
-                                          layers, modules,
-                                          max_fmri_features,
-                                          score_per_feature=score_per_feature,
-                                          train_perc=train_perc,
-                                          val_perc=val_perc)
-    print(brain_scores)
+    all_brain_scores = {'subjects': [], 'layer.module': [], 'brain_score': []}
+    for subject in subjects:
+        fmri_data = load_ds000212(test_data_path, tokenizer, config, subject=subject)
+        data = iter(fmri_data[0]).next()  # Get the first batch of data which is one entire subject.
+        model_inputs = (data[0], data[1])
+        test_data = data[2]  # Shape (batch_size, num_features) (60, 1024) for a single participant.
+
+        # Calculate the brain scores
+        layers = ['23']   # The layers to calculate the brain scores for.
+        modules = ['output.dense']  # The layer and module will be combined to 'layer.module' to get the activations.
+        max_fmri_features = None  # This is used to limit the size of the data so that everything can still fit in memory. If None, all features are used.
+        score_per_feature = False  # If True, a separate model is fitted for every feature. If False, a single model is fitted for all features.
+        train_perc = 1.0  # The percentage of the data to use for training.
+        val_perc = 0.0  # The percentage of the data to use for validation. If setting validation on 0, use the training data for validation too.
+        brain_scores = calculate_brain_scores(model,
+                                              model_inputs,
+                                              test_data,
+                                              layers, modules,
+                                              max_fmri_features,
+                                              score_per_feature=score_per_feature,
+                                              train_perc=train_perc,
+                                              val_perc=val_perc)
+
+        # Add the brain scores to the all_brain_scores dict.
+        all_brain_scores['subjects'].append(subject)
+        all_brain_scores['layer.module'].extend(brain_scores['layer.module'])
+        all_brain_scores['brain_score'].extend(brain_scores['brain_score'])
+
+    # Write the brain scores to a csv file.
+    path_to_brain_scores = os.path.join(os.getcwd(), 'artifacts', 'brain_scores')
+    if not os.path.exists(path_to_brain_scores):
+        os.makedirs(path_to_brain_scores)
+    df = pd.DataFrame(all_brain_scores).to_csv(os.path.join(
+        os.getcwd(), 'artifacts', 'brain_scores',
+        f'{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.csv'), index=False,
+        sep=';')
