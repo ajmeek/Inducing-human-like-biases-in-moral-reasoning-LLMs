@@ -26,7 +26,7 @@ class DS000212_LFB_Dataset(IterableDataset):
         "J_NI": ("intentional", "Neutral"),
     }
 
-    def __init__(self, dataset_path: Path, scenarios_csv: Path, tokenizer):
+    def __init__(self, dataset_path: Path, scenarios_csv: Path, tokenizer, subject=None):
         super().__init__()
 
         assert dataset_path.exists()
@@ -37,7 +37,11 @@ class DS000212_LFB_Dataset(IterableDataset):
         assert any(self._scenarios)
         self._tokenizer = tokenizer
 
-        tarfiles=[str(f) for f in Path(dataset_path).glob('*.tar')]
+        if subject is not None:
+            tarfiles = [str(f) for f in Path(dataset_path).glob(f'*{subject}*.tar')]
+            print(f"Loading subject {subject} from {len(tarfiles)} tar files.")
+        else:
+            tarfiles=[str(f) for f in Path(dataset_path).glob('*.tar')]
         self.wdataset = wds.WebDataset(tarfiles).decode("pil").compose(self._get_samples)
 
         self.target_head_dim = 1024

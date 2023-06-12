@@ -42,7 +42,8 @@ def load_ethics_ds(datapath: os.PathLike,
 
 def load_ds000212(datapath: os.PathLike,
                    tokenizer: PreTrainedTokenizer,
-                   config):
+                   config,
+                   subject=None):
     #ds000212 = DS000212RawDataset(
     #    datapath / 'ds000212_raw',
     #    datapath / 'ds000212_scenarios.csv',
@@ -51,7 +52,8 @@ def load_ds000212(datapath: os.PathLike,
     ds000212 = DS000212_LFB_Dataset(
         datapath / 'ds000212_learning-from-brains',
         datapath / 'ds000212_scenarios.csv',
-        tokenizer
+        tokenizer,
+        subject=subject,
     )
     data_loader = DataLoader(
         ds000212,
