@@ -50,6 +50,7 @@ class DS000212_LFB_Dataset(IterableDataset):
                 data_items, labels = self._process_tsv(tsvfile)
                 for (start, end), label in zip(data_items, labels):
                     text = self._scenarios.parse_label(label)
+
                     if not text:
                         continue
                     tokens = None
