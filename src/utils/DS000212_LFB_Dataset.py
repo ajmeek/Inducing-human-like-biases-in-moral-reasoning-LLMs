@@ -14,7 +14,7 @@ class DS000212_LFB_Dataset(IterableDataset):
     Map-style dataset that loads ds000212 dataset with its scenarios from disk and
     prepares it for fine tuning.
     """
-    def __init__(self, dataset_path: Path, scenarios_csv: Path, tokenizer):
+    def __init__(self, dataset_path: Path, scenarios_csv: Path, tokenizer, subject=None):
         super().__init__()
 
         assert dataset_path.exists()
@@ -23,7 +23,10 @@ class DS000212_LFB_Dataset(IterableDataset):
         self._dataset_path = dataset_path
         self._tokenizer = tokenizer
 
-        tarfiles=[str(f) for f in Path(dataset_path).glob('*.tar')]
+        if subject is not None:
+            tarfiles=[str(f) for f in Path(dataset_path).glob(f'*{subject}*.tar')]
+        else:
+            tarfiles=[str(f) for f in Path(dataset_path).glob('*.tar')]
         self.wdataset = wds.WebDataset(tarfiles).decode("pil").compose(self._get_samples)
 
         self.target_head_dim = 1024
@@ -58,14 +61,16 @@ class DS000212_LFB_Dataset(IterableDataset):
                         tokenized = self._tokenizer(text, padding='max_length', truncation=True)
                         tokens = torch.tensor(tokenized['input_ids'])
                         mask = torch.tensor(tokenized['attention_mask'])
-                    target = self._sample(bold[start:end+1])
-                    assert target.shape == (self.target_head_dim,), f"target.shape: {target.shape}"
+                    target = self._sample(bold[start:end])
+                    assert target.shape == (4, self.target_head_dim), f"target.shape: {target.shape}"
                     yield tokens, mask, target
 
     def _sample(self, bold_sequence : np.array) -> torch.Tensor:
         TR = 2
         react_time = 3 // TR
-        return torch.from_numpy(bold_sequence[-react_time]).to(torch.float)
+        intervals = [2, 4, 6, 8]
+        return torch.from_numpy(bold_sequence[intervals]).to(torch.float)
+        # torch.from_numpy(bold_sequence[-react_time]).to(torch.float)
     
     def _process_tsv(self, from_tsv: Path):
         scenarios = []

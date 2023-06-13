@@ -25,7 +25,7 @@ class DS000212Scenarios(object):
             for row in reader:
                 self._scenarios.append(row)
 
-    def parse_label(self, label) -> str:
+    def parse_label(self, label) -> list[str]:
         condition, item, key = label
         if condition not in DS000212Scenarios.event_to_scenario:
             return None
@@ -35,10 +35,26 @@ class DS000212Scenarios(object):
             return None
         found = found[0]
         assert found['type'] == stype, f"Scenario with {item} item does not match the '{stype}' expected type. Scenario: {found}. Event: {event}."
-        text = ' '.join([
+
+        # TODO: clean up later
+        # For now we do multiple
+        text1 = ' '.join([
+            found['background'],
+        ])
+        text2 = ' '.join([
+            found['background'],
+            found['action'],
+        ])
+        text3 = ' '.join([
+            found['background'],
+            found['action'],
+            found['outcome'],
+        ])
+        text4 = ' '.join([
             found['background'],
             found['action'],
             found['outcome'],
             found[skind]
         ])
-        return text
+
+        return [text1, text2, text3, text4]

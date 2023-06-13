@@ -65,6 +65,9 @@ def calculate_brain_scores(model: nn.Module,
     with torch.no_grad():
         print('Running model on test data...')
         tokens, attention_mask = model_inputs[0], model_inputs[1]
+        # Flatten first two dimensions
+        tokens = tokens.view(-1, tokens.shape[-1])
+        attention_mask = attention_mask.view(-1, attention_mask.shape[-1])
         model(tokens, attention_mask)
 
     # Calculate the brain scores
@@ -73,7 +76,7 @@ def calculate_brain_scores(model: nn.Module,
         print('Calculating brain score for layer:', layer_name,
               'and activation dims: ', activation.shape, '...')
         # activations_flattened = activation.reshape(activation.shape[0], -1)
-        activations_indices_last_token = torch.sum(model_inputs[1], dim=1) - 1  # Shape [batch_size]
+        activations_indices_last_token = torch.sum(attention_mask, dim=1) - 1  # Shape [batch_size]
 
         index_tensor = activations_indices_last_token.long()
 
@@ -84,6 +87,7 @@ def calculate_brain_scores(model: nn.Module,
         activations_last_token = torch.gather(activation, 1, index_tensor.expand(-1, -1, activation.shape[-1])).squeeze(1)  # Shape [batch_size, hidden_size] (60, 1024)
 
         # Cut-off the maximum number of fmri features because of memory issues.
+        test_data = test_data.view(-1, test_data.shape[-1])
         if max_fmri_features is not None:
             test_data = test_data[:, :max_fmri_features]
 
@@ -110,7 +114,7 @@ def calculate_brain_scores(model: nn.Module,
                                                                 feature)
                 feature_val = test_data_val[:, index]
                 brain_score_list.append(clf.score(activations_last_token_val, feature_val))
-                # print(f'Brain score for feature {index}: {brain_score_list[-1]}')
+                print(f'Brain score for feature {index}: {brain_score_list[-1]}')
             brain_scores['layer.module'].append(layer_name)
             brain_scores['brain_score'].append(sum(brain_score_list) / len(brain_score_list))  # Average
         else:
@@ -157,7 +161,7 @@ if __name__ == '__main__':
     test_data_path = Path(environ.get('AISCBB_DATA_DIR','./data'))
     config = get_config()
     config['batch_size'] = 2  # Make the batch large enough so we definitely have one subject. This is a bit hacky but works for now.
-    subjects = [f'sub-{i:02}' for i in range(3, 5)]
+    subjects = [f'sub-{i:02}' for i in range(3, 4)]  # TODO: there are missing subjects, so catch this here already.
 
     all_brain_scores = {'subjects': [], 'layer.module': [], 'brain_score': []}
     for subject in subjects:
@@ -170,9 +174,9 @@ if __name__ == '__main__':
         layers = ['23']   # The layers to calculate the brain scores for.
         modules = ['output.dense']  # The layer and module will be combined to 'layer.module' to get the activations.
         max_fmri_features = None  # This is used to limit the size of the data so that everything can still fit in memory. If None, all features are used.
-        score_per_feature = False  # If True, a separate model is fitted for every feature. If False, a single model is fitted for all features.
-        train_perc = 1.0  # The percentage of the data to use for training.
-        val_perc = 0.0  # The percentage of the data to use for validation. If setting validation on 0, use the training data for validation too.
+        score_per_feature = True  # If True, a separate model is fitted for every feature. If False, a single model is fitted for all features.
+        train_perc = 0.8  # The percentage of the data to use for training.
+        val_perc = 0.2  # The percentage of the data to use for validation. If setting validation on 0, use the training data for validation too.
         brain_scores = calculate_brain_scores(model,
                                               model_inputs,
                                               test_data,
@@ -186,6 +190,8 @@ if __name__ == '__main__':
         all_brain_scores['subjects'].append(subject)
         all_brain_scores['layer.module'].extend(brain_scores['layer.module'])
         all_brain_scores['brain_score'].extend(brain_scores['brain_score'])
+
+    print(all_brain_scores)
 
     # Write the brain scores to a csv file.
     path_to_brain_scores = os.path.join(os.getcwd(), 'artifacts', 'brain_scores')
