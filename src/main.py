@@ -118,7 +118,7 @@ def get_args() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         '--batches_per_epoch',
-        default='10',
+        default='15',
         type=int,
         help='Batches per epoch.'
              '(default: 1)'
@@ -132,7 +132,7 @@ def get_args() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         '--regularize_from_init',
-        default='True',
+        default='False',
         type=str,
         help='Regularize from init (base) model.'
              '(default: True)'
@@ -207,8 +207,7 @@ def get_args() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         '--lr',
-        nargs='+',
-        default=1e-3,
+        default=0.0006538379548447884,
         type=float,
         help='Learning rate'
     )
