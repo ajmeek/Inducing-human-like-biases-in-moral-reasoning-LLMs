@@ -40,7 +40,7 @@ def load_ethics_ds(datapath: os.PathLike,
     )
     return dataloader,head_dims
 
-def load_ds000212(datapath: os.PathLike,
+def load_ds000212_raw(datapath: os.PathLike,
                    tokenizer: PreTrainedTokenizer,
                    config,
                    subject=None):
@@ -62,11 +62,27 @@ def load_ds000212(datapath: os.PathLike,
     )
     return data_loader, ds000212.target_head_dim
 
+def load_ds000212(datapath: os.PathLike,
+                   tokenizer: PreTrainedTokenizer,
+                   config):
+    ds000212 = DS000212_LFB_Dataset(
+        datapath / 'ds000212_learning-from-brains',
+        datapath / 'ds000212_scenarios.csv',
+        tokenizer
+    )
+    data_loader = DataLoader(
+        ds000212,
+        batch_size=config['batch_size']
+    )
+    return data_loader, ds000212.target_head_dim
+
+
 def multiple_dataset_loading(datapath : Path, tokenizer, config) \
         -> tuple[list[DataLoader], list[Union[int, tuple[int, int]]]]:
     train_head_dims = []
     dataloaders = []
     ds_to_loader_table = {
+        'ds000212_raw': load_ds000212_raw,
         'ds000212': load_ds000212,
         'ethics': load_ethics_ds
     }
