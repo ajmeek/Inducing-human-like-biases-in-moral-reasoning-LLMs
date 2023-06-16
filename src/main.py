@@ -46,13 +46,8 @@ def train(config):
     )
     lit_model = LitBert(model, config)
 
-    # logger = TensorBoardLogger(
-    #     save_dir=artifactspath,
-    #     name=f'{datetime.utcnow():%y%m%d-%H%M%S}'
-    # )
     logger = WandbLogger(save_dir=artifactspath, project="AISC_BB")
-    #logger.log_hyperparams(config)
-    #logger.log_text(pformat(config, indent=2, compact=True))
+    logger.log_hyperparams(config)
 
     # train the model
     trainer = pl.Trainer(
