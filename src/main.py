@@ -75,6 +75,7 @@ def train(config):
     trainer.test(lit_model, dataloaders=test_loader)
     logger.save()
     wandb.finish()
+    trainer.save_checkpoint(artifactspath / f'model-{datetime.utcnow().isoformat(timespec="minutes").repace(":","")}.ckpt')
 
 
 def get_config():
