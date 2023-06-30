@@ -138,6 +138,7 @@ if __name__ == '__main__':
     # Specify parameters
     # path_to_model = r'models/cm_roberta-large.pt'  # Specify the path to the model.
     checkpoint_name = 'roberta-large'  # Specify the checkpoint name of the model. 'bert-base-cased' | 'roberta-large'
+    #checkpoint_name = 'bert-base-cased'
 
     # Load our custom pre-trained model on ETHICS and fMRI data.
     train_head_dims = [2, 39127]  # Need to fill this in to not get an error when loading the model. This is not used in the brain score calculation.
@@ -145,7 +146,7 @@ if __name__ == '__main__':
 
     tokenizer = RobertaTokenizer.from_pretrained('roberta-large')
     model = RobertaModel.from_pretrained('roberta-large')
-    # model = AutoModel.from_pretrained(checkpoint_name)
+    #model = AutoModel.from_pretrained(checkpoint_name)
     # # model = BERT(model, head_dims=train_head_dims)
     # model.load_state_dict(torch.load(path_to_model))
 
@@ -162,6 +163,8 @@ if __name__ == '__main__':
     config = get_config()
     config['batch_size'] = 2  # Make the batch large enough so we definitely have one subject. This is a bit hacky but works for now.
     subjects = [f'sub-{i:02}' for i in range(3, 4)]  # TODO: there are missing subjects, so catch this here already.
+    #subject_list = [3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,22,23,24,27,28,29,30,31,32,33,34,35,38,39,40,41,42,44,45,46,47]
+    #subjects = [f'sub-{i:02}' for i in subject_list]
 
     all_brain_scores = {'subjects': [], 'layer.module': [], 'brain_score': []}
     for subject in subjects:
