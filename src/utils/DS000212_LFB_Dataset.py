@@ -5,7 +5,7 @@ from torch.utils.data import IterableDataset
 from typing import Dict, Tuple, Generator
 import numpy as np
 import torch
-from utils.DS000212Scenarios import DS000212Scenarios
+from src.utils.DS000212Scenarios import DS000212Scenarios
 import webdataset as wds   
 from re import search
 

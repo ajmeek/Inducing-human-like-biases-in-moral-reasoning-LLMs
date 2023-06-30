@@ -9,8 +9,8 @@ from transformers import PreTrainedTokenizer, AutoTokenizer
 from pathlib import Path
 from torch.nn import functional as F
 
-from utils.DS000212RawDataSet import DS000212RawDataset
-from utils.DS000212_LFB_Dataset import DS000212_LFB_Dataset
+from src.utils.DS000212RawDataSet import DS000212RawDataset
+from src.utils.DS000212_LFB_Dataset import DS000212_LFB_Dataset
 
 
 # returns a pandas dataframe of the CM training set (excluding long ones)
