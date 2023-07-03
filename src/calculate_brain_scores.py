@@ -127,11 +127,6 @@ def calculate_brain_scores(model: nn.Module,
 
 
 if __name__ == '__main__':
-    # TODO: Not only taking the last token, but also the end of every fmri datapoint. You need to take the last token of every sentence.
-    # TODO: Having score for multiple models. (on multiple checkpoints of the training)
-
-    # Also pick the right difumo model.
-
     # Note, this is expected to be run from the root of the project. (not src).
     # In Pycharm, can click top-right left of the run button, expand dropdown menu, click on three dots next to calculate_brain_scores, click Edit
     # and set the working directory to the root of the project.
@@ -141,31 +136,29 @@ if __name__ == '__main__':
 
     # Load our custom pre-trained model on ETHICS and fMRI data.
     train_head_dims = [2, 39127]  # Need to fill this in to not get an error when loading the model. This is not used in the brain score calculation.
-    from transformers import RobertaTokenizer, RobertaModel
-
-    tokenizer = RobertaTokenizer.from_pretrained('roberta-large')
-    model = RobertaModel.from_pretrained('roberta-large')
     # model = AutoModel.from_pretrained(checkpoint_name)
     # # model = BERT(model, head_dims=train_head_dims)
     # model.load_state_dict(torch.load(path_to_model))
+
+    # Load roberta-large from huggingface
+    from transformers import RobertaTokenizer, RobertaModel
+    tokenizer = RobertaTokenizer.from_pretrained('roberta-large')
+    model = RobertaModel.from_pretrained('roberta-large')
 
     # Load Roberta model from local files.
     # model_config = AutoConfig.from_pretrained('roberta-large', num_labels=1)
     # model = RobertaModel.from_pretrained(path_to_model, local_files_only=True, config=model_config)
     # tokenizer = AutoTokenizer.from_pretrained(checkpoint_name)
 
-    # for name, layer in model.named_modules():
-    #     print(name)
-
     # Load the data
     test_data_path = Path(environ.get('AISCBB_DATA_DIR','./data'))
     config = get_config()
     config['batch_size'] = 2  # Make the batch large enough so we definitely have one subject. This is a bit hacky but works for now.
-    subjects = [f'sub-{i:02}' for i in range(3, 4)]  # TODO: there are missing subjects, so catch this here already.
+    subjects = [f'sub-{i:02}' for i in range(3, 4)]  # TODO: there are missing subjects, so catch this here already. (47 is the last subject, so use range(3, 48))
 
     all_brain_scores = {'subjects': [], 'layer.module': [], 'brain_score': []}
     for subject in subjects:
-        fmri_data = load_ds000212(test_data_path, tokenizer, config, subject=subject)
+        fmri_data = load_ds000212(test_data_path, tokenizer, config, subject=subject, intervals=[2, 4, 6, 8])  # Use [2, 4, 6, 8] to use the background, action, outcome, and skind. Use -1 to use only the last fMRI.
         data = iter(fmri_data[0]).next()  # Get the first batch of data which is one entire subject.
         model_inputs = (data[0], data[1])
         test_data = data[2]  # Shape (batch_size, num_features) (60, 1024) for a single participant.

@@ -65,12 +65,14 @@ def load_ds000212_raw(datapath: os.PathLike,
 def load_ds000212(datapath: os.PathLike,
                    tokenizer: PreTrainedTokenizer,
                    config,
-                   subject=None):
+                   subject=None,
+                   intervals=(-1)):
     ds000212 = DS000212_LFB_Dataset(
         datapath / 'ds000212_learning-from-brains',
         datapath / 'ds000212_scenarios.csv',
         tokenizer,
-        subject=subject
+        subject=subject,
+        intervals=intervals
     )
     data_loader = DataLoader(
         ds000212,
