@@ -57,7 +57,7 @@ class DS000212Scenarios(object):
             found[skind]
         ])
         if len_intervals == 1:
-            return [part4]
+            return part4
         elif len_intervals == 2:
             return [part2, part4]
         elif len_intervals == 4:
