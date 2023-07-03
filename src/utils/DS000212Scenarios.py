@@ -25,7 +25,7 @@ class DS000212Scenarios(object):
             for row in reader:
                 self._scenarios.append(row)
 
-    def parse_label(self, label) -> str:
+    def parse_label(self, label, len_intervals: int = 1) -> list[str]:
         condition, item, key = label
         if condition not in DS000212Scenarios.event_to_scenario:
             return None
@@ -35,10 +35,32 @@ class DS000212Scenarios(object):
             return None
         found = found[0]
         assert found['type'] == stype, f"Scenario with {item} item does not match the '{stype}' expected type. Scenario: {found}. Event: {event}."
-        text = ' '.join([
+
+        # TODO: clean up later
+        # For now we do multiple
+        part1 = ' '.join([
+            found['background'],
+        ])
+        part2 = ' '.join([
+            found['background'],
+            found['action'],
+        ])
+        part3 = ' '.join([
+            found['background'],
+            found['action'],
+            found['outcome'],
+        ])
+        part4 = ' '.join([
             found['background'],
             found['action'],
             found['outcome'],
             found[skind]
         ])
-        return text
+        if len_intervals == 1:
+            return part4
+        elif len_intervals == 2:
+            return [part2, part4]
+        elif len_intervals == 4:
+            return [part1, part2, part3, part4]
+        else:
+            raise ValueError(f"Unexpected length of intervals: {len_intervals}")
