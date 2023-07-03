@@ -64,7 +64,10 @@ class DS000212_LFB_Dataset(IterableDataset):
                         tokens = torch.tensor(tokenized['input_ids'])
                         mask = torch.tensor(tokenized['attention_mask'])
                     target = self._sample(bold[start:end])
-                    assert target.shape == (4, self.target_head_dim), f"target.shape: {target.shape}"
+                    if len(self._intervals) == 1:
+                        assert target.shape == (self.target_head_dim,), f"target.shape: {target.shape}"
+                    else:
+                        assert target.shape == (len(self._intervals), self.target_head_dim), f"target.shape: {target.shape}"
                     yield tokens, mask, target
 
     def _sample(self, bold_sequence : np.array) -> torch.Tensor:
