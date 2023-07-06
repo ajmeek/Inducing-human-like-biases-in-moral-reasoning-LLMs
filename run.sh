@@ -19,7 +19,9 @@ trap "echo 'error: Script failed: see failed command above'" ERR
 readonly script_path="${BASH_SOURCE[0]}"
 script_dir="$(dirname "$script_path")"
 readonly script_dir
-root_dir=$( realpath "$script_dir" )
+#root_dir=$(readlink "$script_dir" )
+cd "$script_dir" || exit 1
+root_dir="$(pwd)"
 
 export GIT_MAIN_BRANCH_NAME=main
 export GIT_REMOTE=github.com/ameek2/Inducing-human-like-biases-in-moral-reasoning-LLMs.git
@@ -78,7 +80,7 @@ function gcp() {
                 CID=$( cat $C_ID_FILE ) 
                 if sudo docker ps | grep $CID ; then 
                     C_LOG_FILE="$AISCBB_ARTIFACTS_DIR/$( date +%Y-%m-%d-%H%M )_run_sh.log "
-                    sudo docker logs -f $CID |& tee $C_LOG_FILE
+                    sudo docker logs -f $CID 2>&1 | tee $C_LOG_FILE
                 fi
             fi
         else
@@ -125,7 +127,7 @@ function gcp() {
                 aiscbb bash run.sh "$@"
             CID=$( cat $C_ID_FILE )
             C_LOG_FILE="$AISCBB_ARTIFACTS_DIR/$( date +%Y-%m-%d-%H%M )_run_sh.log "
-            sudo docker logs -f $CID |& tee $C_LOG_FILE
+            sudo docker logs -f $CID 2>&1 | tee $C_LOG_FILE
 
             [[ ! -e %TARGETDIR ]] || rm -dr $TARGETDIR
             echo At GCP. Finished.
