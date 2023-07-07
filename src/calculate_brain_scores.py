@@ -132,18 +132,24 @@ if __name__ == '__main__':
     # and set the working directory to the root of the project.
     # Specify parameters
     # path_to_model = r'models/cm_roberta-large.pt'  # Specify the path to the model.
-    checkpoint_name = 'roberta-large'  # Specify the checkpoint name of the model. 'bert-base-cased' | 'roberta-large'
+    path_to_model = r'/Users/ajmeek/PycharmProjects/Inducing-human-like-biases-in-moral-reasoning-LLMs/artifacts/230707-182641/version_0/checkpoints/epoch=59-step=600.ckpt'
+    checkpoint_name = 'bert-base-cased'  # Specify the checkpoint name of the model. 'bert-base-cased' | 'roberta-large'
 
     # Load our custom pre-trained model on ETHICS and fMRI data.
     train_head_dims = [2, 39127]  # Need to fill this in to not get an error when loading the model. This is not used in the brain score calculation.
-    # model = AutoModel.from_pretrained(checkpoint_name)
-    # # model = BERT(model, head_dims=train_head_dims)
-    # model.load_state_dict(torch.load(path_to_model))
+    model = AutoModel.from_pretrained(checkpoint_name)
+    model = BERT(model, head_dims=train_head_dims)
+    model.load_state_dict(torch.load(path_to_model))
 
     # Load roberta-large from huggingface
-    from transformers import RobertaTokenizer, RobertaModel
-    tokenizer = RobertaTokenizer.from_pretrained('roberta-large')
-    model = RobertaModel.from_pretrained('roberta-large')
+    #from transformers import RobertaTokenizer, RobertaModel
+    #tokenizer = RobertaTokenizer.from_pretrained('roberta-large')
+    #model = RobertaModel.from_pretrained('roberta-large')
+
+    #Load a checkpoint into the roberta model - does this work for BERT to RoBERTa? Doubtful. Let's try.
+    #checkpoint_path = '/Users/ajmeek/PycharmProjects/Inducing-human-like-biases-in-moral-reasoning-LLMs/artifacts/230707-182641/version_0/checkpoints/epoch=59-step=600.ckpt'
+    #checkpoint = torch.load(checkpoint_path)
+    #model.load_state_dict(checkpoint['state_dict'])
 
     # Load Roberta model from local files.
     # model_config = AutoConfig.from_pretrained('roberta-large', num_labels=1)
@@ -151,7 +157,7 @@ if __name__ == '__main__':
     # tokenizer = AutoTokenizer.from_pretrained(checkpoint_name)
 
     # Load the data
-    test_data_path = Path(environ.get('AISCBB_DATA_DIR','./data'))
+    test_data_path = Path(environ.get('AISCBB_DATA_DIR'))#,'./data'))
     config = get_config()
     config['batch_size'] = 2  # Make the batch large enough so we definitely have one subject. This is a bit hacky but works for now.
     subjects = [f'sub-{i:02}' for i in range(3, 4)]  # TODO: there are missing subjects, so catch this here already. (47 is the last subject, so use range(3, 48))
@@ -159,7 +165,7 @@ if __name__ == '__main__':
     all_brain_scores = {'subjects': [], 'layer.module': [], 'brain_score': []}
     for subject in subjects:
         fmri_data = load_ds000212(test_data_path, tokenizer, config, subject=subject, intervals=[2, 4, 6, 8])  # Use [2, 4, 6, 8] to use the background, action, outcome, and skind. Use -1 to use only the last fMRI.
-        data = iter(fmri_data[0]).next()  # Get the first batch of data which is one entire subject.
+        data = next(iter(fmri_data[0]))  # Get the first batch of data which is one entire subject.
         model_inputs = (data[0], data[1])
         test_data = data[2]  # Shape (batch_size, num_features) (60, 1024) for a single participant.
 

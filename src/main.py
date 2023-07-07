@@ -14,6 +14,11 @@ import argparse
 from os import environ
 from datetime import datetime
 
+# Per the below, we need an additional plugin to make lightning checkpoints work well with hugging face
+# https://lightning-transformers.readthedocs.io/en/latest/features/hf_save.html
+
+from lightning_transformers.plugins.checkpoint import HFSaveCheckpoint
+
 datapath = Path(environ.get('AISCBB_DATA_DIR','./data'))
 artifactspath = Path(environ.get('AISCBB_ARTIFACTS_DIR','./artifacts'))
 
@@ -68,7 +73,8 @@ def main():
         logger=logger,
         log_every_n_steps=1,
         default_root_dir=artifactspath,
-        enable_checkpointing=False  # Avoid saving full model into a disk (GBs)
+        enable_checkpointing=True #False  # Avoid saving full model into a disk (GBs) - change to check brain score on fine tuned
+        #plugins=HFSaveCheckpoint(model=lit_model)
     )
     print('Fine tuning BERT...')
     trainer.fit(lit_model, dataloaders)
