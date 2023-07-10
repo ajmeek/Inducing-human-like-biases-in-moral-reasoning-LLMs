@@ -57,9 +57,7 @@ def calculate_brain_scores(model: nn.Module,
         return hook
 
     # Attach the hook to every layer
-    print("MODEL NAMED MODULES: ")#, name in model.named_modules())
     for name, layer in model.named_modules():
-        print(name, layer)
         layer.register_forward_hook(get_activation(name))
 
     # Run the model
@@ -73,7 +71,7 @@ def calculate_brain_scores(model: nn.Module,
         model(tokens, attention_mask)
 
     # Calculate the brain scores
-    brain_scores = {'layer.module': [], 'brain_score': []}
+    brain_scores = {'layer.module': [], 'brain_score': [], 'brain_score_positive': []}
     for layer_name, activation in activations.items():
         print('Calculating brain score for layer:', layer_name,
               'and activation dims: ', activation.shape, '...')
@@ -119,6 +117,12 @@ def calculate_brain_scores(model: nn.Module,
                 print(f'Brain score for feature {index}: {brain_score_list[-1]}')
             brain_scores['layer.module'].append(layer_name)
             brain_scores['brain_score'].append(sum(brain_score_list) / len(brain_score_list))  # Average
+
+            brain_score_positive = 0
+            for i in brain_score_list:
+                if i >= 0:
+                    brain_score_positive += i
+            brain_scores['brain_score_positive'] = brain_score_positive
         else:
             clf = RidgeCV(alphas=[1e-3, 1e-2, 1e-1, 1]).fit(activations_last_token_train,
                                                             test_data_train)
@@ -149,19 +153,18 @@ if __name__ == '__main__':
     # manually adjusting state dict so that lightning models fit with HF
     # there are 8 dictionary entries specific to lightning that are not needed. everything else should be the same
     state_dict = torch.load(path_to_model)
-    # for key, value in state_dict.items():
-    #     print("KEY: ", key)#, "\n\tVALUE: ", value)
     state_dict_hf = state_dict['state_dict']
-    # for key, value in state_dict_hf.items():
-    #     print("KEY: ", key)#, "\n\tVALUE: ", value)
+
     list_of_old_keys_values = []
+
+    # remove 'model.' from the beginning of all keys. keep same values
     for key, value in state_dict_hf.items():
-        #remove 'model.' from the beginning of all keys. keep same values
-        #state_dict_hf[key[5:]] = value
         list_of_old_keys_values.append((key, value))
+
     for (key, value) in list_of_old_keys_values:
         state_dict_hf[key[6:]] = value
         del state_dict_hf[key]
+
     model.load_state_dict(state_dict_hf)
 
     # Load roberta-large from huggingface
@@ -185,7 +188,7 @@ if __name__ == '__main__':
     config['batch_size'] = 2  # Make the batch large enough so we definitely have one subject. This is a bit hacky but works for now.
     subjects = [f'sub-{i:02}' for i in range(3, 4)]  # TODO: there are missing subjects, so catch this here already. (47 is the last subject, so use range(3, 48))
 
-    all_brain_scores = {'subjects': [], 'layer.module': [], 'brain_score': []}
+    all_brain_scores = {'subjects': [], 'layer.module': [], 'brain_score': [], 'brain_score_positive': []}
     for subject in subjects:
         fmri_data = load_ds000212(test_data_path, tokenizer, config, subject=subject, intervals=[2, 4, 6, 8])  # Use [2, 4, 6, 8] to use the background, action, outcome, and skind. Use -1 to use only the last fMRI.
         data = next(iter(fmri_data[0]))  # Get the first batch of data which is one entire subject.
@@ -212,6 +215,7 @@ if __name__ == '__main__':
         all_brain_scores['subjects'].append(subject)
         all_brain_scores['layer.module'].extend(brain_scores['layer.module'])
         all_brain_scores['brain_score'].extend(brain_scores['brain_score'])
+        all_brain_scores['brain_score_positive'] = brain_scores['brain_score_positive']
 
     print(all_brain_scores)
 
