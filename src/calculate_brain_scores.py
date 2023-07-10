@@ -57,7 +57,9 @@ def calculate_brain_scores(model: nn.Module,
         return hook
 
     # Attach the hook to every layer
+    print("MODEL NAMED MODULES: ")#, name in model.named_modules())
     for name, layer in model.named_modules():
+        print(name, layer)
         layer.register_forward_hook(get_activation(name))
 
     # Run the model
@@ -137,9 +139,30 @@ if __name__ == '__main__':
 
     # Load our custom pre-trained model on ETHICS and fMRI data.
     train_head_dims = [2, 39127]  # Need to fill this in to not get an error when loading the model. This is not used in the brain score calculation.
+
+    #actually, for bert train head dims should be different here
+    train_head_dims = [2, 1024]
     model = AutoModel.from_pretrained(checkpoint_name)
     model = BERT(model, head_dims=train_head_dims)
-    model.load_state_dict(torch.load(path_to_model))
+    #model.load_state_dict(torch.load(path_to_model))
+
+    # manually adjusting state dict so that lightning models fit with HF
+    # there are 8 dictionary entries specific to lightning that are not needed. everything else should be the same
+    state_dict = torch.load(path_to_model)
+    # for key, value in state_dict.items():
+    #     print("KEY: ", key)#, "\n\tVALUE: ", value)
+    state_dict_hf = state_dict['state_dict']
+    # for key, value in state_dict_hf.items():
+    #     print("KEY: ", key)#, "\n\tVALUE: ", value)
+    list_of_old_keys_values = []
+    for key, value in state_dict_hf.items():
+        #remove 'model.' from the beginning of all keys. keep same values
+        #state_dict_hf[key[5:]] = value
+        list_of_old_keys_values.append((key, value))
+    for (key, value) in list_of_old_keys_values:
+        state_dict_hf[key[6:]] = value
+        del state_dict_hf[key]
+    model.load_state_dict(state_dict_hf)
 
     # Load roberta-large from huggingface
     #from transformers import RobertaTokenizer, RobertaModel
@@ -154,7 +177,7 @@ if __name__ == '__main__':
     # Load Roberta model from local files.
     # model_config = AutoConfig.from_pretrained('roberta-large', num_labels=1)
     # model = RobertaModel.from_pretrained(path_to_model, local_files_only=True, config=model_config)
-    # tokenizer = AutoTokenizer.from_pretrained(checkpoint_name)
+    tokenizer = AutoTokenizer.from_pretrained(checkpoint_name)
 
     # Load the data
     test_data_path = Path(environ.get('AISCBB_DATA_DIR'))#,'./data'))
@@ -170,7 +193,7 @@ if __name__ == '__main__':
         test_data = data[2]  # Shape (batch_size, num_features) (60, 1024) for a single participant.
 
         # Calculate the brain scores
-        layers = ['23']   # The layers to calculate the brain scores for.
+        layers = ['10']   # The layers to calculate the brain scores for. #23 for roberta
         modules = ['output.dense']  # The layer and module will be combined to 'layer.module' to get the activations.
         max_fmri_features = None  # This is used to limit the size of the data so that everything can still fit in memory. If None, all features are used.
         score_per_feature = True  # If True, a separate model is fitted for every feature. If False, a single model is fitted for all features.
