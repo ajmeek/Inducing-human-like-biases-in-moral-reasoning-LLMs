@@ -148,6 +148,7 @@ if __name__ == '__main__':
     train_head_dims = [2, 1024]
     model = AutoModel.from_pretrained(checkpoint_name)
     model = BERT(model, head_dims=train_head_dims)
+    tokenizer = AutoTokenizer.from_pretrained(checkpoint_name)
     #model.load_state_dict(torch.load(path_to_model))
 
     # manually adjusting state dict so that lightning models fit with HF
@@ -180,13 +181,15 @@ if __name__ == '__main__':
     # Load Roberta model from local files.
     # model_config = AutoConfig.from_pretrained('roberta-large', num_labels=1)
     # model = RobertaModel.from_pretrained(path_to_model, local_files_only=True, config=model_config)
-    tokenizer = AutoTokenizer.from_pretrained(checkpoint_name)
+    # tokenizer = AutoTokenizer.from_pretrained(checkpoint_name)
 
     # Load the data
     test_data_path = Path(environ.get('AISCBB_DATA_DIR'))#,'./data'))
     config = get_config()
     config['batch_size'] = 2  # Make the batch large enough so we definitely have one subject. This is a bit hacky but works for now.
-    subjects = [f'sub-{i:02}' for i in range(3, 4)]  # TODO: there are missing subjects, so catch this here already. (47 is the last subject, so use range(3, 48))
+    subjects = [f'sub-{i:02}' for i in range(3, 4)]
+    #subject_list = [3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,22,23,24,27,28,29,30,31,32,33,34,35,38,39,40,41,42,44,45,46,47]
+    #subjects = [f'sub-{i:02}' for i in subject_list]
 
     all_brain_scores = {'subjects': [], 'layer.module': [], 'brain_score': [], 'brain_score_positive': []}
     for subject in subjects:

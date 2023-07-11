@@ -73,8 +73,8 @@ def main():
         logger=logger,
         log_every_n_steps=1,
         default_root_dir=artifactspath,
-        enable_checkpointing=True #False  # Avoid saving full model into a disk (GBs) - change to check brain score on fine tuned
-        #plugins=HFSaveCheckpoint(model=lit_model)
+        enable_checkpointing=False  # Avoid saving full model into a disk (GBs)
+        # change to True if you want to check brain score on fine tuned
     )
     print('Fine tuning BERT...')
     trainer.fit(lit_model, dataloaders)
