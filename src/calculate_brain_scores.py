@@ -139,80 +139,74 @@ if __name__ == '__main__':
     # Specify parameters
     # path_to_model = r'models/cm_roberta-large.pt'  # Specify the path to the model.
     path_to_model = r'/Users/ajmeek/PycharmProjects/Inducing-human-like-biases-in-moral-reasoning-LLMs/artifacts/230707-182641/version_0/checkpoints/epoch=59-step=600.ckpt'
-    checkpoint_name = 'bert-base-cased'  # Specify the checkpoint name of the model. 'bert-base-cased' | 'roberta-large'
+    layer_list = ['10']
 
-    # Load our custom pre-trained model on ETHICS and fMRI data.
-    train_head_dims = [2, 39127]  # Need to fill this in to not get an error when loading the model. This is not used in the brain score calculation.
+    def wrapper(path_to_model, layer_list):
+        checkpoint_name = 'bert-base-cased'  # Specify the checkpoint name of the model. 'bert-base-cased' | 'roberta-large'
 
-    # Warning - training head dims should match difumo resolution
-    train_head_dims = [2, 1024]
-    model = AutoModel.from_pretrained(checkpoint_name)
-    model = BERT(model, head_dims=train_head_dims)
-    tokenizer = AutoTokenizer.from_pretrained(checkpoint_name)
+        # Load our custom pre-trained model on ETHICS and fMRI data.
 
-    # manually adjusting state dict so that lightning models fit with HF
-    # there are 8 dictionary entries specific to lightning that are not needed. everything else should be the same
-    state_dict = torch.load(path_to_model)
-    state_dict_hf = state_dict['state_dict']
+        # Warning - training head dims should match difumo resolution
+        train_head_dims = [2, 1024]
+        model = AutoModel.from_pretrained(checkpoint_name)
+        model = BERT(model, head_dims=train_head_dims)
+        tokenizer = AutoTokenizer.from_pretrained(checkpoint_name)
 
-    state_dict_hf = {(k.replace('model.', ''), state_dict_hf[k]) for k in state_dict_hf}
+        # manually adjusting state dict so that lightning models fit with HF
+        # there are 8 dictionary entries specific to lightning that are not needed. everything else should be the same
+        state_dict = torch.load(path_to_model)
+        state_dict_hf = state_dict['state_dict']
 
-    model.load_state_dict(state_dict_hf)
+        state_dict_hf = {k.replace('model.', ''): state_dict_hf[k] for k in state_dict_hf}
 
-    # Load roberta-large from huggingface
-    #from transformers import RobertaTokenizer, RobertaModel
-    #tokenizer = RobertaTokenizer.from_pretrained('roberta-large')
-    #model = RobertaModel.from_pretrained('roberta-large')
+        model.load_state_dict(state_dict_hf)
 
-    # Load Roberta model from local files.
-    # model_config = AutoConfig.from_pretrained('roberta-large', num_labels=1)
-    # model = RobertaModel.from_pretrained(path_to_model, local_files_only=True, config=model_config)
-    # tokenizer = AutoTokenizer.from_pretrained(checkpoint_name)
+        # Load the data
+        test_data_path = Path(environ.get('AISCBB_DATA_DIR'))
+        config = get_config()
+        config['batch_size'] = 2  # Make the batch large enough so we definitely have one subject. This is a bit hacky but works for now.
+        subjects = [f'sub-{i:02}' for i in range(3, 4)]
+        #subject_list = [3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,22,23,24,27,28,29,30,31,32,33,34,35,38,39,40,41,42,44,45,46,47]
+        #subjects = [f'sub-{i:02}' for i in subject_list]
 
-    # Load the data
-    test_data_path = Path(environ.get('AISCBB_DATA_DIR'))
-    config = get_config()
-    config['batch_size'] = 2  # Make the batch large enough so we definitely have one subject. This is a bit hacky but works for now.
-    subjects = [f'sub-{i:02}' for i in range(3, 4)]
-    #subject_list = [3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,22,23,24,27,28,29,30,31,32,33,34,35,38,39,40,41,42,44,45,46,47]
-    #subjects = [f'sub-{i:02}' for i in subject_list]
+        all_brain_scores = {'subjects': [], 'layer.module': [], 'brain_score': [], 'brain_score_positive': []}
+        for subject in subjects:
+            fmri_data = load_ds000212(test_data_path, tokenizer, config, subject=subject, intervals=[2, 4, 6, 8])  # Use [2, 4, 6, 8] to use the background, action, outcome, and skind. Use -1 to use only the last fMRI.
+            data = next(iter(fmri_data[0]))  # Get the first batch of data which is one entire subject.
+            model_inputs = (data[0], data[1])
+            test_data = data[2]  # Shape (batch_size, num_features) (60, 1024) for a single participant.
 
-    all_brain_scores = {'subjects': [], 'layer.module': [], 'brain_score': [], 'brain_score_positive': []}
-    for subject in subjects:
-        fmri_data = load_ds000212(test_data_path, tokenizer, config, subject=subject, intervals=[2, 4, 6, 8])  # Use [2, 4, 6, 8] to use the background, action, outcome, and skind. Use -1 to use only the last fMRI.
-        data = next(iter(fmri_data[0]))  # Get the first batch of data which is one entire subject.
-        model_inputs = (data[0], data[1])
-        test_data = data[2]  # Shape (batch_size, num_features) (60, 1024) for a single participant.
+            # Calculate the brain scores
+            layers = layer_list   # The layers to calculate the brain scores for.
+            modules = ['output.dense']  # The layer and module will be combined to 'layer.module' to get the activations.
+            max_fmri_features = None  # This is used to limit the size of the data so that everything can still fit in memory. If None, all features are used.
+            score_per_feature = True  # If True, a separate model is fitted for every feature. If False, a single model is fitted for all features.
+            train_perc = 0.8  # The percentage of the data to use for training.
+            val_perc = 0.2  # The percentage of the data to use for validation. If setting validation on 0, use the training data for validation too.
+            brain_scores = calculate_brain_scores(model,
+                                                  model_inputs,
+                                                  test_data,
+                                                  layers, modules,
+                                                  max_fmri_features,
+                                                  score_per_feature=score_per_feature,
+                                                  train_perc=train_perc,
+                                                  val_perc=val_perc)
 
-        # Calculate the brain scores
-        layers = ['10']   # The layers to calculate the brain scores for. #23 for roberta
-        modules = ['output.dense']  # The layer and module will be combined to 'layer.module' to get the activations.
-        max_fmri_features = None  # This is used to limit the size of the data so that everything can still fit in memory. If None, all features are used.
-        score_per_feature = True  # If True, a separate model is fitted for every feature. If False, a single model is fitted for all features.
-        train_perc = 0.8  # The percentage of the data to use for training.
-        val_perc = 0.2  # The percentage of the data to use for validation. If setting validation on 0, use the training data for validation too.
-        brain_scores = calculate_brain_scores(model,
-                                              model_inputs,
-                                              test_data,
-                                              layers, modules,
-                                              max_fmri_features,
-                                              score_per_feature=score_per_feature,
-                                              train_perc=train_perc,
-                                              val_perc=val_perc)
+            # Add the brain scores to the all_brain_scores dict.
+            all_brain_scores['subjects'].append(subject)
+            all_brain_scores['layer.module'].extend(brain_scores['layer.module'])
+            all_brain_scores['brain_score'].extend(brain_scores['brain_score'])
+            all_brain_scores['brain_score_positive'] = brain_scores['brain_score_positive']
 
-        # Add the brain scores to the all_brain_scores dict.
-        all_brain_scores['subjects'].append(subject)
-        all_brain_scores['layer.module'].extend(brain_scores['layer.module'])
-        all_brain_scores['brain_score'].extend(brain_scores['brain_score'])
-        all_brain_scores['brain_score_positive'] = brain_scores['brain_score_positive']
+        print(all_brain_scores)
 
-    print(all_brain_scores)
+        # Write the brain scores to a csv file.
+        path_to_brain_scores = os.path.join(os.getcwd(), 'artifacts', 'brain_scores')
+        if not os.path.exists(path_to_brain_scores):
+            os.makedirs(path_to_brain_scores)
+        df = pd.DataFrame(all_brain_scores).to_csv(os.path.join(
+            os.getcwd(), 'artifacts', 'brain_scores',
+            f'{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.csv'), index=False,
+            sep=';')
 
-    # Write the brain scores to a csv file.
-    path_to_brain_scores = os.path.join(os.getcwd(), 'artifacts', 'brain_scores')
-    if not os.path.exists(path_to_brain_scores):
-        os.makedirs(path_to_brain_scores)
-    df = pd.DataFrame(all_brain_scores).to_csv(os.path.join(
-        os.getcwd(), 'artifacts', 'brain_scores',
-        f'{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.csv'), index=False,
-        sep=';')
+    wrapper(path_to_model, layer_list)
