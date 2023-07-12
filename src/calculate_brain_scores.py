@@ -144,12 +144,11 @@ if __name__ == '__main__':
     # Load our custom pre-trained model on ETHICS and fMRI data.
     train_head_dims = [2, 39127]  # Need to fill this in to not get an error when loading the model. This is not used in the brain score calculation.
 
-    #actually, for bert train head dims should be different here
+    # Warning - training head dims should match difumo resolution
     train_head_dims = [2, 1024]
     model = AutoModel.from_pretrained(checkpoint_name)
     model = BERT(model, head_dims=train_head_dims)
     tokenizer = AutoTokenizer.from_pretrained(checkpoint_name)
-    #model.load_state_dict(torch.load(path_to_model))
 
     # manually adjusting state dict so that lightning models fit with HF
     # there are 8 dictionary entries specific to lightning that are not needed. everything else should be the same
@@ -165,18 +164,13 @@ if __name__ == '__main__':
     #tokenizer = RobertaTokenizer.from_pretrained('roberta-large')
     #model = RobertaModel.from_pretrained('roberta-large')
 
-    #Load a checkpoint into the roberta model - does this work for BERT to RoBERTa? Doubtful. Let's try.
-    #checkpoint_path = '/Users/ajmeek/PycharmProjects/Inducing-human-like-biases-in-moral-reasoning-LLMs/artifacts/230707-182641/version_0/checkpoints/epoch=59-step=600.ckpt'
-    #checkpoint = torch.load(checkpoint_path)
-    #model.load_state_dict(checkpoint['state_dict'])
-
     # Load Roberta model from local files.
     # model_config = AutoConfig.from_pretrained('roberta-large', num_labels=1)
     # model = RobertaModel.from_pretrained(path_to_model, local_files_only=True, config=model_config)
     # tokenizer = AutoTokenizer.from_pretrained(checkpoint_name)
 
     # Load the data
-    test_data_path = Path(environ.get('AISCBB_DATA_DIR'))#,'./data'))
+    test_data_path = Path(environ.get('AISCBB_DATA_DIR'))
     config = get_config()
     config['batch_size'] = 2  # Make the batch large enough so we definitely have one subject. This is a bit hacky but works for now.
     subjects = [f'sub-{i:02}' for i in range(3, 4)]
