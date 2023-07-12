@@ -156,15 +156,7 @@ if __name__ == '__main__':
     state_dict = torch.load(path_to_model)
     state_dict_hf = state_dict['state_dict']
 
-    list_of_old_keys_values = []
-
-    # remove 'model.' from the beginning of all keys. keep same values
-    for key, value in state_dict_hf.items():
-        list_of_old_keys_values.append((key, value))
-
-    for (key, value) in list_of_old_keys_values:
-        state_dict_hf[key[6:]] = value
-        del state_dict_hf[key]
+    state_dict_hf = {(k.replace('model.', ''), state_dict_hf[k]) for k in state_dict_hf}
 
     model.load_state_dict(state_dict_hf)
 
