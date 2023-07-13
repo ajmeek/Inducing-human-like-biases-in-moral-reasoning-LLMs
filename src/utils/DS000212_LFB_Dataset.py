@@ -14,7 +14,8 @@ class DS000212_LFB_Dataset(IterableDataset):
     Map-style dataset that loads ds000212 dataset with its scenarios from disk and
     prepares it for fine tuning.
     """
-    def __init__(self, dataset_path: Path, scenarios_csv: Path, tokenizer):
+    def __init__(self, dataset_path: Path, scenarios_csv: Path, tokenizer, subject=None,
+                 intervals=(-1,)):
         super().__init__()
 
         assert dataset_path.exists()
@@ -22,8 +23,12 @@ class DS000212_LFB_Dataset(IterableDataset):
         self.target_head_dim = None
         self._dataset_path = dataset_path
         self._tokenizer = tokenizer
+        self._intervals = intervals
 
-        tarfiles=[str(f) for f in Path(dataset_path).glob('*.tar')]
+        if subject is not None:
+            tarfiles=[str(f) for f in Path(dataset_path).glob(f'*{subject}*.tar')]
+        else:
+            tarfiles=[str(f) for f in Path(dataset_path).glob('*.tar')]
         self.wdataset = wds.WebDataset(tarfiles).decode("pil").compose(self._get_samples)
 
         self.target_head_dim = 1024
@@ -49,8 +54,7 @@ class DS000212_LFB_Dataset(IterableDataset):
                     continue
                 data_items, labels = self._process_tsv(tsvfile)
                 for (start, end), label in zip(data_items, labels):
-                    text = self._scenarios.parse_label(label)
-
+                    text = self._scenarios.parse_label(label, len_intervals=len(self._intervals))
                     if not text:
                         continue
                     tokens = None
@@ -59,15 +63,20 @@ class DS000212_LFB_Dataset(IterableDataset):
                         tokenized = self._tokenizer(text, padding='max_length', truncation=True)
                         tokens = torch.tensor(tokenized['input_ids'])
                         mask = torch.tensor(tokenized['attention_mask'])
-                    target = self._sample(bold[start:end+1])
-                    assert target.shape == (self.target_head_dim,), f"target.shape: {target.shape}"
+                    target = self._sample(bold[start:end])
+                    if len(self._intervals) == 1:
+                        assert target.shape == (self.target_head_dim,), f"target.shape: {target.shape}"
+                    else:
+                        assert target.shape == (len(self._intervals), self.target_head_dim), f"target.shape: {target.shape}"
                     yield tokens, mask, target
 
     def _sample(self, bold_sequence : np.array) -> torch.Tensor:
-        TR = 2
-        react_time = 3 // TR
-        return torch.from_numpy(bold_sequence[-react_time]).to(torch.float)
-    
+        # TR = 2
+        # react_time = 3 // TR
+        # intervals = [2, 4, 6, 8]
+        return torch.from_numpy(bold_sequence[self._intervals]).to(torch.float)
+        # torch.from_numpy(bold_sequence[-react_time]).to(torch.float)
+
     def _process_tsv(self, from_tsv: Path):
         scenarios = []
         with open(from_tsv, newline='') as csvfile:
