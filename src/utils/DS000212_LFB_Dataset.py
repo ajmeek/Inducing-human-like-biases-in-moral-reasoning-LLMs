@@ -76,7 +76,7 @@ class DS000212_LFB_Dataset(IterableDataset):
         # intervals = [2, 4, 6, 8]
         return torch.from_numpy(bold_sequence[self._intervals]).to(torch.float)
         # torch.from_numpy(bold_sequence[-react_time]).to(torch.float)
-    
+
     def _process_tsv(self, from_tsv: Path):
         scenarios = []
         with open(from_tsv, newline='') as csvfile:

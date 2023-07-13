@@ -17,6 +17,7 @@ numpy = "*"
 lightning = {extras = ["extra"], version = "*"}
 datalad = "*"
 webdataset = "*"
+wandb = "*"
 
 [dev-packages]
 

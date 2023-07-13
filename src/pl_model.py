@@ -10,28 +10,18 @@ import lightning.pytorch as pl
 
 # lightning wrapper for training (scaling, parallelization etc)
 class LitBert(pl.LightningModule):
-    def __init__(
-            self,
-            model: nn.Module,
-            only_train_head: bool = False,
-            loss_names: list[Literal['cross-entropy', 'mse']] = ['cross-entropy'],
-            loss_weights: list[float] = None,
-            regularize_from_init: bool = False,
-            regularization_coef: float = 0.,
-            dataset_names: list[str] = None,
-    ):
+    def __init__(self, model: nn.Module, config : dict):
         super().__init__()
         self.model = model
-        self.only_train_head = only_train_head
-        self.loss_names = loss_names
-        self.loss_weights = [1 for _ in loss_names] \
-            if loss_weights is None else loss_weights
-        self.regularize_from_init = regularize_from_init
-        self.regularization_coef = regularization_coef
+        self.config = config
+        self.loss_names = config['loss_names']
+        self.loss_weights = config['loss_weights'] or [1 for _ in self.loss_names]
+        self.regularize_from_init = config['regularize_from_init']
+        self.regularization_coef = config['regularization_coef']
         # store the initial weights of the model (used for regularization)
         # note that we're not applying the regularization to the heads
         self.init_params = copy.deepcopy([p for p in model.base.parameters()])
-        self.dataset_names = dataset_names
+        self.dataset_names = config['train_datasets']
 
     def training_step(self, batch, _):
         loss = 0
@@ -94,8 +84,11 @@ class LitBert(pl.LightningModule):
 
     def configure_optimizers(self):
         # ! FIXME this breaks if you first only train head and then train the whole thing
-        if self.only_train_head:
+        if self.config['only_train_head']:
             for param in self.model.base.parameters():
                 param.requires_grad = False
-        optimizer = torch.optim.AdamW(self.parameters())
+        optimizer = torch.optim.AdamW(
+            self.parameters(),
+            lr=self.config['lr']
+        )
         return optimizer
