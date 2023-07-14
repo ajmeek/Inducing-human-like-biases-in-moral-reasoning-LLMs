@@ -5,7 +5,7 @@ from torch.utils.data import IterableDataset
 from typing import Dict, Tuple, Generator
 import numpy as np
 import torch
-from utils.constants import SAMPLING_LAST
+from utils.constants import Sampling, FMRI, DS000212
 from utils.DS000212Scenarios import DS000212Scenarios
 import webdataset as wds   
 from re import search
@@ -71,25 +71,19 @@ class DS000212_LFB_Dataset(IterableDataset):
                         tokens = torch.tensor(tokenized['input_ids'])
                         mask = torch.tensor(tokenized['attention_mask'])
                     target = self._sample(bold[start:end])
-                    assert (
-                        len(target.shape) == len(tokens.shape) 
-                        and (len(target.shape) == 1 or target.size(0) == tokens.size(0))
-                    ), ('expect each sample has its label but not ' 
-                        f'{len(target.shape)} == {len(tokens.shape)} '
-                        f'and {len(target.shape)} == 1 or {target.size(0)} == {tokens.size(0)}'
+                    assert (target.size(0) == 1 or target.size(0) == tokens.size(0)), (
+                        f'expect each sample has its label but ({target.shape=}, {tokens.shape=})'
                     )
                     yield tokens, mask, target
 
     def _sample(self, bold_sequence : np.array) -> torch.Tensor:
-        # TR = 2
-        # react_time = 3 // TR
-        # intervals = [2, 4, 6, 8]
-        if self._config['sampling_method'] == SAMPLING_LAST:
-            intervals = (-1,)
+        if self._config['sampling_method'] in Sampling.LAST:
+            intervals = [-FMRI.REACT_TIME]
+        elif self._config['sampling_method'] == Sampling.SENTENCES:
+            intervals = DS000212.Periods.ENDS[:3] + [-FMRI.REACT_TIME]
         else:
             raise NotImplementedError()
         return torch.from_numpy(bold_sequence[intervals]).to(torch.float)
-        # torch.from_numpy(bold_sequence[-react_time]).to(torch.float)
 
     def _process_tsv(self, from_tsv: Path):
         scenarios = []
