@@ -1,6 +1,6 @@
 from csv import DictReader
 from pathlib import Path
-from utils.constants import SAMPLING_LAST
+from utils.constants import Sampling
 
 class DS000212Scenarios(object):
     event_to_scenario = {
@@ -58,8 +58,10 @@ class DS000212Scenarios(object):
             found['outcome'],
             found[skind]
         ])
-        if self._config['sampling_method'] == SAMPLING_LAST:
+        if self._config['sampling_method'] in Sampling.ONE_POINT_METHODS:
             len_intervals = 1
+        elif self._config['sampling_method'] == Sampling.SENTENCES:
+            len_intervals = 4
         else:
             raise NotImplementedError()
         if len_intervals == 1:
