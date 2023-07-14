@@ -98,3 +98,14 @@ def multiple_dataset_loading(datapath : Path, tokenizer, config) \
         dataloaders.append(dataloader)
         train_head_dims.append(head_dims)
     return dataloaders, train_head_dims
+
+def return_path_to_latest_checkpoint() -> Path:
+    """
+    Iterates through the artifacts folder to find the latest saved checkpoint for calculation of brain scores
+
+    Note to self: run it a few times to get some sample artifacts folders up. Wait for indexing to complete
+
+    Actually, can't even train it due to no GPU on this laptop. Will need to get wifi to download the artifact I uploaded.
+    :return: relative path to checkpoint
+    """
+    pass

@@ -222,6 +222,13 @@ def get_args() -> argparse.ArgumentParser:
         type=bool,
         help='Save checkpoints of model after fine tuning. Enable to compare and contrast with brain scores later'
     )
+    parser.add_argument(
+        '--calculate_brain_scores',
+        nargs='+',
+        default=False,
+        type=bool,
+        help='By default this will calculate brain scores on the latest saved checkpoint.'
+    )
 
     return parser
 
