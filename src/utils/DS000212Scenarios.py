@@ -1,5 +1,6 @@
 from csv import DictReader
 from pathlib import Path
+from utils.constants import SAMPLING_LAST
 
 class DS000212Scenarios(object):
     event_to_scenario = {
@@ -15,8 +16,9 @@ class DS000212Scenarios(object):
         "J_NI": ("intentional", "Neutral"),
     }
 
-    def __init__(self, scenarios_csv) -> None:
+    def __init__(self, scenarios_csv, config) -> None:
         self._init_scenarios(scenarios_csv)
+        self._config = config
 
     def _init_scenarios(self, scenarios_csv: Path):
         self._scenarios = []
@@ -25,7 +27,7 @@ class DS000212Scenarios(object):
             for row in reader:
                 self._scenarios.append(row)
 
-    def parse_label(self, label, len_intervals: int = 1) -> list[str]:
+    def parse_label(self, label) -> list[str]:
         condition, item, key = label
         if condition not in DS000212Scenarios.event_to_scenario:
             return None
@@ -56,6 +58,10 @@ class DS000212Scenarios(object):
             found['outcome'],
             found[skind]
         ])
+        if self._config['sampling_method'] == SAMPLING_LAST:
+            len_intervals = 1
+        else:
+            raise NotImplementedError()
         if len_intervals == 1:
             return part4
         elif len_intervals == 2:

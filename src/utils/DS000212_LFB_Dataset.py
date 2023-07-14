@@ -5,12 +5,10 @@ from torch.utils.data import IterableDataset
 from typing import Dict, Tuple, Generator
 import numpy as np
 import torch
+from utils.constants import SAMPLING_LAST
 from utils.DS000212Scenarios import DS000212Scenarios
 import webdataset as wds   
 from re import search
-
-SAMPLING_LAST = 'last'
-SAMPLING_METHODS = [SAMPLING_LAST]
 
 class DS000212_LFB_Dataset(IterableDataset):
     """
@@ -32,10 +30,7 @@ class DS000212_LFB_Dataset(IterableDataset):
         self.target_head_dim = None
         self._dataset_path = dataset_path
         self._tokenizer = tokenizer
-        if config['sampling_method'] == SAMPLING_LAST:
-            self._intervals = (-1,) 
-        else:
-            raise NotImplementedError()
+        self._config = config
 
         if subject is not None:
             tarfiles=[str(f) for f in Path(dataset_path).glob(f'*{subject}*.tar')]
@@ -44,7 +39,7 @@ class DS000212_LFB_Dataset(IterableDataset):
         self.wdataset = wds.WebDataset(tarfiles).decode("pil").compose(self._get_samples)
 
         self.target_head_dim = 1024
-        self._scenarios = DS000212Scenarios(scenarios_csv)
+        self._scenarios = DS000212Scenarios(scenarios_csv, config)
 
     def __iter__(self):
         return iter(self.wdataset)
@@ -66,7 +61,7 @@ class DS000212_LFB_Dataset(IterableDataset):
                     continue
                 data_items, labels = self._process_tsv(tsvfile)
                 for (start, end), label in zip(data_items, labels):
-                    text = self._scenarios.parse_label(label, len_intervals=len(self._intervals))
+                    text = self._scenarios.parse_label(label)
                     if not text:
                         continue
                     tokens = None
@@ -76,17 +71,24 @@ class DS000212_LFB_Dataset(IterableDataset):
                         tokens = torch.tensor(tokenized['input_ids'])
                         mask = torch.tensor(tokenized['attention_mask'])
                     target = self._sample(bold[start:end])
-                    if len(self._intervals) == 1:
-                        assert target.shape == (self.target_head_dim,), f"target.shape: {target.shape}"
-                    else:
-                        assert target.shape == (len(self._intervals), self.target_head_dim), f"target.shape: {target.shape}"
+                    assert (
+                        len(target.shape) == len(tokens.shape) 
+                        and (len(target.shape) == 1 or target.size(0) == tokens.size(0))
+                    ), ('expect each sample has its label but not ' 
+                        f'{len(target.shape)} == {len(tokens.shape)} '
+                        f'and {len(target.shape)} == 1 or {target.size(0)} == {tokens.size(0)}'
+                    )
                     yield tokens, mask, target
 
     def _sample(self, bold_sequence : np.array) -> torch.Tensor:
         # TR = 2
         # react_time = 3 // TR
         # intervals = [2, 4, 6, 8]
-        return torch.from_numpy(bold_sequence[self._intervals]).to(torch.float)
+        if self._config['sampling_method'] == SAMPLING_LAST:
+            intervals = (-1,)
+        else:
+            raise NotImplementedError()
+        return torch.from_numpy(bold_sequence[intervals]).to(torch.float)
         # torch.from_numpy(bold_sequence[-react_time]).to(torch.float)
 
     def _process_tsv(self, from_tsv: Path):
