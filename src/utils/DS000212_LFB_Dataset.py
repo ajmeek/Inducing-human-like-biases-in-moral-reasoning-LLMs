@@ -9,13 +9,22 @@ from utils.DS000212Scenarios import DS000212Scenarios
 import webdataset as wds   
 from re import search
 
+SAMPLING_LAST = 'last'
+SAMPLING_METHODS = [SAMPLING_LAST]
+
 class DS000212_LFB_Dataset(IterableDataset):
     """
     Map-style dataset that loads ds000212 dataset with its scenarios from disk and
     prepares it for fine tuning.
     """
-    def __init__(self, dataset_path: Path, scenarios_csv: Path, tokenizer, subject=None,
-                 intervals=(-1,)):
+
+    def __init__(
+            self, 
+            dataset_path: Path, 
+            scenarios_csv: Path,
+            tokenizer,
+            config, 
+            subject=None):
         super().__init__()
 
         assert dataset_path.exists()
@@ -23,7 +32,10 @@ class DS000212_LFB_Dataset(IterableDataset):
         self.target_head_dim = None
         self._dataset_path = dataset_path
         self._tokenizer = tokenizer
-        self._intervals = intervals
+        if config['sampling_method'] == SAMPLING_LAST:
+            self._intervals = (-1,) 
+        else:
+            raise NotImplementedError()
 
         if subject is not None:
             tarfiles=[str(f) for f in Path(dataset_path).glob(f'*{subject}*.tar')]
