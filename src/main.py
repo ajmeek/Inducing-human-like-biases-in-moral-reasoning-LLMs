@@ -14,6 +14,7 @@ import argparse
 from os import environ
 from datetime import datetime
 import wandb
+from utils.DS000212_LFB_Dataset import SAMPLING_LAST, SAMPLING_METHODS
 
 from pprint import pprint, pformat
 
@@ -206,6 +207,13 @@ def get_args() -> argparse.ArgumentParser:
         default=0.0006538379548447884,
         type=float,
         help='Learning rate'
+    )
+    parser.add_argument(
+        '--sampling_method',
+        default=SAMPLING_LAST,
+        choices=SAMPLING_METHODS,
+        type=str,
+        help='Method for sampling fMRI data.'
     )
 
     return parser
