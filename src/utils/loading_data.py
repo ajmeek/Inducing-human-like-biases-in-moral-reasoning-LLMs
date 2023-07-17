@@ -8,9 +8,10 @@ from torch.utils.data import DataLoader, TensorDataset
 from transformers import PreTrainedTokenizer, AutoTokenizer
 from pathlib import Path
 from torch.nn import functional as F
+from os import environ
 
-from utils.DS000212RawDataSet import DS000212RawDataset
-from utils.DS000212_LFB_Dataset import DS000212_LFB_Dataset
+from src.utils.DS000212RawDataSet import DS000212RawDataset
+from src.utils.DS000212_LFB_Dataset import DS000212_LFB_Dataset
 
 
 # returns a pandas dataframe of the CM training set (excluding long ones)
@@ -108,4 +109,12 @@ def return_path_to_latest_checkpoint() -> Path:
     Actually, can't even train it due to no GPU on this laptop. Will need to get wifi to download the artifact I uploaded.
     :return: relative path to checkpoint
     """
+    artifactspath = Path(environ.get('AISCBB_ARTIFACTS_DIR', './artifacts'))
+    subdirectories = [d for d in os.listdir(artifactspath) if os.path.isdir(os.path.join(artifactspath, d))]
+    if not subdirectories:
+        return None
+
+    print(subdirectories)
+
+
     pass

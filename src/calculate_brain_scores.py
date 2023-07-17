@@ -13,7 +13,7 @@ from transformers import AutoModel, AutoTokenizer, AutoConfig, RobertaModel
 from src.main import get_config
 from src.model import BERT
 from src.utils.loading_data import load_ds000212
-
+from src.utils.loading_data import return_path_to_latest_checkpoint
 from sklearn.linear_model import RidgeCV
 
 
@@ -138,8 +138,13 @@ if __name__ == '__main__':
     # and set the working directory to the root of the project.
     # Specify parameters
     # path_to_model = r'models/cm_roberta-large.pt'  # Specify the path to the model.
-    path_to_model = r'/Users/ajmeek/PycharmProjects/Inducing-human-like-biases-in-moral-reasoning-LLMs/artifacts/230707-182641/version_0/checkpoints/epoch=59-step=600.ckpt'
+    return_path_to_latest_checkpoint()
+
+    #path_to_model = r'/Users/ajmeek/PycharmProjects/Inducing-human-like-biases-in-moral-reasoning-LLMs/artifacts/230707-182641/version_0/checkpoints/epoch=59-step=600.ckpt'
+    path_to_model = ''
     layer_list = ['10']
+
+    #return_path_to_latest_checkpoint()
 
     def wrapper(path_to_model, layer_list):
         checkpoint_name = 'bert-base-cased'  # Specify the checkpoint name of the model. 'bert-base-cased' | 'roberta-large'
@@ -154,12 +159,12 @@ if __name__ == '__main__':
 
         # manually adjusting state dict so that lightning models fit with HF
         # there are 8 dictionary entries specific to lightning that are not needed. everything else should be the same
-        state_dict = torch.load(path_to_model)
-        state_dict_hf = state_dict['state_dict']
-
-        state_dict_hf = {k.replace('model.', ''): state_dict_hf[k] for k in state_dict_hf}
-
-        model.load_state_dict(state_dict_hf)
+        # state_dict = torch.load(path_to_model)
+        # state_dict_hf = state_dict['state_dict']
+        #
+        # state_dict_hf = {k.replace('model.', ''): state_dict_hf[k] for k in state_dict_hf}
+        #
+        # model.load_state_dict(state_dict_hf)
 
         # Load the data
         test_data_path = Path(environ.get('AISCBB_DATA_DIR'))
