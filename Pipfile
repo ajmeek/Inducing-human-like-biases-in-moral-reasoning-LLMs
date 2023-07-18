@@ -14,7 +14,7 @@ nilearn = "*"
 nibabel = "*"
 sympy = "*"
 numpy = "*"
-lightning = {extras = ["extra"], version = "*"}
+lightning = "*"
 datalad = "*"
 webdataset = "*"
 wandb = "*"

@@ -1,10 +1,10 @@
 transformers
-torch
+pytorch
 torchaudio
 torchvision
 pandas
 lightning
-bids
+pybids
 nilearn
 nibabel
 sympy
