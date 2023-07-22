@@ -25,18 +25,25 @@ export GIT_MAIN_BRANCH_NAME=main
 export GIT_REMOTE=github.com/ameek2/Inducing-human-like-biases-in-moral-reasoning-LLMs.git
 export AISCBB_ARTIFACTS_DIR=${AISCBB_ARTIFACTS_DIR:-$root_dir/artifacts}
 export AISCBB_DATA_DIR=${AISCBB_DATA_DIR:-$root_dir/data}
+CONDAENVNAME=brain_bias
 
 ################################################################################
 
 function provision() {
-    python3 -m pip install pipenv 
-    pipenv --python 3.10 install
-    python3 -m pip install datalad-installer
-    datalad-installer --sudo ok git-annex -m datalad/git-annex:release
+    if which conda > /dev/null ; then 
+        conda env create -n $CONDAENVNAME -f environment.yml
+    else
+        echo 'Need conda ( https://docs.conda.io/en/latest/miniconda.html#installing ):
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+bash Miniconda3-latest-Linux-x86_64.sh
+'
+    fi 
 }
 
 function datasets() {
+    conda activate $CONDAENVNAME
     source ./bin/_datasets.sh "$@"
+    conda deactivate $CONDAENVNAME
 }
 
 function gcp() {
@@ -134,7 +141,7 @@ function gcp() {
 }
 
 function train() {
-    pipenv run python3 "$root_dir/src/main.py" "$@"
+    conda run -n $CONDAENVNAME python3 "$root_dir/src/main.py" "$@"
 }
 
 ################################################################################

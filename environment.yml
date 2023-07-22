@@ -1,26 +1,27 @@
-name: brain_bias
+name: base
 channels:
+  - huggingface
+  - pytorch
   - r
   - defaults
-  - pytorch
   - conda-forge
 dependencies:
-  - pytorch
-  - torchaudio
-  - torchvision
-  - cpuonly
-  - lightning
-  - pandas
-  - sympy
-  - webdataset
-  - wandb
-  - nilearn
-  - transformers
-  - numpy
-  - nibabel
-  - pybids
-  - datalad
   - python=3.10
-  - pyparsing
-  - httpcore[version='<=0.15']
-prefix: /home/art/.conda/envs/brain_bias
+  - conda
+  - setuptools
+  - pip
+  - wheel
+  - conda-content-trust
+  - datasets
+  - pynvml
+  - ipywidgets
+  - numpy
+  - plotly=5.14.1
+  - simple-parsing
+  - tqdm
+  - einops
+  - protobuf=3.20
+  - sentencepiece
+  - pytorch
+  - scikit-learn
+prefix: /opt/miniconda3
