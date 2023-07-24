@@ -35,7 +35,7 @@ export AISCBB_DATA_DIR=${AISCBB_DATA_DIR:-$root_dir/data}
 function provision() {
 
   conda install --channel "conda-forge" datalad-installer
-  datalad-installer --sudo ok git-annex -m datalad/git-annex:release
+  #datalad-installer --sudo ok git-annex -m datalad/git-annex:release
 
 #    python3 -m pip install pipenv
 #    pipenv --python 3.10 install
