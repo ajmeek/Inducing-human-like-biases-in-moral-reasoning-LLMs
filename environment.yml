@@ -1,10 +1,10 @@
-name: base
+name: brain_bias
 channels:
-  - huggingface
+  - conda-forge
   - pytorch
+  - huggingface
   - r
   - defaults
-  - conda-forge
 dependencies:
   - python=3.10
   - conda
@@ -16,12 +16,21 @@ dependencies:
   - pynvml
   - ipywidgets
   - numpy
-  - plotly=5.14.1
   - simple-parsing
   - tqdm
   - einops
-  - protobuf=3.20
   - sentencepiece
   - pytorch
   - scikit-learn
+  - transformers
+  - torchvision
+  - torchaudio 
+  - cpuonly 
+  - datalad
+  - webdataset
+  - wandb
+  - lightning
+  - pybids
+  - nilearn
+  - nibabel
 prefix: /opt/miniconda3
