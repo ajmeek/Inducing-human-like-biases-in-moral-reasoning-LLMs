@@ -144,7 +144,17 @@ function train() {
     conda run -n $CONDAENVNAME python3 "$root_dir/src/main.py" "$@"
 }
 
-################################################################################
+function vastai() {
+    if [[ "${VAST_CONTAINERLABEL:-}" != "" ]] ; then
+        # At Vast.
+        conda update conda
+        conda install --freeze-installed \
+            $( cat requirements.txt | grep -v ' # pip' ) \
+            -c huggingface -c conda-forge -c pytorch -c r -c defaults
+        pip install $( cat requirements.txt | sed -En '/# pip/s_(.*) # pip_\1_p'  )  
+    fi
+}
+##########################################################################
 
 
 if [[ $# == 0 ]] ; then 

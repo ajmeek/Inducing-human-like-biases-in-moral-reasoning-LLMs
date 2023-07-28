@@ -1,14 +1,28 @@
-transformers
-torch
-torchaudio
-torchvision
-pandas
-lightning
-bids
-nilearn
-nibabel
-sympy
-numpy
-datalad
-webdataset
-wandb
+  webdataset
+  torchaudio
+  nibabel
+  pytorch
+  pytorch-cuda
+  pip
+  tqdm
+  conda
+  pynvml
+  datalad
+  setuptools
+  nilearn
+  numpy
+  scikit-learn
+  simple-parsing
+  sentencepiece
+  lightning
+  pybids
+  einops
+  python=3.10
+  wandb
+  conda-content-trust
+  ipywidgets
+  transformers
+  datasets
+  wheel
+  torchvision
+  pyparsing
