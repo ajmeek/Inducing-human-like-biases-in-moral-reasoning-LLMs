@@ -25,25 +25,11 @@ export GIT_MAIN_BRANCH_NAME=main
 export GIT_REMOTE=github.com/ameek2/Inducing-human-like-biases-in-moral-reasoning-LLMs.git
 export AISCBB_ARTIFACTS_DIR=${AISCBB_ARTIFACTS_DIR:-$root_dir/artifacts}
 export AISCBB_DATA_DIR=${AISCBB_DATA_DIR:-$root_dir/data}
-CONDAENVNAME=brain_bias
 
 ################################################################################
 
-function provision() {
-    if which conda > /dev/null ; then 
-        conda env create -n $CONDAENVNAME -f environment.yml
-    else
-        echo 'Need conda ( https://docs.conda.io/en/latest/miniconda.html#installing ):
-wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
-bash Miniconda3-latest-Linux-x86_64.sh
-'
-    fi 
-}
-
 function datasets() {
-    conda activate $CONDAENVNAME
     source ./bin/_datasets.sh "$@"
-    conda deactivate $CONDAENVNAME
 }
 
 function gcp() {
@@ -141,7 +127,7 @@ function gcp() {
 }
 
 function train() {
-    conda run -n $CONDAENVNAME python3 "$root_dir/src/main.py" "$@"
+    python3 "$root_dir/src/main.py" "$@"
 }
 
 function vastai() {
