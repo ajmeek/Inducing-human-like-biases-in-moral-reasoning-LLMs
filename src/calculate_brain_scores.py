@@ -123,7 +123,7 @@ def calculate_brain_scores(model: nn.Module,
             for i in brain_score_list:
                 if i >= 0:
                     brain_score_positive += i
-            brain_scores['brain_score_positive'] = brain_score_positive
+            brain_scores['brain_score_positive'].append(brain_score_positive)
         else:
             clf = RidgeCV(alphas=[1e-3, 1e-2, 1e-1, 1]).fit(activations_last_token_train,
                                                             test_data_train)
@@ -207,7 +207,7 @@ if __name__ == '__main__':
             all_brain_scores['subjects'].append(subject)
             all_brain_scores['layer.module'].extend(brain_scores['layer.module'])
             all_brain_scores['brain_score'].extend(brain_scores['brain_score'])
-            all_brain_scores['brain_score_positive'] = brain_scores['brain_score_positive']
+            all_brain_scores['brain_score_positive'].extend(brain_scores['brain_score_positive'])
             #all_brain_scores['brain_score_per_feature'] = brain_scores['brain_score_per_feature']
             features_per_subject[subject] = brain_scores['brain_score_per_feature']
 
@@ -246,4 +246,4 @@ if __name__ == '__main__':
 
     layer_list = ['10']
     path_to_model = return_path_to_latest_checkpoint()
-    wrapper(path_to_model, layer_list, finetuned=True)
+    wrapper(path_to_model, layer_list, finetuned=False)
