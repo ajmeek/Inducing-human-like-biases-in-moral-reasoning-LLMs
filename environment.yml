@@ -1,20 +1,37 @@
-name: moralLM
+name: brain_bias
 channels:
+  - huggingface
   - pytorch
+  - r
+  - defaults
   - conda-forge
 dependencies:
-  - python=3.10
-  - pytorch=1.12.1
+  - webdataset
   - torchaudio
+  - nibabel
+  - pytorch
+  - pip
+  - tqdm
+  - cpuonly
+  - conda
+  - pynvml
+  - datalad
+  - setuptools
+  - nilearn
+  - numpy
+  - scikit-learn
+  - simple-parsing
+  - sentencepiece
+  - lightning
+  - pybids
+  - einops
+  - python=3.10
+  - wandb
+  - conda-content-trust
+  - ipywidgets
+  - transformers
+  - datasets
+  - wheel
   - torchvision
-  - cudatoolkit=11.3
-  - pip=23.0.1
-  - pip:
-    - transformers[sentencepiece]
-    - scikit-learn
-    - pandas
-    - lightning
-    - bids
-    - nilearn
-    - nibabel
-    - datalad
+  - pyparsing
+prefix: /opt/miniconda3/envs/brain_bias

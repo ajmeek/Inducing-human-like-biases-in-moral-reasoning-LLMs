@@ -28,15 +28,24 @@ export AISCBB_DATA_DIR=${AISCBB_DATA_DIR:-$root_dir/data}
 
 ################################################################################
 
-function provision() {
-    python3 -m pip install pipenv 
-    pipenv --python 3.10 install
-    python3 -m pip install datalad-installer
-    datalad-installer --sudo ok git-annex -m datalad/git-annex:release
+function local() {
+    if which conda > /dev/null ; then 
+        if conda env list | grep brain_bias ; then
+            conda env update -f environment.yml
+        else
+            conda env create -f environment.yml
+        fi
+    else
+        pip install -r requirements.txt
+    fi
 }
 
 function datasets() {
     source ./bin/_datasets.sh "$@"
+}
+
+function train() {
+    python3 "$root_dir/src/main.py" "$@"
 }
 
 function gcp() {
@@ -133,11 +142,21 @@ function gcp() {
     fi
 }
 
-function train() {
-    pipenv run python3 "$root_dir/src/main.py" "$@"
+function vast() {
+    if [[ "${VAST_CONTAINERLABEL:-}" != "" ]] ; then
+        # At Vast.
+        conda update conda
+        conda install --freeze-installed \
+            $( cat requirements.txt | grep -v ' # pip' ) \
+            -c huggingface -c conda-forge -c pytorch -c r -c defaults
+        pip install $( cat requirements.txt | sed -En '/# pip/s_(.*) # pip_\1_p'  )  
+        pip install datalad-installer
+        datalad-installer git-annex -m datalad/packages
+        pip install datalad
+    fi
 }
 
-################################################################################
+##########################################################################
 
 
 if [[ $# == 0 ]] ; then 
