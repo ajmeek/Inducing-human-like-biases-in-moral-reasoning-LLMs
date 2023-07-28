@@ -139,11 +139,6 @@ if __name__ == '__main__':
     # and set the working directory to the root of the project.
     # Specify parameters
     # path_to_model = r'models/cm_roberta-large.pt'  # Specify the path to the model.
-    return_path_to_latest_checkpoint()
-
-    #path_to_model = r'/Users/ajmeek/PycharmProjects/Inducing-human-like-biases-in-moral-reasoning-LLMs/artifacts/230707-182641/version_0/checkpoints/epoch=59-step=600.ckpt'
-    path_to_model = return_path_to_latest_checkpoint()
-    layer_list = ['10']
 
 
     def wrapper(path_to_model, layer_list, finetuned):
@@ -180,10 +175,12 @@ if __name__ == '__main__':
         config = get_config()
         config['batch_size'] = 2  # Make the batch large enough so we definitely have one subject. This is a bit hacky but works for now.
         subjects = [f'sub-{i:02}' for i in range(3, 4)]
-        #subject_list = [3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,22,23,24,27,28,29,30,31,32,33,34,35,38,39,40,41,42,44,45,46,47]
-        #subjects = [f'sub-{i:02}' for i in subject_list]
+        subject_list = [3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,22,23,24,27,28,29,30,31,32,33,34,35,38,39,40,41,42,44,45,46,47]
+        subjects = [f'sub-{i:02}' for i in subject_list]
 
-        all_brain_scores = {'subjects': [], 'layer.module': [], 'brain_score': [], 'brain_score_positive': [], 'brain_score_per_feature': []}
+        all_brain_scores = {'subjects': [], 'layer.module': [], 'brain_score': [], 'brain_score_positive': []}#, 'brain_score_per_feature': []}
+
+        features_per_subject = {}
         for subject in subjects:
             fmri_data = load_ds000212(test_data_path, tokenizer, config, subject=subject, intervals=[2, 4, 6, 8])  # Use [2, 4, 6, 8] to use the background, action, outcome, and skind. Use -1 to use only the last fMRI.
             data = next(iter(fmri_data[0]))  # Get the first batch of data which is one entire subject.
@@ -211,7 +208,8 @@ if __name__ == '__main__':
             all_brain_scores['layer.module'].extend(brain_scores['layer.module'])
             all_brain_scores['brain_score'].extend(brain_scores['brain_score'])
             all_brain_scores['brain_score_positive'] = brain_scores['brain_score_positive']
-            all_brain_scores['brain_score_per_feature'] = brain_scores['brain_score_per_feature']
+            #all_brain_scores['brain_score_per_feature'] = brain_scores['brain_score_per_feature']
+            features_per_subject[subject] = brain_scores['brain_score_per_feature']
 
         print(all_brain_scores)
 
@@ -224,11 +222,28 @@ if __name__ == '__main__':
             f'{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.csv'), index=False,
             sep=',')
 
+        date = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        path_to_brain_scores = os.path.join(os.getcwd(), 'artifacts', 'brain_scores', f'{date}')
+        if not os.path.exists(path_to_brain_scores):
+            os.makedirs(path_to_brain_scores)
+        for i in features_per_subject.keys():
+
+            print(features_per_subject[i])
+
+            df = pd.DataFrame(features_per_subject[i]).to_csv(os.path.join(
+                os.getcwd(), 'artifacts', 'brain_scores', f'{date}',
+                f'finetuned_{finetuned}_subject_{i}_brain_scores_per_feature.csv'),
+                index=False, sep=',')
+
         """
         Thoughts - to write to csv like the above, all arrays need to be the same length.
         
         For now, have the csv write as normal like it was, and then have an additional folder that holds
         brain scores per feature for different subjects and layers. Going to eat lunch first though.
+        
+        TODO - Have this iterate over everything in the layer list as well.
         """
 
-    wrapper(path_to_model, layer_list, finetuned=False)
+    layer_list = ['10']
+    path_to_model = return_path_to_latest_checkpoint()
+    wrapper(path_to_model, layer_list, finetuned=True)
