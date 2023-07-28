@@ -28,8 +28,24 @@ export AISCBB_DATA_DIR=${AISCBB_DATA_DIR:-$root_dir/data}
 
 ################################################################################
 
+function local() {
+    if which conda > /dev/null ; then 
+        if conda env list | grep brain_bias ; then
+            conda env update -f environment.yml
+        else
+            conda env create -f environment.yml
+        fi
+    else
+        pip install -r requirements.txt
+    fi
+}
+
 function datasets() {
     source ./bin/_datasets.sh "$@"
+}
+
+function train() {
+    python3 "$root_dir/src/main.py" "$@"
 }
 
 function gcp() {
@@ -126,10 +142,6 @@ function gcp() {
     fi
 }
 
-function train() {
-    python3 "$root_dir/src/main.py" "$@"
-}
-
 function vast() {
     if [[ "${VAST_CONTAINERLABEL:-}" != "" ]] ; then
         # At Vast.
@@ -143,6 +155,7 @@ function vast() {
         pip install datalad
     fi
 }
+
 ##########################################################################
 
 
