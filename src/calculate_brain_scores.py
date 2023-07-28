@@ -71,7 +71,7 @@ def calculate_brain_scores(model: nn.Module,
         model(tokens, attention_mask)
 
     # Calculate the brain scores
-    brain_scores = {'layer.module': [], 'brain_score': [], 'brain_score_positive': []}
+    brain_scores = {'layer.module': [], 'brain_score': [], 'brain_score_positive': [], 'brain_score_per_feature': []}
     for layer_name, activation in activations.items():
         print('Calculating brain score for layer:', layer_name,
               'and activation dims: ', activation.shape, '...')
@@ -115,6 +115,7 @@ def calculate_brain_scores(model: nn.Module,
                 feature_val = test_data_val[:, index]
                 brain_score_list.append(clf.score(activations_last_token_val, feature_val))
                 print(f'Brain score for feature {index}: {brain_score_list[-1]}')
+                brain_scores['brain_score_per_feature'].append((index, brain_score_list[-1]))
             brain_scores['layer.module'].append(layer_name)
             brain_scores['brain_score'].append(sum(brain_score_list) / len(brain_score_list))  # Average
 
@@ -141,12 +142,19 @@ if __name__ == '__main__':
     return_path_to_latest_checkpoint()
 
     #path_to_model = r'/Users/ajmeek/PycharmProjects/Inducing-human-like-biases-in-moral-reasoning-LLMs/artifacts/230707-182641/version_0/checkpoints/epoch=59-step=600.ckpt'
-    path_to_model = ''
+    path_to_model = return_path_to_latest_checkpoint()
     layer_list = ['10']
 
-    #return_path_to_latest_checkpoint()
 
-    def wrapper(path_to_model, layer_list):
+    def wrapper(path_to_model, layer_list, finetuned):
+        """
+        This wrapper abstracts the running of the code to loop over all possibilities.
+
+        Params:
+        path_to_model = this is the path to the most recent checkpoint of the finetuned model. N/A when training on base BERT
+        layer_list = list of layers you want to find brain scores for
+        finetuned = Boolean. whether or not to test on the finetuned model.
+        """
         checkpoint_name = 'bert-base-cased'  # Specify the checkpoint name of the model. 'bert-base-cased' | 'roberta-large'
 
         # Load our custom pre-trained model on ETHICS and fMRI data.
@@ -157,14 +165,15 @@ if __name__ == '__main__':
         model = BERT(model, head_dims=train_head_dims)
         tokenizer = AutoTokenizer.from_pretrained(checkpoint_name)
 
-        # manually adjusting state dict so that lightning models fit with HF
-        # there are 8 dictionary entries specific to lightning that are not needed. everything else should be the same
-        # state_dict = torch.load(path_to_model)
-        # state_dict_hf = state_dict['state_dict']
-        #
-        # state_dict_hf = {k.replace('model.', ''): state_dict_hf[k] for k in state_dict_hf}
-        #
-        # model.load_state_dict(state_dict_hf)
+        if finetuned:
+            # manually adjusting state dict so that lightning models fit with HF
+            # there are 8 dictionary entries specific to lightning that are not needed. everything else should be the same
+            state_dict = torch.load(path_to_model)
+            state_dict_hf = state_dict['state_dict']
+
+            state_dict_hf = {k.replace('model.', ''): state_dict_hf[k] for k in state_dict_hf}
+
+            model.load_state_dict(state_dict_hf)
 
         # Load the data
         test_data_path = Path(environ.get('AISCBB_DATA_DIR'))
@@ -174,7 +183,7 @@ if __name__ == '__main__':
         #subject_list = [3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,22,23,24,27,28,29,30,31,32,33,34,35,38,39,40,41,42,44,45,46,47]
         #subjects = [f'sub-{i:02}' for i in subject_list]
 
-        all_brain_scores = {'subjects': [], 'layer.module': [], 'brain_score': [], 'brain_score_positive': []}
+        all_brain_scores = {'subjects': [], 'layer.module': [], 'brain_score': [], 'brain_score_positive': [], 'brain_score_per_feature': []}
         for subject in subjects:
             fmri_data = load_ds000212(test_data_path, tokenizer, config, subject=subject, intervals=[2, 4, 6, 8])  # Use [2, 4, 6, 8] to use the background, action, outcome, and skind. Use -1 to use only the last fMRI.
             data = next(iter(fmri_data[0]))  # Get the first batch of data which is one entire subject.
@@ -202,6 +211,7 @@ if __name__ == '__main__':
             all_brain_scores['layer.module'].extend(brain_scores['layer.module'])
             all_brain_scores['brain_score'].extend(brain_scores['brain_score'])
             all_brain_scores['brain_score_positive'] = brain_scores['brain_score_positive']
+            all_brain_scores['brain_score_per_feature'] = brain_scores['brain_score_per_feature']
 
         print(all_brain_scores)
 
@@ -212,6 +222,13 @@ if __name__ == '__main__':
         df = pd.DataFrame(all_brain_scores).to_csv(os.path.join(
             os.getcwd(), 'artifacts', 'brain_scores',
             f'{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.csv'), index=False,
-            sep=';')
+            sep=',')
 
-    wrapper(path_to_model, layer_list)
+        """
+        Thoughts - to write to csv like the above, all arrays need to be the same length.
+        
+        For now, have the csv write as normal like it was, and then have an additional folder that holds
+        brain scores per feature for different subjects and layers. Going to eat lunch first though.
+        """
+
+    wrapper(path_to_model, layer_list, finetuned=False)
