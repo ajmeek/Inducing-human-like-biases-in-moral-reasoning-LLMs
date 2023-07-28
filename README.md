@@ -4,9 +4,9 @@ This project is about fine-tuning language models (LMs) on a publicly available 
 
 ## How to run 
 
-- `bash run.sh local` to provision local environment and activate it for current shell.
-- `bash run.sh datasets [argument ..]` to create datasets. 
-- `bash run.sh train [argument ..]` to train. See `bash run.sh train --help` for the list of possible arguments.
+- `bash run.sh local` to provision local environment.
+- `bash run.sh datasets [argument ..]` to prepare datasets. 
+- `bash run.sh train [argument ..]` to train model and measure it. See `bash run.sh train --help` for the list of possible arguments.
  
 ## Example of usage
 
