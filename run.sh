@@ -146,11 +146,7 @@ function vast() {
     if [[ "${VAST_CONTAINERLABEL:-}" != "" ]] ; then
         # At Vast.
         conda update conda
-        conda install --freeze-installed \
-            $( cat requirements.txt | grep -v ' # pip' ) \
-            -c huggingface -c conda-forge -c pytorch -c r -c defaults
-        pip install $( cat requirements.txt | sed -En '/# pip/s_(.*) # pip_\1_p'  )  
-        pip install datalad-installer
+        conda env update -n base -f environment.yml
         datalad-installer git-annex -m datalad/packages
         pip install datalad
     fi

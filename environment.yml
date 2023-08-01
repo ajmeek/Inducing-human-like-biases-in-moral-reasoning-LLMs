@@ -1,21 +1,12 @@
-name: brain_bias
 channels:
-  - huggingface
-  - pytorch
   - r
   - defaults
   - conda-forge
 dependencies:
   - webdataset
-  - torchaudio
   - nibabel
-  - pytorch
-  - pip
   - tqdm
-  - cpuonly
-  - conda
   - pynvml
-  - datalad
   - setuptools
   - nilearn
   - numpy
@@ -25,13 +16,18 @@ dependencies:
   - lightning
   - pybids
   - einops
-  - python=3.10
   - wandb
   - conda-content-trust
   - ipywidgets
-  - transformers
-  - datasets
   - wheel
-  - torchvision
   - pyparsing
-prefix: /opt/miniconda3/envs/brain_bias
+  - huggingface::transformers
+  - huggingface::datasets
+  - pytorch::pytorch
+  - pytorch::torchvision
+  - pytorch::torchaudio
+  - python=3.10
+  - pip
+  - git
+  - pip: 
+    - datalad-installer
