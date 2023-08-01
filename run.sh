@@ -146,12 +146,20 @@ function gcp() {
 function vast() {
     if [[ "${VAST_CONTAINERLABEL:-}" != "" ]] ; then
         # At Vast.
-        conda update conda
-        conda env update -n base -f environment.yml
-        conda env update -n base -f environment-cuda.yml
-        datalad-installer git-annex -m datalad/packages
+        if ! which mamba ; then
+            wget "https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-$(uname)-$(uname -m).sh"
+            bash Mambaforge-$(uname)-$(uname -m).sh
+        fi
+        if mamba env list | grep '^bb ' ; then
+            mamba env update -n bb -f environment.yml
+        else 
+            mamba env create -n bb -f environment.yml
+        fi
+        mamba env update -n bb -f environment-cuda.yml
+
         apt install netbase  # To enable /etc/protocols which is required by git-annex.
         pip install vastai
+
     fi
 }
 

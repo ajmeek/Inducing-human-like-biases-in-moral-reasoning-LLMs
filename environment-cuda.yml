@@ -1,5 +1,4 @@
 channels:
-  - pytorch
   - defaults
 dependencies:
-  - pytorch-cuda
+  - nvidia::cuda

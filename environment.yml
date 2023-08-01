@@ -22,7 +22,7 @@ dependencies:
   - sentencepiece
   - setuptools
   - simple-parsing
-  - tokenizers
+  - tokenizers=>0.13.3
   - tqdm
   - wandb
   - webdataset
@@ -31,5 +31,3 @@ dependencies:
   - pip
   - git
   - make
-  - pip: 
-    - datalad-installer
