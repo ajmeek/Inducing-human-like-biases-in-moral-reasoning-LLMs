@@ -15,13 +15,14 @@ dependencies:
   - pybids
   - pynvml
   - pyparsing
-  - pytorch::pytorch
+  - pytorch::pytorch=2.0.*
   - pytorch::torchaudio
   - pytorch::torchvision
   - scikit-learn
   - sentencepiece
   - setuptools
   - simple-parsing
+  - tokenizers
   - tqdm
   - wandb
   - webdataset
