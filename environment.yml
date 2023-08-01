@@ -28,5 +28,6 @@ dependencies:
   - python=3.10
   - pip
   - git
+  - make
   - pip: 
     - datalad-installer
