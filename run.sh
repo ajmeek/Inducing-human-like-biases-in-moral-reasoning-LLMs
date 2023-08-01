@@ -146,6 +146,8 @@ function gcp() {
 function vast() {
     if [[ "${VAST_CONTAINERLABEL:-}" != "" ]] ; then
         # At Vast.
+        git config --global user.email "$BB_USER_EMAIL"
+        git config --global user.name "$BB_USER_NAME"
         if ! which mamba ; then
             wget "https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-$(uname)-$(uname -m).sh"
             bash Mambaforge-$(uname)-$(uname -m).sh
