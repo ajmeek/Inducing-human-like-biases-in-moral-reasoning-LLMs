@@ -150,7 +150,7 @@ function vast() {
         conda env update -n base -f environment.yml
         conda env update -n base -f environment-cuda.yml
         datalad-installer git-annex -m datalad/packages
-        pip install datalad
+        apt install netbase  # To enable /etc/protocols which is required by git-annex.
     fi
 }
 

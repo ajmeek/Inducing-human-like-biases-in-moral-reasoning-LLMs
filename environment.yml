@@ -3,6 +3,7 @@ channels:
   - defaults
   - conda-forge
 dependencies:
+  - datalad
   - einops
   - huggingface::datasets
   - huggingface::transformers
