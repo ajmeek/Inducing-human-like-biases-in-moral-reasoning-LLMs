@@ -31,10 +31,11 @@ export AISCBB_DATA_DIR=${AISCBB_DATA_DIR:-$root_dir/data}
 function local() {
     if which conda > /dev/null ; then 
         if conda env list | grep brain_bias ; then
-            conda env update -f environment.yml
+            conda env update -n brain_bias -f environment.yml
         else
-            conda env create -f environment.yml
+            conda env create -n brain_bias -f environment.yml
         fi
+        conda env update -n brain_bias -f environment-cpu.yml
     else
         pip install -r requirements.txt
     fi
@@ -147,6 +148,7 @@ function vast() {
         # At Vast.
         conda update conda
         conda env update -n base -f environment.yml
+        conda env update -n base -f environment-cuda.yml
         datalad-installer git-annex -m datalad/packages
         pip install datalad
     fi

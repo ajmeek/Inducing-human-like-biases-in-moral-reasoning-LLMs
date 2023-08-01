@@ -3,29 +3,28 @@ channels:
   - defaults
   - conda-forge
 dependencies:
-  - webdataset
+  - einops
+  - huggingface::datasets
+  - huggingface::transformers
+  - ipywidgets
+  - lightning
   - nibabel
-  - tqdm
-  - pynvml
-  - setuptools
   - nilearn
   - numpy
-  - scikit-learn
-  - simple-parsing
-  - sentencepiece
-  - lightning
   - pybids
-  - einops
-  - wandb
-  - conda-content-trust
-  - ipywidgets
-  - wheel
+  - pynvml
   - pyparsing
-  - huggingface::transformers
-  - huggingface::datasets
   - pytorch::pytorch
-  - pytorch::torchvision
   - pytorch::torchaudio
+  - pytorch::torchvision
+  - scikit-learn
+  - sentencepiece
+  - setuptools
+  - simple-parsing
+  - tqdm
+  - wandb
+  - webdataset
+  - wheel
   - python=3.10
   - pip
   - git
