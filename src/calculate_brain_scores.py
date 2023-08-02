@@ -114,7 +114,7 @@ def calculate_brain_scores(model: nn.Module,
                                                                 feature)
                 feature_val = test_data_val[:, index]
                 brain_score_list.append(clf.score(activations_last_token_val, feature_val))
-                print(f'Brain score for feature {index}: {brain_score_list[-1]}')
+                #print(f'Brain score for feature {index}: {brain_score_list[-1]}')
                 brain_scores['brain_score_per_feature'].append((index, brain_score_list[-1]))
             brain_scores['layer.module'].append(layer_name)
             brain_scores['brain_score'].append(sum(brain_score_list) / len(brain_score_list))  # Average
@@ -141,7 +141,7 @@ if __name__ == '__main__':
     # path_to_model = r'models/cm_roberta-large.pt'  # Specify the path to the model.
 
 
-    def wrapper(path_to_model, layer_list, finetuned):
+    def wrapper(path_to_model, layer_list, date, finetuned):
         """
         This wrapper abstracts the running of the code to loop over all possibilities.
 
@@ -211,7 +211,9 @@ if __name__ == '__main__':
             #all_brain_scores['brain_score_per_feature'] = brain_scores['brain_score_per_feature']
             features_per_subject[subject] = brain_scores['brain_score_per_feature']
 
-        print(all_brain_scores)
+        print('subjects: ', all_brain_scores['subjects'])
+        print('layers: ', all_brain_scores['layer.module'])
+        print('brain_score: ', all_brain_scores['brain_score'])
 
         # Write the brain scores to a csv file.
         path_to_brain_scores = os.path.join(os.getcwd(), 'artifacts', 'brain_scores')
@@ -219,20 +221,20 @@ if __name__ == '__main__':
             os.makedirs(path_to_brain_scores)
         df = pd.DataFrame(all_brain_scores).to_csv(os.path.join(
             os.getcwd(), 'artifacts', 'brain_scores',
-            f'{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.csv'), index=False,
+            f'{date}.csv'), index=False,
             sep=',')
 
-        date = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        path_to_brain_scores = os.path.join(os.getcwd(), 'artifacts', 'brain_scores', f'{date}')
+        #date = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        path_to_brain_scores = os.path.join(os.getcwd(), 'artifacts', 'brain_scores', f'{date}_layer={layer_list[0]}_finetuned={finetuned}')
         if not os.path.exists(path_to_brain_scores):
             os.makedirs(path_to_brain_scores)
         for i in features_per_subject.keys():
 
-            print(features_per_subject[i])
+
+            #print(features_per_subject[i])
 
             df = pd.DataFrame(features_per_subject[i]).to_csv(os.path.join(
-                os.getcwd(), 'artifacts', 'brain_scores', f'{date}',
-                f'finetuned_{finetuned}_subject_{i}_brain_scores_per_feature.csv'),
+                path_to_brain_scores, f'subject_{i}_brain_scores_per_feature.csv'),
                 index=False, sep=',')
 
         """
@@ -244,6 +246,18 @@ if __name__ == '__main__':
         TODO - Have this iterate over everything in the layer list as well.
         """
 
-    layer_list = ['10']
+    #base BERT has 12 encoder layers
+    layer_list = ['2','3','4','5','6','7','8','9','10','11','12'] #including layer 1 breaks it for some reason
     path_to_model = return_path_to_latest_checkpoint()
-    wrapper(path_to_model, layer_list, finetuned=False)
+    date = datetime.now().strftime("%Y-%m-%d_%H-%M-%S") #for naming
+    #wrapper(path_to_model, layer_list, finetuned=False)
+
+    #instead of using layer list, just pass a single layer to the wrapper function and loop using that.
+    #will need to incorporate the layer into the directory name then. 
+    for i in layer_list:
+        #print([i])
+        wrapper(path_to_model, [i], date, finetuned=False)
+        wrapper(path_to_model, [i], date, finetuned=True)
+        #break
+
+    #wrapper(path_to_model, ['2'], date, finetuned=False)
