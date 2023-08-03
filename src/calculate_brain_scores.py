@@ -15,6 +15,8 @@ from src.model import BERT
 from src.utils.loading_data import load_ds000212
 from src.utils.loading_data import return_path_to_latest_checkpoint
 from sklearn.linear_model import RidgeCV
+from scipy.stats import pearsonr
+from sklearn.feature_selection import r_regression
 
 
 def calculate_brain_scores(model: nn.Module,
@@ -23,6 +25,7 @@ def calculate_brain_scores(model: nn.Module,
                            layers: list,
                            modules: list,
                            max_fmri_features: Optional[int],
+                           correlation: str,
                            score_per_feature: bool = False,
                            train_perc : float = 1.0,
                            val_perc : float = 0.0,
@@ -38,6 +41,7 @@ def calculate_brain_scores(model: nn.Module,
     :param layers: The layers for which the activations should be calculated.
     :param modules: The modules for which the activations should be calculated.
     :param max_fmri_features: For memory reasons, the number of fMRI features can be limited.
+    :param correlation: Choose either Pearson's r as "pearson" or the coefficient of determination as "determination"
     :param score_per_feature: If true, the brain scores are calculated for each fMRI feature separately.
     :param train_perc: The percentage of the data to use for training.
     :param val_perc: The percentage of the data to use for validation.
@@ -71,10 +75,11 @@ def calculate_brain_scores(model: nn.Module,
         model(tokens, attention_mask)
 
     # Calculate the brain scores
-    brain_scores = {'layer.module': [], 'brain_score': [], 'brain_score_positive': [], 'brain_score_per_feature': []}
+    brain_scores = {'layer.module': [], 'brain_score': [], 'brain_score_positive': [], 'brain_score_per_feature': [], 'correlation': []}
     for layer_name, activation in activations.items():
         print('Calculating brain score for layer:', layer_name,
-              'and activation dims: ', activation.shape, '...')
+              ' activation dims: ', activation.shape, '...',
+              ' correlation: ', correlation)
         # activations_flattened = activation.reshape(activation.shape[0], -1)
         activations_indices_last_token = torch.sum(attention_mask, dim=1) - 1  # Shape [batch_size]
 
@@ -108,16 +113,30 @@ def calculate_brain_scores(model: nn.Module,
 
         if score_per_feature:
             brain_score_list = []
-            for index in range(test_data.shape[1]):
-                feature = test_data_train[:, index]
-                clf = RidgeCV(alphas=[1e-3, 1e-2, 1e-1, 1]).fit(activations_last_token_train,
-                                                                feature)
-                feature_val = test_data_val[:, index]
-                brain_score_list.append(clf.score(activations_last_token_val, feature_val))
-                #print(f'Brain score for feature {index}: {brain_score_list[-1]}')
-                brain_scores['brain_score_per_feature'].append((index, brain_score_list[-1]))
+            if correlation == "determination":
+                for index in range(test_data.shape[1]):
+                    feature = test_data_train[:, index]
+                    clf = RidgeCV(alphas=[1e-3, 1e-2, 1e-1, 1]).fit(activations_last_token_train,
+                                                                    feature)
+                    feature_val = test_data_val[:, index]
+                    brain_score_list.append(clf.score(activations_last_token_val, feature_val))
+                    #print(f'Brain score for feature {index}: {brain_score_list[-1]}')
+                    brain_scores['brain_score_per_feature'].append((index, brain_score_list[-1]))
+            elif correlation == "pearson":
+                for index in range(test_data.shape[1]):
+                    feature = test_data[:, index]
+                    #pearson_r_train, _ = pearsonr(activations_last_token_train, feature)
+                    #pearson_r_train = r_regression(activations_last_token_train, feature)
+                    #feature_val = test_data_val[:, index]
+                    #pearson_r_val, _ = pearsonr(activations_last_token_val, feature_val)
+                    #pearson_r_val = r_regression(activations_last_token_val, feature_val)
+                    pearson_r = r_regression(activations_last_token, feature)
+                    brain_score_list.append(pearson_r)
+                    #print(f'Brain score for feature {index}: {brain_score_list[-1]}')
+                    brain_scores['brain_score_per_feature'].append((index, brain_score_list[-1]))
             brain_scores['layer.module'].append(layer_name)
             brain_scores['brain_score'].append(sum(brain_score_list) / len(brain_score_list))  # Average
+            brain_scores['correlation'].append(correlation)
 
             brain_score_positive = 0
             for i in brain_score_list:
@@ -141,7 +160,7 @@ if __name__ == '__main__':
     # path_to_model = r'models/cm_roberta-large.pt'  # Specify the path to the model.
 
 
-    def wrapper(path_to_model, layer_list, date, finetuned):
+    def wrapper(path_to_model, layer_list, date, correlation, finetuned):
         """
         This wrapper abstracts the running of the code to loop over all possibilities.
 
@@ -178,7 +197,7 @@ if __name__ == '__main__':
         subject_list = [3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,22,23,24,27,28,29,30,31,32,33,34,35,38,39,40,41,42,44,45,46,47]
         subjects = [f'sub-{i:02}' for i in subject_list]
 
-        all_brain_scores = {'subjects': [], 'layer.module': [], 'brain_score': [], 'brain_score_positive': []}#, 'brain_score_per_feature': []}
+        all_brain_scores = {'subjects': [], 'layer.module': [], 'brain_score': [], 'brain_score_positive': [], 'correlation': []}#, 'brain_score_per_feature': []}
 
         features_per_subject = {}
         for subject in subjects:
@@ -199,6 +218,7 @@ if __name__ == '__main__':
                                                   test_data,
                                                   layers, modules,
                                                   max_fmri_features,
+                                                  correlation=correlation,
                                                   score_per_feature=score_per_feature,
                                                   train_perc=train_perc,
                                                   val_perc=val_perc)
@@ -208,6 +228,7 @@ if __name__ == '__main__':
             all_brain_scores['layer.module'].extend(brain_scores['layer.module'])
             all_brain_scores['brain_score'].extend(brain_scores['brain_score'])
             all_brain_scores['brain_score_positive'].extend(brain_scores['brain_score_positive'])
+            all_brain_scores['correlation'].extend(brain_scores['correlation'])
             #all_brain_scores['brain_score_per_feature'] = brain_scores['brain_score_per_feature']
             features_per_subject[subject] = brain_scores['brain_score_per_feature']
 
@@ -225,7 +246,7 @@ if __name__ == '__main__':
             sep=',')
 
         #date = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        path_to_brain_scores = os.path.join(os.getcwd(), 'artifacts', 'brain_scores', f'{date}_layer={layer_list[0]}_finetuned={finetuned}')
+        path_to_brain_scores = os.path.join(os.getcwd(), 'artifacts', 'brain_scores', f'{date}_layer={layer_list[0]}_finetuned={finetuned}_correlation={correlation}')
         if not os.path.exists(path_to_brain_scores):
             os.makedirs(path_to_brain_scores)
         for i in features_per_subject.keys():
@@ -247,7 +268,7 @@ if __name__ == '__main__':
         """
 
     #base BERT has 12 encoder layers
-    layer_list = ['2','3','4','5','6','7','8','9','10','11','12'] #including layer 1 breaks it for some reason
+    layer_list = ['2','3','4','5','6','7','8','9','10','11','12'] #including layer 1 and 12 breaks it for some reason
     path_to_model = return_path_to_latest_checkpoint()
     date = datetime.now().strftime("%Y-%m-%d_%H-%M-%S") #for naming
     #wrapper(path_to_model, layer_list, finetuned=False)
@@ -256,8 +277,10 @@ if __name__ == '__main__':
     #will need to incorporate the layer into the directory name then. 
     for i in layer_list:
         #print([i])
-        wrapper(path_to_model, [i], date, finetuned=False)
-        wrapper(path_to_model, [i], date, finetuned=True)
+        #wrapper(path_to_model, [i], date, correlation="pearson", finetuned=False)
+        #wrapper(path_to_model, [i], date, correlation="pearson", finetuned=True)
+        wrapper(path_to_model, [i], date, correlation="determination", finetuned=False)
+        wrapper(path_to_model, [i], date, correlation="determination", finetuned=True)
         #break
 
     #wrapper(path_to_model, ['2'], date, finetuned=False)
