@@ -9,6 +9,7 @@ FUNCTIONS:
   install           - installs environment to load data, train
   train             - runs training
   datasets          - downloads and processes a dataset(s)
+  local             - provision local env with Conda or pip
 EOF
 `
 set -euo pipefail
