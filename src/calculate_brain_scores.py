@@ -8,6 +8,7 @@ from typing import Optional
 import pandas as pd
 import torch
 import torch.nn as nn
+import numpy as np
 from transformers import AutoModel, AutoTokenizer, AutoConfig, RobertaModel
 
 from src.main import get_config
@@ -100,10 +101,17 @@ def calculate_brain_scores(model: nn.Module,
         num_train_samples = int(train_perc * activations_last_token.shape[0])
         num_val_samples = activations_last_token.shape[0] - num_train_samples
 
+        # TODO - should the validation activation data, used for ROI brain score, be a specific part of the scenario?
+        # scenarios are split into different sections. Perhaps some sections are more morally relevant than others?
+
+        if correlation == "pearson":
+            num_train_samples = 7
+            num_val_samples = 1
+
         activations_last_token_train = activations_last_token[:num_train_samples]
         test_data_train = test_data[:num_train_samples]
 
-        if num_val_samples < 2:
+        if num_val_samples < 2 and correlation == "determination":
             print(f'Calculating the R^2 score requires at least 2 validation samples, but got {num_val_samples}. Using train for validation too.')
             activations_last_token_val = activations_last_token_train
             test_data_val = test_data_train
@@ -123,17 +131,50 @@ def calculate_brain_scores(model: nn.Module,
                     #print(f'Brain score for feature {index}: {brain_score_list[-1]}')
                     brain_scores['brain_score_per_feature'].append((index, brain_score_list[-1]))
             elif correlation == "pearson":
+                predictions_list = []
                 for index in range(test_data.shape[1]):
-                    feature = test_data[:, index]
+                    #feature = test_data[:, index]
+                    feature = test_data_train[:, index]
+                    clf = RidgeCV(alphas=[1e-3, 1e-2, 1e-1, 1]).fit(activations_last_token_train,
+                                                                    feature)
+                    feature_val = test_data_val[:, index]
+                    prediction = clf.predict(activations_last_token_val)
+#                    pearson_r = r_regression(predictions, feature_val)
+
+                    # TODO - does Seong want just the prediction or the correlation between prediction and actual?
+
+                    predictions_list.append(prediction)
+
+                    #brain_score_list.append(clf.score(activations_last_token_val, feature_val))
                     #pearson_r_train, _ = pearsonr(activations_last_token_train, feature)
                     #pearson_r_train = r_regression(activations_last_token_train, feature)
                     #feature_val = test_data_val[:, index]
                     #pearson_r_val, _ = pearsonr(activations_last_token_val, feature_val)
                     #pearson_r_val = r_regression(activations_last_token_val, feature_val)
-                    pearson_r = r_regression(activations_last_token, feature)
-                    brain_score_list.append(pearson_r)
+                    #pearson_r = r_regression(activations_last_token, feature)
+                    #brain_score_list.append(pearson_r)
                     #print(f'Brain score for feature {index}: {brain_score_list[-1]}')
-                    brain_scores['brain_score_per_feature'].append((index, brain_score_list[-1]))
+
+                #reshape test data val to be 1d of shape (1024), not (1, 1024)
+                test_data_val = test_data_val[0,:]
+                predictions_list_flipped = np.array(predictions_list)
+                #predictions_list_flipped =
+                pearson_r = r_regression(predictions_list, test_data_val)
+
+                # TODO - loop over every index again.
+                """
+                How this works is that Pearson's calculates a pairwise thing, but it's out of many as I understand it.
+                So how much does one predicted ROI match the actual ROI activation, in comparison to all the other predicted ROI data
+                
+                So need to loop over every index again and calculate it out. Just need to make sure that my indices are right.
+                
+                According to docs, r_regression(X,Y) = X = (num_samples, num_features) and Y = (num_samples,).
+                We have one sample (one subj, layer, model combo) and 1024 ROI features. So flip predictions_list to be
+                (1, 1024).
+                """
+
+                brain_scores['brain_score_per_feature'] = brain_score_list
+
             brain_scores['layer.module'].append(layer_name)
             brain_scores['brain_score'].append(sum(brain_score_list) / len(brain_score_list))  # Average
             brain_scores['correlation'].append(correlation)
@@ -277,10 +318,10 @@ if __name__ == '__main__':
     #will need to incorporate the layer into the directory name then. 
     for i in layer_list:
         #print([i])
-        #wrapper(path_to_model, [i], date, correlation="pearson", finetuned=False)
+        wrapper(path_to_model, [i], date, correlation="pearson", finetuned=False)
         #wrapper(path_to_model, [i], date, correlation="pearson", finetuned=True)
-        wrapper(path_to_model, [i], date, correlation="determination", finetuned=False)
-        wrapper(path_to_model, [i], date, correlation="determination", finetuned=True)
-        #break
+        #wrapper(path_to_model, [i], date, correlation="determination", finetuned=False)
+        #wrapper(path_to_model, [i], date, correlation="determination", finetuned=True)
+        break
 
     #wrapper(path_to_model, ['2'], date, finetuned=False)
