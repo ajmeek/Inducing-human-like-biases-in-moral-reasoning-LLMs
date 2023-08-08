@@ -9,6 +9,7 @@ FUNCTIONS:
   install           - installs environment to load data, train
   train             - runs training
   datasets          - downloads and processes a dataset(s)
+  local             - provision local env with Conda or pip
 EOF
 `
 set -euo pipefail
@@ -31,10 +32,11 @@ export AISCBB_DATA_DIR=${AISCBB_DATA_DIR:-$root_dir/data}
 function local() {
     if which conda > /dev/null ; then 
         if conda env list | grep brain_bias ; then
-            conda env update -f environment.yml
+            conda env update -n brain_bias -f environment.yml
         else
-            conda env create -f environment.yml
+            conda env create -n brain_bias -f environment.yml
         fi
+        conda env update -n brain_bias -f environment-cpu.yml
     else
         pip install -r requirements.txt
     fi
@@ -145,14 +147,20 @@ function gcp() {
 function vast() {
     if [[ "${VAST_CONTAINERLABEL:-}" != "" ]] ; then
         # At Vast.
-        conda update conda
-        conda install --freeze-installed \
-            $( cat requirements.txt | grep -v ' # pip' ) \
-            -c huggingface -c conda-forge -c pytorch -c r -c defaults
-        pip install $( cat requirements.txt | sed -En '/# pip/s_(.*) # pip_\1_p'  )  
-        pip install datalad-installer
-        datalad-installer git-annex -m datalad/packages
-        pip install datalad
+        if ! which mamba ; then
+            wget "https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-$(uname)-$(uname -m).sh"
+            bash Mambaforge-$(uname)-$(uname -m).sh
+        fi
+        if mamba env list | grep '^bb ' ; then
+            mamba env update -n bb -f environment.yml
+        else 
+            mamba env create -n bb -f environment.yml
+        fi
+        mamba env update -n bb -f environment-cuda.yml
+
+        apt install netbase  # To enable /etc/protocols which is required by git-annex.
+        pip install vastai
+
     fi
 }
 
