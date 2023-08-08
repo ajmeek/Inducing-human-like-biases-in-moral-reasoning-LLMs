@@ -19,10 +19,8 @@ from utils.constants import Sampling
 from pprint import pprint, pformat
 
 def train(context):
-    datapath = context['datapath']
-    artifactspath = context['artifactspath']
-    assert datapath.exists(), 'Expected data dir present.'
-    artifactspath.mkdir(exist_ok=True)
+    assert context['datapath'].exists(), 'Expected data dir present.'
+    context['artifactspath'].mkdir(exist_ok=True)
     pprint('Context:')
     pprint(context, indent=2)
     # Define the tokenizer and model
@@ -37,7 +35,7 @@ def train(context):
     #     base_model = modify_with_ia3(base_model, layers_to_replace_with_ia3)
 
     # Load the dataset
-    dataloaders, train_head_dims = multiple_dataset_loading(datapath, tokenizer, context)
+    dataloaders, train_head_dims = multiple_dataset_loading(tokenizer, context)
 
     # Define the model
     model = BERT(
@@ -46,7 +44,7 @@ def train(context):
     )
     lit_model = LitBert(model, context)
 
-    logger = WandbLogger(save_dir=artifactspath, project="AISC_BB")
+    logger = WandbLogger(save_dir=context['artifactspath'], project="AISC_BB")
     logger.log_hyperparams(context)
 
     # train the model
@@ -58,7 +56,7 @@ def train(context):
         strategy='auto',
         logger=logger,
         log_every_n_steps=1,
-        default_root_dir=artifactspath,
+        default_root_dir=context['artifactspath'],
         enable_checkpointing=False  # Avoid saving full model into a disk (GBs)
     )
     print('Fine tuning BERT...')
@@ -66,7 +64,6 @@ def train(context):
 
     # Test the model
     test_loader, _ = load_ethics_ds(
-        datapath,
         tokenizer,
         context,
         is_train=False
@@ -75,7 +72,7 @@ def train(context):
     trainer.test(lit_model, dataloaders=test_loader)
     logger.save()
     wandb.finish()
-    trainer.save_checkpoint(artifactspath / f'model-{datetime.utcnow().isoformat(timespec="minutes").replace(":","")}.ckpt')
+    trainer.save_checkpoint(context['artifactspath'] / f'model-{datetime.utcnow().isoformat(timespec="minutes").replace(":","")}.ckpt')
 
 
 def get_config():
