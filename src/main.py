@@ -18,18 +18,17 @@ from utils.constants import Sampling
 
 from pprint import pprint, pformat
 
-datapath = Path(environ.get('AISCBB_DATA_DIR','./data'))
-artifactspath = Path(environ.get('AISCBB_ARTIFACTS_DIR','./artifacts'))
-
-def train(config):
+def train(context):
+    datapath = context['datapath']
+    artifactspath = context['artifactspath']
     assert datapath.exists(), 'Expected data dir present.'
     artifactspath.mkdir(exist_ok=True)
-    pprint('Config:')
-    pprint(config, indent=2)
+    pprint('Context:')
+    pprint(context, indent=2)
     # Define the tokenizer and model
-    tokenizer = AutoTokenizer.from_pretrained(config['checkpoint'])
+    tokenizer = AutoTokenizer.from_pretrained(context['checkpoint'])
     # TODO make sure it doesn't add SEP tokens when there's a full stop
-    base_model = AutoModel.from_pretrained(config['checkpoint'])
+    base_model = AutoModel.from_pretrained(context['checkpoint'])
 
     #use_ia3_layers = False
     # if use_ia3_layers:
@@ -38,22 +37,22 @@ def train(config):
     #     base_model = modify_with_ia3(base_model, layers_to_replace_with_ia3)
 
     # Load the dataset
-    dataloaders, train_head_dims = multiple_dataset_loading(datapath, tokenizer, config)
+    dataloaders, train_head_dims = multiple_dataset_loading(datapath, tokenizer, context)
 
     # Define the model
     model = BERT(
         base_model,
         head_dims=train_head_dims
     )
-    lit_model = LitBert(model, config)
+    lit_model = LitBert(model, context)
 
     logger = WandbLogger(save_dir=artifactspath, project="AISC_BB")
-    logger.log_hyperparams(config)
+    logger.log_hyperparams(context)
 
     # train the model
     trainer = pl.Trainer(
-        limit_train_batches=config['batches_per_epoch'],
-        max_epochs=config['num_epochs'],
+        limit_train_batches=context['batches_per_epoch'],
+        max_epochs=context['num_epochs'],
         accelerator='auto',
         devices='auto',
         strategy='auto',
@@ -69,7 +68,7 @@ def train(config):
     test_loader, _ = load_ethics_ds(
         datapath,
         tokenizer,
-        config,
+        context,
         is_train=False
     )
     print('Testing on ETHICS...')
@@ -207,11 +206,22 @@ def get_args() -> argparse.ArgumentParser:
         type=str,
         help='Method for sampling fMRI data.'
     )
-
+    parser.add_argument(
+        '--datapath',
+        default=Path(environ.get('AISCBB_DATA_DIR','./data')),
+        type=str,
+        help='Path to the folder with datasets.'
+    )
+    parser.add_argument(
+        '--artifactspath',
+        default=Path(environ.get('AISCBB_ARTIFACTS_DIR','./artifacts')),
+        type=str,
+        help='Path to the folder for artifacts.'
+    )
     return parser
 
 
 if __name__ == '__main__':
-    config = get_config()
-    train(config)
+    context = get_config()
+    train(context)
     print('Done')
