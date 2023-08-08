@@ -166,7 +166,7 @@ if __name__ == '__main__':
             ds000212,
             batch_size=context['batch_size']
         )
-        data = next(iter(fmri_data[0])) # Get the first batch of data which is one entire subject.
+        data = next(iter(fmri_data)) # Get the first batch of data which is one entire subject.
         model_inputs = (data[0], data[1])
         test_data = data[2]  # Shape (batch_size, num_features) (60, 1024) for a single participant.
 
