@@ -104,6 +104,7 @@ def get_args() -> argparse.ArgumentParser:
     """Get command line arguments"""
 
     parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         description='run model training'
     )
     parser.add_argument(
@@ -111,49 +112,42 @@ def get_args() -> argparse.ArgumentParser:
         default='1',
         type=int,
         help='Number of epochs to fine tune a model on fMRI data.'
-             '(default: 1)'
     )
     parser.add_argument(
         '--batches_per_epoch',
         default='15',
         type=int,
         help='Batches per epoch.'
-             '(default: 1)'
     )
     parser.add_argument(
         '--batch_size',
         default='15',
         type=int,
         help='Batch size.'
-             '(default: 15)'
     )
     parser.add_argument(
         '--regularize_from_init',
         default='False',
         type=str,
         help='Regularize from init (base) model.'
-             '(default: True)'
     )
     parser.add_argument(
         '--regularization_coef',
         default='0.1',
         type=float,
         help='Regularization from init coef.'
-             '(default: 0.1)'
     )
     parser.add_argument(
         '--num_samples_train',
         default='100',
         type=int,
         help='Number of train samples (fine tuning).'
-             '(default: 100)'
     )
     parser.add_argument(
         '--num_samples_test',
         default='100',
         type=int,
         help='Number of test samples.'
-             '(default: 64)'
     )
     parser.add_argument(
         '--shuffle_train',
@@ -172,14 +166,12 @@ def get_args() -> argparse.ArgumentParser:
         default='True',
         type=str,
         help='Train only attached head.'
-             '(default: True)'
     )
     parser.add_argument(
         '--checkpoint',
         default='bert-base-cased',
         type=str,
         help='HuggingFace model.'
-             '(default: bert-base-cased)'
     )
     parser.add_argument(
         '--train_datasets',
