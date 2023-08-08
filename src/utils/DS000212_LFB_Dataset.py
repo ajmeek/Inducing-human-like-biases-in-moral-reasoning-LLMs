@@ -12,8 +12,8 @@ from re import search
 
 class DS000212_LFB_Dataset(IterableDataset):
     """
-    Map-style dataset that loads ds000212 dataset with its scenarios from disk and
-    prepares it for fine tuning.
+    Map-style dataset that loads ds000212 dataset, Learning From Brains (LFB), with
+    its scenarios from disk and prepares it for fine tuning.
     """
 
     def __init__(

@@ -1,3 +1,15 @@
+USAGE="
+Available datasets:
+
+1. ethics;
+2. ds000212_raw;
+3. ds000212_roi;
+4. ds000212_fmriprep.
+"
+if [[ $# == 0 || "$0" == '-h' || "$0" == '--help' ]]; then 
+    echo $USAGE
+    exit 1
+fi
 
 [[ -e "$root_dir" ]] || ( echo "root dir not found: '$root_dir'"  ; exit 1 )
 [[ -e "$AISCBB_DATA_DIR" ]] || ( echo "data dir not found: '$AISCBB_DATA_DIR'"  ; exit 1 )
@@ -33,6 +45,7 @@ function _ds000212_download() {
 
 function ds000212_raw() {
     _ds000212_download
+    ds000212_scenarios
     export TARGET_DS_NAME=ds000212_raw
     export SOURCE_DS_NAME=ds000212
     export IS_ROI_ARG=--no-roi
@@ -42,6 +55,7 @@ function ds000212_raw() {
 
 function ds000212_roi() {
     _ds000212_download
+    ds000212_scenarios
     export TARGET_DS_NAME=ds000212_roi
     export SOURCE_DS_NAME=ds000212
     export IS_ROI_ARG=--roi
@@ -51,6 +65,7 @@ function ds000212_roi() {
 
 function ds000212_fmriprep() {
     _ds000212_download
+    ds000212_scenarios
     export TARGET_DS_NAME=ds000212_fmriprep
     export SOURCE_DS_NAME=ds000212/derivatives/ds000212-fmriprep
     if [[ ! -e $AISCBB_DATA_DIR/$SOURCE_DS_NAME ]] ; then
@@ -60,9 +75,6 @@ function ds000212_fmriprep() {
     echo Running make for $TARGET_DS_NAME
     make -f ./bin/ds000212prep.mk all  --jobs 1 
 }
-
-ethics
-ds000212_scenarios
 
 while [[ $# != 0 ]] ; do
     cmd=$1
