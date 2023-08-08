@@ -1,16 +1,12 @@
-import os
 from typing import Union
 
-import numpy as np
 import torch as torch
-import pandas as pd
-from torch.utils.data import DataLoader, TensorDataset
-from transformers import PreTrainedTokenizer, AutoTokenizer
-from pathlib import Path
-from torch.nn import functional as F
+from torch.utils.data import DataLoader
+from transformers import PreTrainedTokenizer
 
 from utils.DS000212RawDataSet import DS000212RawDataset
 from utils.DS000212_LFB_Dataset import DS000212_LFB_Dataset
+from utils.EthicsDataset import EthicsDataset
 
 
 # returns a pandas dataframe of the CM training set (excluding long ones)
@@ -18,54 +14,27 @@ def load_ethics_ds(tokenizer: PreTrainedTokenizer,
                    context,
                    is_train=True
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    datapath = context['datapath']
-    # Load csv:
-    path = datapath / 'ethics/commonsense' / ('cm_train.csv' if is_train else 'cm_test.csv' )
-    num_samples = context['num_samples_train'] if is_train else context['num_samples_test']
-    df = pd.read_csv(os.path.abspath(path))
-    df = df.drop(df[df.is_short == False].index)
-    inputs, labels = df['input'].tolist()[:num_samples], df['label'][:num_samples]
-    head_dims = len(set((df['label'])))
-    # Tokenize:
-    tokenized = tokenizer(inputs, padding='max_length', truncation=True)
-    tokens = torch.tensor(tokenized['input_ids'])  # shape: (num_samples, max_seq_len)
-    masks = torch.tensor(tokenized['attention_mask'])  # shape: (num_samples, max_seq_len)
-    target_tensors = torch.tensor(labels.tolist())  # shape: (num_samples, 1)
-    # Create DataLoader
-    data = TensorDataset(tokens, masks, target_tensors)
+    data = EthicsDataset(tokenizer, context, is_train)
     dataloader = DataLoader(
         data, 
         batch_size=context['batch_size'], 
         shuffle=(context['shuffle_train'] if is_train else context['shuffle_test'])
     )
-    return dataloader,head_dims
+    return dataloader, data.head_dims
 
 def load_ds000212_raw(tokenizer: PreTrainedTokenizer, context):
-    datapath = context['datapath']
-    ds000212 = DS000212_LFB_Dataset(
-        datapath / 'ds000212_learning-from-brains',
-        datapath / 'ds000212_scenarios.csv',
-        tokenizer,
-        context
-    )
+    ds000212 = DS000212_LFB_Dataset(context, tokenizer)
     data_loader = DataLoader(
         ds000212,
         batch_size=context['batch_size'], 
-        shuffle=False #shuffle=config['shuffle_train']
+        shuffle=False
     )
     return data_loader, ds000212.target_head_dim
 
 def load_ds000212( tokenizer: PreTrainedTokenizer,
                    context,
                    subject=None):
-    datapath = context['datapath']
-    ds000212 = DS000212_LFB_Dataset(
-        datapath / 'ds000212_learning-from-brains',
-        datapath / 'ds000212_scenarios.csv',
-        tokenizer,
-        context,
-        subject=subject
-    )
+    ds000212 = DS000212_LFB_Dataset(context, tokenizer, subject=subject)
     data_loader = DataLoader(
         ds000212,
         batch_size=context['batch_size']

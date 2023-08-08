@@ -11,7 +11,10 @@ class DS000212RawDataset(Dataset):
     Map-style dataset that loads ds000212 dataset with its scenarios from disk and
     prepares it for fine tuning.
     """
-    def __init__(self, dataset_path: Path, scenarios_csv: Path, tokenizer):
+    def __init__(self, context, tokenizer):
+        datapath = context['datapath']
+        dataset_path = datapath / 'ds000212_raw',
+        scenarios_csv = datapath / 'ds000212_scenarios.csv',
         assert dataset_path.exists()
         assert scenarios_csv.exists()
         assert tokenizer
