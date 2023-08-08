@@ -5,8 +5,9 @@ channels:
 dependencies:
   - datalad
   - einops
-  - huggingface::datasets
-  - huggingface::transformers
+  - conda-forge::datasets
+  - conda-forge::transformers
+  - conda-forge::tokenizers=>0.13.3
   - ipywidgets
   - lightning
   - nibabel
@@ -22,7 +23,6 @@ dependencies:
   - sentencepiece
   - setuptools
   - simple-parsing
-  - tokenizers=>0.13.3
   - tqdm
   - wandb
   - webdataset
