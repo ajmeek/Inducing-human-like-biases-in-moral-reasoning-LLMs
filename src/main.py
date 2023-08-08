@@ -19,8 +19,6 @@ from utils.constants import Sampling
 from pprint import pprint, pformat
 
 def train(context):
-    assert context['datapath'].exists(), 'Expected data dir present.'
-    context['artifactspath'].mkdir(exist_ok=True)
     pprint('Context:')
     pprint(context, indent=2)
     # Define the tokenizer and model
@@ -220,5 +218,7 @@ def get_args() -> argparse.ArgumentParser:
 
 if __name__ == '__main__':
     context = get_config()
+    assert context['datapath'].exists(), 'Expected data dir present.'
+    context['artifactspath'].mkdir(exist_ok=True)
     train(context)
     print('Done')

@@ -40,17 +40,13 @@ def load_ethics_ds(tokenizer: PreTrainedTokenizer,
     )
     return dataloader,head_dims
 
-def load_ds000212_raw(
-                   tokenizer: PreTrainedTokenizer,
-                   context,
-                   subject=None):
+def load_ds000212_raw(tokenizer: PreTrainedTokenizer, context):
     datapath = context['datapath']
     ds000212 = DS000212_LFB_Dataset(
         datapath / 'ds000212_learning-from-brains',
         datapath / 'ds000212_scenarios.csv',
         tokenizer,
-        context,
-        subject=subject,
+        context
     )
     data_loader = DataLoader(
         ds000212,
