@@ -18,7 +18,7 @@ class DS000212RawDataset(Dataset):
         assert dataset_path.exists()
         assert scenarios_csv.exists()
         assert tokenizer
-        self.target_head_dim = None
+        self.head_dim = None
         self._dataset_path = dataset_path
         self._build_index()
         self._tokenizer = tokenizer
@@ -65,11 +65,11 @@ class DS000212RawDataset(Dataset):
                 continue
             items_num = int(m.group(1))
             head_dim = int(m.group(2))
-            if not self.target_head_dim:
-                self.target_head_dim = head_dim
+            if not self.head_dim:
+                self.head_dim = head_dim
             else:
-                assert self.target_head_dim == head_dim, \
-                    f"Expected normalized but {self.target_head_dim} != {head_dim}, {npz_file}"
+                assert self.head_dim == head_dim, \
+                    f"Expected normalized but {self.head_dim} != {head_dim}, {npz_file}"
 
             self._inx_to_item += [(npz_file, i) for i in range(items_num)]
 

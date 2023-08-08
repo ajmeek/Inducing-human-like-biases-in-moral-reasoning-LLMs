@@ -17,14 +17,13 @@ class DS000212_LFB_Dataset(IterableDataset):
     """
 
     def __init__(self, context, tokenizer, subject=None):
-        super().__init__()
         datapath = context['datapath']
         dataset_path = datapath / 'ds000212_learning-from-brains'
         scenarios_csv = datapath / 'ds000212_scenarios.csv'
 
         assert dataset_path.exists(), f"No dataset found at '{dataset_path} (hint: run.sh datasets)"
         assert scenarios_csv.exists()
-        self.target_head_dim = None
+        self.head_dims = None
         self._dataset_path = dataset_path
         self._tokenizer = tokenizer
         self._config = context
@@ -35,8 +34,9 @@ class DS000212_LFB_Dataset(IterableDataset):
             tarfiles=[str(f) for f in Path(dataset_path).glob('*.tar')]
         self.wdataset = wds.WebDataset(tarfiles).decode("pil").compose(self._get_samples)
 
-        self.target_head_dim = 1024
+        self.head_dims = 1024
         self._scenarios = DS000212Scenarios(scenarios_csv, context)
+        super().__init__()
 
     def __iter__(self):
         return iter(self.wdataset)

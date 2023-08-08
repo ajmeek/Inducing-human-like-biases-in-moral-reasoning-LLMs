@@ -6,8 +6,8 @@ import pandas as pd
 
 class EthicsDataset(TensorDataset):
     def __init__(self, 
-                 tokenizer: PreTrainedTokenizer, 
                  context, 
+                 tokenizer: PreTrainedTokenizer, 
                  is_train=True
         ) -> None:
         datapath = context['datapath']

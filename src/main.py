@@ -1,22 +1,19 @@
-import torch as t
-from torch.utils.data import TensorDataset
-from transformers import AutoTokenizer, AutoModel
-from utils.loading_data import load_ethics_ds, multiple_dataset_loading
-from utils.preprocessing import preprocess_prediction
-from model import BERT
-from pl_model import LitBert
-import lightning.pytorch as pl
-from lightning.pytorch.loggers import TensorBoardLogger, WandbLogger
-from pathlib import Path
-import pandas as pd
-import numpy as np
-import argparse
-from os import environ
 from datetime import datetime
-import wandb
+from lightning.pytorch.loggers import WandbLogger
+from model import BERT
+from os import environ
+from pathlib import Path
+from pl_model import LitBert
+from pprint import pprint
+from torch.utils.data import DataLoader
+from transformers import AutoTokenizer, AutoModel
+from utils.EthicsDataset import EthicsDataset
 from utils.constants import Sampling
+from utils.loading_data import multiple_dataset_loading, DEFAULT_DATASETS
 
-from pprint import pprint, pformat
+import argparse
+import lightning.pytorch as pl
+import wandb
 
 def train(context):
     pprint('Context:')
@@ -61,11 +58,8 @@ def train(context):
     trainer.fit(lit_model, dataloaders)
 
     # Test the model
-    test_loader, _ = load_ethics_ds(
-        tokenizer,
-        context,
-        is_train=False
-    )
+    data = EthicsDataset(context, tokenizer, is_train=False)
+    test_loader = DataLoader( data, batch_size=context['batch_size'], shuffle=context['shuffle_test'])
     print('Testing on ETHICS...')
     trainer.test(lit_model, dataloaders=test_loader)
     logger.save()
@@ -170,9 +164,9 @@ def get_args() -> argparse.ArgumentParser:
     parser.add_argument(
         '--train_datasets',
         nargs='+',
-        default=['ethics', 'ds000212'],
+        default=DEFAULT_DATASETS,
         type=str,
-        help='Datasets to train on. This can be multiple datasets, e.g. "ds000212 ethics/...".'
+        help='Datasets to train on.'
     )
     parser.add_argument(
         '--loss_names',

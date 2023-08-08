@@ -8,11 +8,12 @@ from typing import Optional
 import pandas as pd
 import torch
 import torch.nn as nn
+from torch.utils.data import DataLoader
 from transformers import AutoModel, AutoTokenizer, AutoConfig, RobertaModel
 
 from main import get_config
 from model import BERT
-from utils.loading_data import load_ds000212
+from utils.DS000212_LFB_Dataset import DS000212_LFB_Dataset
 
 from sklearn.linear_model import RidgeCV
 
@@ -160,7 +161,11 @@ if __name__ == '__main__':
 
     all_brain_scores = {'subjects': [], 'layer.module': [], 'brain_score': []}
     for subject in subjects:
-        fmri_data = load_ds000212(tokenizer, context, subject=subject) 
+        ds000212 = DS000212_LFB_Dataset(context, tokenizer, subject=subject)
+        fmri_data = DataLoader(
+            ds000212,
+            batch_size=context['batch_size']
+        )
         data = next(iter(fmri_data[0])) # Get the first batch of data which is one entire subject.
         model_inputs = (data[0], data[1])
         test_data = data[2]  # Shape (batch_size, num_features) (60, 1024) for a single participant.
