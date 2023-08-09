@@ -26,6 +26,7 @@ export GIT_MAIN_BRANCH_NAME=main
 export GIT_REMOTE=github.com/ameek2/Inducing-human-like-biases-in-moral-reasoning-LLMs.git
 export AISCBB_ARTIFACTS_DIR=${AISCBB_ARTIFACTS_DIR:-$root_dir/artifacts}
 export AISCBB_DATA_DIR=${AISCBB_DATA_DIR:-$root_dir/data}
+CURRENT_GIT_BRANCH=$( [[ -e ./.git ]] && git rev-parse --abbrev-ref HEAD )
 
 ################################################################################
 
@@ -65,7 +66,7 @@ function gcp() {
         scp -q ./run.sh scp://$AISCIBB_GCP_SSH_USERHOST/run.sh
         if [[ $# -gt 0 ]]; then
             echo Calling GCP to run a task...
-            ssh ssh://$AISCIBB_GCP_SSH_USERHOST 'AISCIBB_GCP_FLAG=1 bash' ./run.sh gcp $( git rev-parse --abbrev-ref HEAD ) "$AISCIBB_GIT_TOKEN" "$@"
+            ssh ssh://$AISCIBB_GCP_SSH_USERHOST 'AISCIBB_GCP_FLAG=1 bash' ./run.sh gcp $CURRENT_GIT_BRANCH "$AISCIBB_GIT_TOKEN" "$@"
         fi
 
         echo Getting results
@@ -151,6 +152,7 @@ function vast() {
             wget "https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-$(uname)-$(uname -m).sh"
             bash Mambaforge-$(uname)-$(uname -m).sh
         fi
+
         if mamba env list | grep '^bb ' ; then
             mamba env update -n bb -f environment.yml
         else 
@@ -160,7 +162,23 @@ function vast() {
 
         apt install netbase  # To enable /etc/protocols which is required by git-annex.
         pip install vastai
-
+    else 
+        [[ $# -eq 0 ]] && ( echo 'Usage: run.sh vast <GIT_TOKEN> <SSH_CONNECT_COMMAND>'  ; exit 1 )
+        GIT_TOKEN=$1
+        shift 1
+        SSH_CMD=$*
+        GITBRANCH=${CURRENT_GIT_BRANCH-$GIT_MAIN_BRANCH_NAME}
+        CLONEDIR=/workspace/brainbias 
+        
+        echo 'Running at vast...'
+        $SSH_CMD '/bin/bash -s' << EOF
+        git config --global credential.helper 'cache --timeout=172800' # 48 hours
+        git config --global user.name $( git config --global user.name )
+        git config --global user.email $( git config --global user.email )
+        echo 'Clonning...'
+        git clone -b $GITBRANCH https://$GIT_TOKEN@$GIT_REMOTE $CLONEDIR
+EOF
+        echo 'Done clonning. Next loging and run `run.sh vast` to provision'
     fi
 }
 
