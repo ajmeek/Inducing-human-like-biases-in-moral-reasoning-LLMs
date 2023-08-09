@@ -82,10 +82,16 @@ class DS000212_LFB_Dataset(IterableDataset):
                         tokens = torch.tensor(tokenized['input_ids'])
                         mask = torch.tensor(tokenized['attention_mask'])
                     target = DS000212_LFB_Dataset.sample_from_bold_sequence(bold[start:end], self._config['sampling_method'])
-                    assert target.ndim == tokens.ndim and (target.ndim == 1 or target.size(0) == tokens.size(0)), (
-                        f'expect each sample has its label but ({target.shape=}, {tokens.shape=})'
-                    )
-                    yield tokens, mask, target
+                    error_msg = f'expect each sample has its label but ({target.shape=}, {tokens.shape=})'
+                    if target.ndim == 1:
+                        assert target.ndim == tokens.ndim, error_msg
+                        yield tokens, mask, target
+                    else:
+                        assert target.size(0) == tokens.size(0), error_msg
+                        for i in range(target.size(0)):
+                            yield tokens[i], mask[i], target[i]
+
+
 
     def _process_tsv(self, from_tsv: Path):
         scenarios = []
