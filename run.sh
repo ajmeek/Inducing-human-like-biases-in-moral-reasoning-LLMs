@@ -151,8 +151,8 @@ function vast() {
         if ! which mamba ; then
             wget "https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-$(uname)-$(uname -m).sh"
             bash Mambaforge-$(uname)-$(uname -m).sh
+            bash  # Enter subshell to get mamba available.
         fi
-
         if mamba env list | grep '^bb ' ; then
             mamba env update -n bb -f environment.yml
         else 
