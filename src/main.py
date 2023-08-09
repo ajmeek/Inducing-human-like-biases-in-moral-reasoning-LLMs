@@ -190,9 +190,9 @@ def get_args() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         '--sampling_method',
-        default=Sampling.LAST,
-        choices=Sampling.METHODS,
-        type=str,
+        default=Sampling.LAST.name,
+        choices=Sampling,
+        type=lambda v: Sampling[v.replace('Sampling.', '')],
         help='Method for sampling fMRI data.'
     )
     parser.add_argument(

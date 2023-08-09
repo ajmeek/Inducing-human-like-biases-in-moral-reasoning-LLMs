@@ -28,6 +28,7 @@ dependencies:
   - webdataset
   - wheel
   - python=3.10
+  - pytest=7.4.*
   - pip
   - git
   - make

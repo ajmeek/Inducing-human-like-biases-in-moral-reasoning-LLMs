@@ -50,6 +50,10 @@ function train() {
     python3 "$root_dir/src/main.py" "$@"
 }
 
+function test() {
+    python3 -m pytest
+}
+
 function gcp() {
     GCPUSAGE='Runs tasks at Google Cloud Platform.
     Provide task after gcp like this: run.sh gcp my-task [parameter ...].

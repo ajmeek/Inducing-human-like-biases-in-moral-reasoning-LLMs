@@ -73,10 +73,11 @@ class DS000212_LFB_Dataset(IterableDataset):
                     )
                     yield tokens, mask, target
 
+    @staticmethod
     def _sample(self, bold_sequence : np.array) -> torch.Tensor:
         if self._config['sampling_method'] in Sampling.LAST:
             intervals = [-FMRI.REACT_TIME]
-        elif self._config['sampling_method'] == Sampling.SENTENCES:
+        elif self._config['sampling_method'] is Sampling.SENTENCES:
             intervals = DS000212.Periods.ENDS[:3] + [-FMRI.REACT_TIME]
         else:
             raise NotImplementedError()

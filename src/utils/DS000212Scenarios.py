@@ -60,7 +60,7 @@ class DS000212Scenarios(object):
         ])
         if self._config['sampling_method'] in Sampling.ONE_POINT_METHODS:
             len_intervals = 1
-        elif self._config['sampling_method'] == Sampling.SENTENCES:
+        elif self._config['sampling_method'] is Sampling.SENTENCES:
             len_intervals = 4
         else:
             raise NotImplementedError()
