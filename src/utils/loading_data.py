@@ -16,8 +16,8 @@ DATASETS = {
     )
 }
 DEFAULT_DATASETS = [
-    DS000212_LFB_Dataset.__name__,
-    EthicsDataset.__name__
+    EthicsDataset.__name__,
+    DS000212_LFB_Dataset.__name__
 ]
 
 def multiple_dataset_loading(tokenizer, context) \

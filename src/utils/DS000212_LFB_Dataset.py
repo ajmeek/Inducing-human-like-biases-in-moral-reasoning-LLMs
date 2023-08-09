@@ -16,6 +16,20 @@ class DS000212_LFB_Dataset(IterableDataset):
     its scenarios from disk and prepares it for fine tuning.
     """
 
+    @staticmethod
+    def sample_from_bold_sequence(sequence : np.array, method : Sampling) -> torch.Tensor:
+        if method in Sampling.LAST:
+            result = sequence[-FMRI.REACT_TIME]
+        elif method is Sampling.AVG:
+            result = np.average(sequence, axis=-2)
+        elif method is Sampling.MIDDLE:
+            result = sequence[len(sequence) // 2]
+        elif method is Sampling.SENTENCES:
+            result = sequence[DS000212.Periods.ENDS[:3] + [-FMRI.REACT_TIME]]
+        else:
+            raise NotImplementedError()
+        return torch.from_numpy(result).to(torch.float)
+
     def __init__(self, context, tokenizer, subject=None):
         datapath = context['datapath']
         dataset_path = datapath / 'ds000212_learning-from-brains'
@@ -67,21 +81,11 @@ class DS000212_LFB_Dataset(IterableDataset):
                         tokenized = self._tokenizer(text, padding='max_length', truncation=True)
                         tokens = torch.tensor(tokenized['input_ids'])
                         mask = torch.tensor(tokenized['attention_mask'])
-                    target = self._sample(bold[start:end])
-                    assert (target.size(0) == 1 or target.size(0) == tokens.size(0)), (
+                    target = DS000212_LFB_Dataset.sample_from_bold_sequence(bold[start:end], self._config['sampling_method'])
+                    assert target.ndim == tokens.ndim and (target.ndim == 1 or target.size(0) == tokens.size(0)), (
                         f'expect each sample has its label but ({target.shape=}, {tokens.shape=})'
                     )
                     yield tokens, mask, target
-
-    @staticmethod
-    def _sample(self, bold_sequence : np.array) -> torch.Tensor:
-        if self._config['sampling_method'] in Sampling.LAST:
-            intervals = [-FMRI.REACT_TIME]
-        elif self._config['sampling_method'] is Sampling.SENTENCES:
-            intervals = DS000212.Periods.ENDS[:3] + [-FMRI.REACT_TIME]
-        else:
-            raise NotImplementedError()
-        return torch.from_numpy(bold_sequence[intervals]).to(torch.float)
 
     def _process_tsv(self, from_tsv: Path):
         scenarios = []
