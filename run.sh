@@ -37,7 +37,7 @@ function _provision() {
         wget "https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-$(uname)-$(uname -m).sh"
         bash Mambaforge-$(uname)-$(uname -m).sh
         rm  Mambaforge-$(uname)-$(uname -m).sh
-        bash  # Enter subshell to get mamba available.
+        source ~/.bashrc  # To get `mamba` command.
     fi
 
     if mamba env list | grep "^$PYTHON_ENV_NAME " ; then
