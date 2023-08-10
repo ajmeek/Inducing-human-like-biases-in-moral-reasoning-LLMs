@@ -32,24 +32,18 @@ function train() {
     python3 "$root_dir/src/main.py" "$@"
 }
 
-function _provision() {
+function _mamba() {
     if ! which mamba ; then
         wget "https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-$(uname)-$(uname -m).sh"
         bash Mambaforge-$(uname)-$(uname -m).sh
         rm  Mambaforge-$(uname)-$(uname -m).sh
         source ~/.bashrc  # To get `mamba` command.
     fi
-
-    if mamba env list | grep "^$PYTHON_ENV_NAME " ; then
-        mamba env update -n $PYTHON_ENV_NAME -f environment.yml
-    else 
-        mamba env create -n $PYTHON_ENV_NAME -f environment.yml
-    fi
 }
 
 function local() {
-    _provision
-    mamba env update -n $PYTHON_ENV_NAME -f environment-cpu.yml
+    _mamba
+    mamba env create --force -n $PYTHON_ENV_NAME -f environment.yml -f environment-cpu.yml
     mamba activate $PYTHON_ENV_NAME
     echo Done
 }
