@@ -50,6 +50,8 @@ function _provision() {
 function local() {
     _provision
     mamba env update -n $PYTHON_ENV_NAME -f environment-cpu.yml
+    mamba activate $PYTHON_ENV_NAME
+    echo Done
 }
 
 function vast() {

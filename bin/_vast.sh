@@ -5,6 +5,8 @@ if [[ "${VAST_CONTAINERLABEL:-}" != "" ]] ; then
 
     apt install netbase  # To enable /etc/protocols which is required by git-annex.
     pip install vastai
+    mamba activate $PYTHON_ENV_NAME
+    echo Done
 else 
     [[ $# -eq 0 ]] && ( echo 'Usage: run.sh vast <GIT_TOKEN> <SSH_CONNECT_COMMAND>'  ; exit 1 )
     GIT_TOKEN=$1
