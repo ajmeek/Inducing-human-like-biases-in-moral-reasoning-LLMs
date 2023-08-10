@@ -1,7 +1,7 @@
 
 if [[ "${VAST_CONTAINERLABEL:-}" != "" ]] ; then
     _mamba
-    mamba env create --force -n $PYTHON_ENV_NAME -f environment.yml -f environment-cuda.yml
+    mamba env create --force -n $PYTHON_ENV_NAME -f environment-cuda.yml
     apt install netbase  # To enable /etc/protocols which is required by git-annex.
     pip install vastai
     mamba activate $PYTHON_ENV_NAME
