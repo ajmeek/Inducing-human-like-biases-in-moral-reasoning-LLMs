@@ -29,7 +29,7 @@ class DS000212_LFB_Dataset(IterableDataset):
             tarfiles=[str(f) for f in Path(dataset_path).glob(f'*{subject}*.tar')]
         else:
             tarfiles=[str(f) for f in Path(dataset_path).glob('*.tar')]
-        self.wdataset = wds.WebDataset(tarfiles).decode("pil").compose(self._get_samples)
+        self.wdataset = wds.WebDataset(tarfiles, nodesplitter=wds.shardlists.split_by_worker).decode("pil").compose(self._get_samples)
 
         self.target_head_dim = 1024
         self._scenarios = DS000212Scenarios(scenarios_csv)
