@@ -4,6 +4,9 @@ This project is about fine-tuning language models (LMs) on a publicly available 
 
 ## How to run 
 
-- `bash run.sh local` to provision local environment.
+Provision using requirements.txt (pip) or environment(-cuda or -cpu).yml with Conda or Mamba. (See run.sh for how it can be done.)
+
+Usage: `run.sh <function> [parameters...]`. Provide `--help` to see the list of possible arguments.
+
 - `bash run.sh datasets [argument ..]` to prepare datasets. 
-- `bash run.sh train [argument ..]` to train model and measure it. See `bash run.sh train --help` for the list of possible arguments.
+- `bash run.sh train [argument ..]` to train model and measure it.
