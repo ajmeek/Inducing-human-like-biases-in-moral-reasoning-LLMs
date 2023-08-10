@@ -5,7 +5,7 @@ ipywidgets
 lightning
 nibabel
 nilearn
-numpy
+numpy==1.25.*
 pybids
 pynvml
 pyparsing
@@ -13,11 +13,12 @@ scikit-learn
 sentencepiece
 setuptools
 simple-parsing
-torch
+torch == 2.0.*
 torchaudio
 torchvision
+tokenizers>=0.13.3
 tqdm
-transformers
+transformers == 4.31.*
 wandb
 webdataset
 wheel

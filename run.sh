@@ -118,7 +118,7 @@ function gcp() {
             git clone -b $GITBRANCH "https://$AISCIBB_GIT_TOKEN@$GIT_REMOTE" $TARGETDIR 
 
             echo Building docker image...
-            ( cd $TARGETDIR ; sudo docker buildx build -t aiscbb . )
+            ( cd $TARGETDIR ; sudo docker buildx build -t aiscbb -f DockerfileGCP . )
 
             echo Running container...
             shift 2  # Remove first two params for gcp.

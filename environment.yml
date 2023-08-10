@@ -6,17 +6,17 @@ dependencies:
   - datalad
   - einops
   - conda-forge::datasets
-  - conda-forge::transformers
-  - conda-forge::tokenizers=>0.13.3
+  - conda-forge::transformers == 4.31.*
+  - conda-forge::tokenizers => 0.13.3
   - ipywidgets
   - lightning
   - nibabel
   - nilearn
-  - numpy
+  - numpy==1.25.*
   - pybids
   - pynvml
   - pyparsing
-  - pytorch::pytorch=2.0.*
+  - pytorch::pytorch == 2.0.*
   - pytorch::torchaudio
   - pytorch::torchvision
   - scikit-learn
