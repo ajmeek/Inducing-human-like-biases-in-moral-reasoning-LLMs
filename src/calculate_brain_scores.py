@@ -161,6 +161,9 @@ def calculate_brain_scores(model: nn.Module,
                 #predictions_list_flipped =
                 pearson_r = r_regression(predictions_list, test_data_val)
 
+                #Seong this Pearson R above is what we really want. I know this is really messy so please ignore some
+                #of the other notes at the moment. Will clean it up a bit once we figure out what we're doing here
+
                 # TODO - loop over every index again.
                 """
                 How this works is that Pearson's calculates a pairwise thing, but it's out of many as I understand it.
