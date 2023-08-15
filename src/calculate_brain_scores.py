@@ -139,7 +139,13 @@ def calculate_brain_scores(model: nn.Module,
                                                                     feature)
                     feature_val = test_data_val[:, index]
                     prediction = clf.predict(activations_last_token_val)
-#                    pearson_r = r_regression(predictions, feature_val)
+                    # pearson_r = r_regression(predictions, feature_val)
+
+                    # TODO - compare on finetuned on ethics v pretrained, and finetued on fMRI v pretrained (separate in train CLI command somehow)
+
+                    # TODO - send the predictions above for ROI scores, along with R^2 scores
+
+                    # TODO - integrate Artyom's new sampling, fit on more data. predict on maximally moral reasoning TR
 
                     # TODO - does Seong want just the prediction or the correlation between prediction and actual?
 
