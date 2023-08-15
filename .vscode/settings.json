@@ -2,5 +2,9 @@
 	"[makefile]": {
 		"editor.insertSpaces": false,
 		"editor.detectIndentation": false
-	}
+	},
+	"[python]": {
+		"editor.defaultFormatter": "ms-python.python"
+	},
+	"python.formatting.provider": "none"
 }

@@ -8,14 +8,16 @@ from typing import Optional
 import pandas as pd
 import torch
 import torch.nn as nn
+from torch.utils.data import DataLoader
 from transformers import AutoModel, AutoTokenizer, AutoConfig, RobertaModel
 
-from src.main import get_config
-from src.model import BERT
-from src.utils.loading_data import load_ds000212
+from main import get_config
+from model import BERT
+from utils.DS000212_LFB_Dataset import DS000212_LFB_Dataset
 
 from sklearn.linear_model import RidgeCV
 
+from utils.constants import Sampling
 
 def calculate_brain_scores(model: nn.Module,
                            model_inputs: torch.tensor,
@@ -151,15 +153,20 @@ if __name__ == '__main__':
     # tokenizer = AutoTokenizer.from_pretrained(checkpoint_name)
 
     # Load the data
-    test_data_path = Path(environ.get('AISCBB_DATA_DIR','./data'))
-    config = get_config()
-    config['batch_size'] = 2  # Make the batch large enough so we definitely have one subject. This is a bit hacky but works for now.
+    context = get_config()
+    context['datapath'] = Path(environ.get('AISCBB_DATA_DIR','./data'))
+    context['batch_size'] = 2  # Make the batch large enough so we definitely have one subject. This is a bit hacky but works for now.
+    context['sampling_method'] = Sampling.SENTENCES
     subjects = [f'sub-{i:02}' for i in range(3, 4)]  # TODO: there are missing subjects, so catch this here already. (47 is the last subject, so use range(3, 48))
 
     all_brain_scores = {'subjects': [], 'layer.module': [], 'brain_score': []}
     for subject in subjects:
-        fmri_data = load_ds000212(test_data_path, tokenizer, config, subject=subject, intervals=[2, 4, 6, 8])  # Use [2, 4, 6, 8] to use the background, action, outcome, and skind. Use -1 to use only the last fMRI.
-        data = iter(fmri_data[0]).next()  # Get the first batch of data which is one entire subject.
+        ds000212 = DS000212_LFB_Dataset(context, tokenizer, subject=subject)
+        fmri_data = DataLoader(
+            ds000212,
+            batch_size=context['batch_size']
+        )
+        data = next(iter(fmri_data)) # Get the first batch of data which is one entire subject.
         model_inputs = (data[0], data[1])
         test_data = data[2]  # Shape (batch_size, num_features) (60, 1024) for a single participant.
 
