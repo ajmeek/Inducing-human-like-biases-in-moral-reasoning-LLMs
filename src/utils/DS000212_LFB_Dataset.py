@@ -40,7 +40,7 @@ class DS000212_LFB_Dataset(IterableDataset):
         self.head_dims = None
         self._dataset_path = dataset_path
         self._tokenizer = tokenizer
-        self._config = context
+        self._context = context
 
         if subject is not None:
             tarfiles=[str(f) for f in Path(dataset_path).glob(f'*{subject}*.tar')]
@@ -81,7 +81,7 @@ class DS000212_LFB_Dataset(IterableDataset):
                         tokenized = self._tokenizer(text, padding='max_length', truncation=True)
                         tokens = torch.tensor(tokenized['input_ids'])
                         mask = torch.tensor(tokenized['attention_mask'])
-                    target = DS000212_LFB_Dataset.sample_from_bold_sequence(bold[start:end], self._config['sampling_method'])
+                    target = DS000212_LFB_Dataset.sample_from_bold_sequence(bold[start:end], self._context['sampling_method'])
                     error_msg = f'expect each sample has its label but ({target.shape=}, {tokens.shape=})'
                     if target.ndim == 1:
                         assert target.ndim == tokens.ndim, error_msg
