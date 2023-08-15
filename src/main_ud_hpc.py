@@ -42,7 +42,7 @@ def train_llama(config):
     # TODO make sure it doesn't add SEP tokens when there's a full stop
     base_model = AutoModel.from_pretrained(config['checkpoint'])
 
-    #use_ia3_layers = False
+    #use_ia3_layers = False # For LLAMA-2 we'll need to use LoRa or QLoRa. some type of PEFT, may not be IA3 though
     # if use_ia3_layers:
     #     from ia3_model_modifier import modify_with_ia3
     #     layers_to_replace_with_ia3 = "key|value|intermediate.dense"
