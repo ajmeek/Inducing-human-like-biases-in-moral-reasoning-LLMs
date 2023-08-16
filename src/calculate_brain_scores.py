@@ -26,7 +26,7 @@ def calculate_brain_scores(model: nn.Module,
                            layers: list,
                            modules: list,
                            max_fmri_features: Optional[int],
-                           correlation: str,
+                           #correlation: str,
                            score_per_feature: bool = False,
                            train_perc : float = 1.0,
                            val_perc : float = 0.0,
@@ -76,11 +76,21 @@ def calculate_brain_scores(model: nn.Module,
         model(tokens, attention_mask)
 
     # Calculate the brain scores
-    brain_scores = {'layer.module': [], 'brain_score': [], 'brain_score_positive': [], 'brain_score_per_feature': [], 'correlation': []}
+    """
+    layer.module = The layer that the brain score is calculated on
+    brain_score = The overall brain score. Pearson's correlation coefficient of ground truth fMRI ROI activations and
+        the ridge regression model's predictions for each fMRI ROI
+    brain_score_positive = deprecated. Was a sum of only non-negative values from coeff_of_det
+    brain_score_per_feature = deprecated. Was score for each feature, dependent on choice of R^2 or pearson's r
+    coeff_of_det = The coefficient of determination for each fMRI ROI. 
+    ridge_regress_predict = The prediction of the ridge regression model for each fMRI ROI.
+    """
+    brain_scores = {'layer.module': [], 'brain_score': [], 'brain_score_positive': [], 'brain_score_per_feature': [],
+                    'coeff_of_det': [], 'ridge_regress_predict': []}
     for layer_name, activation in activations.items():
         print('Calculating brain score for layer:', layer_name,
-              ' activation dims: ', activation.shape, '...',
-              ' correlation: ', correlation)
+              ' activation dims: ', activation.shape, '...')
+              #' correlation: ', correlation)
         # activations_flattened = activation.reshape(activation.shape[0], -1)
         activations_indices_last_token = torch.sum(attention_mask, dim=1) - 1  # Shape [batch_size]
 
@@ -104,14 +114,17 @@ def calculate_brain_scores(model: nn.Module,
         # TODO - should the validation activation data, used for ROI brain score, be a specific part of the scenario?
         # scenarios are split into different sections. Perhaps some sections are more morally relevant than others?
 
-        if correlation == "pearson":
-            num_train_samples = 7
-            num_val_samples = 1
+        #note, we could use all but one for pearson's but need at least 2 for coeff of det. Doing them together means to
+        #train two separate models (minor computational expense) if we want 1 extra data point in pearson's train set.
+        #With Artyom's new sampling method, this will likely not be an issue.
+        # if correlation == "pearson":
+        #     num_train_samples = 7
+        #     num_val_samples = 1
 
         activations_last_token_train = activations_last_token[:num_train_samples]
         test_data_train = test_data[:num_train_samples]
 
-        if num_val_samples < 2 and correlation == "determination":
+        if num_val_samples < 2:# and correlation == "determination":
             print(f'Calculating the R^2 score requires at least 2 validation samples, but got {num_val_samples}. Using train for validation too.')
             activations_last_token_val = activations_last_token_train
             test_data_val = test_data_train
@@ -121,72 +134,81 @@ def calculate_brain_scores(model: nn.Module,
 
         if score_per_feature:
             brain_score_list = []
-            if correlation == "determination":
-                for index in range(test_data.shape[1]):
-                    feature = test_data_train[:, index]
-                    clf = RidgeCV(alphas=[1e-3, 1e-2, 1e-1, 1]).fit(activations_last_token_train,
-                                                                    feature)
-                    feature_val = test_data_val[:, index]
-                    brain_score_list.append(clf.score(activations_last_token_val, feature_val))
-                    #print(f'Brain score for feature {index}: {brain_score_list[-1]}')
-                    brain_scores['brain_score_per_feature'].append((index, brain_score_list[-1]))
-            elif correlation == "pearson":
-                predictions_list = []
-                for index in range(test_data.shape[1]):
-                    #feature = test_data[:, index]
-                    feature = test_data_train[:, index]
-                    clf = RidgeCV(alphas=[1e-3, 1e-2, 1e-1, 1]).fit(activations_last_token_train,
-                                                                    feature)
-                    feature_val = test_data_val[:, index]
-                    prediction = clf.predict(activations_last_token_val)
-                    # pearson_r = r_regression(predictions, feature_val)
 
-                    # TODO - compare on finetuned on ethics v pretrained, and finetued on fMRI v pretrained (separate in train CLI command somehow)
+            """
+            Notes from after today's Aug 15th meeting. Give coeff of deter and prediction for each ROI. Along with
+            pearson's R for the overall thing.
+            """
 
-                    # TODO - send the predictions above for ROI scores, along with R^2 scores
+            # correlation = "determination"
+            # if correlation == "determination":
+            for index in range(test_data.shape[1]):
+                feature = test_data_train[:, index]
+                clf = RidgeCV(alphas=[1e-3, 1e-2, 1e-1, 1]).fit(activations_last_token_train,
+                                                                feature)
+                feature_val = test_data_val[:, index]
+                brain_score_list.append(clf.score(activations_last_token_val, feature_val))
+                #print(f'Brain score for feature {index}: {brain_score_list[-1]}')
+                #brain_scores['brain_score_per_feature'].append((index, brain_score_list[-1]))
+                brain_scores['coeff_of_det'].append(brain_score_list[-1])
 
-                    # TODO - integrate Artyom's new sampling, fit on more data. predict on maximally moral reasoning TR
+            # correlation = "pearson"
+            # if correlation == "pearson":
+            num_train_samples = 7
+            num_val_samples = 1
+            activations_last_token_train = activations_last_token[:num_train_samples]
+            test_data_train = test_data[:num_train_samples]
+            activations_last_token_val = activations_last_token[num_train_samples:num_train_samples + num_val_samples]
+            test_data_val = test_data[num_train_samples:num_train_samples + num_val_samples]
 
-                    # TODO - does Seong want just the prediction or the correlation between prediction and actual?
+            predictions_list = []
+            for index in range(test_data.shape[1]):
+                #feature = test_data[:, index]
+                feature = test_data_train[:, index]
+                clf = RidgeCV(alphas=[1e-3, 1e-2, 1e-1, 1]).fit(activations_last_token_train,
+                                                                feature)
+                feature_val = test_data_val[:, index]
+                prediction = clf.predict(activations_last_token_val)
+                # pearson_r = r_regression(predictions, feature_val)
 
-                    predictions_list.append(prediction)
+                # TODO - compare on finetuned on ethics v pretrained, and finetued on fMRI v pretrained (separate in train CLI command somehow)
 
-                    #brain_score_list.append(clf.score(activations_last_token_val, feature_val))
-                    #pearson_r_train, _ = pearsonr(activations_last_token_train, feature)
-                    #pearson_r_train = r_regression(activations_last_token_train, feature)
-                    #feature_val = test_data_val[:, index]
-                    #pearson_r_val, _ = pearsonr(activations_last_token_val, feature_val)
-                    #pearson_r_val = r_regression(activations_last_token_val, feature_val)
-                    #pearson_r = r_regression(activations_last_token, feature)
-                    #brain_score_list.append(pearson_r)
-                    #print(f'Brain score for feature {index}: {brain_score_list[-1]}')
+                # TODO - send the predictions above for ROI scores, along with R^2 scores
 
-                #reshape test data val to be 1d of shape (1024), not (1, 1024)
-                test_data_val = test_data_val[0,:]
-                predictions_list_flipped = np.array(predictions_list)
-                #predictions_list_flipped =
-                pearson_r = r_regression(predictions_list, test_data_val)
+                # TODO - integrate Artyom's new sampling, fit on more data. predict on maximally moral reasoning TR
 
-                #Seong this Pearson R above is what we really want. I know this is really messy so please ignore some
-                #of the other notes at the moment. Will clean it up a bit once we figure out what we're doing here
+                # TODO - does Seong want just the prediction or the correlation between prediction and actual?
 
-                # TODO - loop over every index again.
-                """
-                How this works is that Pearson's calculates a pairwise thing, but it's out of many as I understand it.
-                So how much does one predicted ROI match the actual ROI activation, in comparison to all the other predicted ROI data
-                
-                So need to loop over every index again and calculate it out. Just need to make sure that my indices are right.
-                
-                According to docs, r_regression(X,Y) = X = (num_samples, num_features) and Y = (num_samples,).
-                We have one sample (one subj, layer, model combo) and 1024 ROI features. So flip predictions_list to be
-                (1, 1024).
-                """
+                brain_scores['ridge_regress_predict'].append(prediction[0])
+                predictions_list.append(prediction)
 
-                brain_scores['brain_score_per_feature'] = brain_score_list
+            #reshape test data val to be 1d of shape (1024), not (1, 1024)
+            test_data_val = test_data_val[0,:]
+            predictions_list_flipped = np.array(predictions_list)
+            #predictions_list_flipped =
+            pearson_r = r_regression(predictions_list, test_data_val)
+
+            #Seong this Pearson R above is what we really want. I know this is really messy so please ignore some
+            #of the other notes at the moment. Will clean it up a bit once we figure out what we're doing here
+
+            # TODO - loop over every index again.
+            """
+            How this works is that Pearson's calculates a pairwise thing, but it's out of many as I understand it.
+            So how much does one predicted ROI match the actual ROI activation, in comparison to all the other predicted ROI data
+            
+            So need to loop over every index again and calculate it out. Just need to make sure that my indices are right.
+            
+            According to docs, r_regression(X,Y) = X = (num_samples, num_features) and Y = (num_samples,).
+            We have one sample (one subj, layer, model combo) and 1024 ROI features. So flip predictions_list to be
+            (1, 1024).
+            """
+
+            brain_scores['brain_score_per_feature'] = brain_score_list
 
             brain_scores['layer.module'].append(layer_name)
-            brain_scores['brain_score'].append(sum(brain_score_list) / len(brain_score_list))  # Average
-            brain_scores['correlation'].append(correlation)
+            #brain_scores['brain_score'].append(sum(brain_score_list) / len(range(test_data.shape[1])))  # Average
+            brain_scores['brain_score'].append(pearson_r[0]) # Pearson's r
+            #brain_scores['correlation'].append(correlation)
 
             brain_score_positive = 0
             for i in brain_score_list:
@@ -244,12 +266,14 @@ if __name__ == '__main__':
         config = get_config()
         config['batch_size'] = 2  # Make the batch large enough so we definitely have one subject. This is a bit hacky but works for now.
         subjects = [f'sub-{i:02}' for i in range(3, 4)]
-        subject_list = [3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,22,23,24,27,28,29,30,31,32,33,34,35,38,39,40,41,42,44,45,46,47]
-        subjects = [f'sub-{i:02}' for i in subject_list]
+        #subject_list = [3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,22,23,24,27,28,29,30,31,32,33,34,35,38,39,40,41,42,44,45,46,47]
+        #subjects = [f'sub-{i:02}' for i in subject_list]
 
-        all_brain_scores = {'subjects': [], 'layer.module': [], 'brain_score': [], 'brain_score_positive': [], 'correlation': []}#, 'brain_score_per_feature': []}
+        all_brain_scores = {'subjects': [], 'layer.module': [], 'brain_score': [], 'brain_score_positive': []}#, 'correlation': []}#, 'brain_score_per_feature': []}
 
         features_per_subject = {}
+        coeff_of_det_per_subject = {}
+        ridge_regress_predict_per_subject = {}
         for subject in subjects:
             fmri_data = load_ds000212(test_data_path, tokenizer, config, subject=subject, intervals=[2, 4, 6, 8])  # Use [2, 4, 6, 8] to use the background, action, outcome, and skind. Use -1 to use only the last fMRI.
             data = next(iter(fmri_data[0]))  # Get the first batch of data which is one entire subject.
@@ -268,7 +292,7 @@ if __name__ == '__main__':
                                                   test_data,
                                                   layers, modules,
                                                   max_fmri_features,
-                                                  correlation=correlation,
+                                                  #correlation=correlation,
                                                   score_per_feature=score_per_feature,
                                                   train_perc=train_perc,
                                                   val_perc=val_perc)
@@ -278,9 +302,11 @@ if __name__ == '__main__':
             all_brain_scores['layer.module'].extend(brain_scores['layer.module'])
             all_brain_scores['brain_score'].extend(brain_scores['brain_score'])
             all_brain_scores['brain_score_positive'].extend(brain_scores['brain_score_positive'])
-            all_brain_scores['correlation'].extend(brain_scores['correlation'])
+            #all_brain_scores['correlation'].extend(brain_scores['correlation'])
             #all_brain_scores['brain_score_per_feature'] = brain_scores['brain_score_per_feature']
             features_per_subject[subject] = brain_scores['brain_score_per_feature']
+            coeff_of_det_per_subject[subject] = brain_scores['coeff_of_det']
+            ridge_regress_predict_per_subject[subject] = brain_scores['ridge_regress_predict']
 
         print('subjects: ', all_brain_scores['subjects'])
         print('layers: ', all_brain_scores['layer.module'])
@@ -296,18 +322,22 @@ if __name__ == '__main__':
             sep=',')
 
         #date = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        path_to_brain_scores = os.path.join(os.getcwd(), 'artifacts', 'brain_scores', f'{date}_layer={layer_list[0]}_finetuned={finetuned}_correlation={correlation}')
+        path_to_brain_scores = os.path.join(os.getcwd(), 'artifacts', 'brain_scores', f'{date}_layer={layer_list[0]}_finetuned={finetuned}')#_correlation={correlation}')
         if not os.path.exists(path_to_brain_scores):
             os.makedirs(path_to_brain_scores)
         for i in features_per_subject.keys():
 
-
+            #have a text file in the folder that is output to with metadata, such as the checkpoint metadata
             #print(features_per_subject[i])
 
-            df = pd.DataFrame(features_per_subject[i]).to_csv(os.path.join(
+            # df = pd.DataFrame(features_per_subject[i]).to_csv(os.path.join(
+            #     path_to_brain_scores, f'subject_{i}_brain_scores_per_feature.csv'),
+            #     index=False, sep=',')
+
+            df = pd.DataFrame((coeff_of_det_per_subject[i], ridge_regress_predict_per_subject[i])).to_csv(os.path.join(
                 path_to_brain_scores, f'subject_{i}_brain_scores_per_feature.csv'),
                 index=False, sep=',')
-
+        print("coeff of det per subject: ", coeff_of_det_per_subject, "\nridge regress per subject: ", ridge_regress_predict_per_subject)
         """
         Thoughts - to write to csv like the above, all arrays need to be the same length.
         
@@ -328,7 +358,7 @@ if __name__ == '__main__':
     for i in layer_list:
         #print([i])
         wrapper(path_to_model, [i], date, correlation="pearson", finetuned=False)
-        #wrapper(path_to_model, [i], date, correlation="pearson", finetuned=True)
+        wrapper(path_to_model, [i], date, correlation="pearson", finetuned=True)
         #wrapper(path_to_model, [i], date, correlation="determination", finetuned=False)
         #wrapper(path_to_model, [i], date, correlation="determination", finetuned=True)
         break
