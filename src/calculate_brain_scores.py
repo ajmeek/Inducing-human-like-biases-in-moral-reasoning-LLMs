@@ -1,5 +1,6 @@
 import csv
 import os
+import yaml
 from datetime import datetime
 from os import environ
 from pathlib import Path, WindowsPath
@@ -282,10 +283,29 @@ if __name__ == '__main__':
             f'{date}_finetuned={finetuned}.csv'), index=False,
             sep=',')
 
-        #date = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        #path_to_brain_scores = os.path.join(os.getcwd(), 'artifacts', 'brain_scores', f'{date}_layer={layer_list[0]}_finetuned={finetuned}')#_correlation={correlation}')
-        # if not os.path.exists(path_to_brain_scores):
-        #     os.makedirs(path_to_brain_scores)
+        #Create a text file and save it to path_to_brain_scores with metadata
+        path_to_metadata_file = path_to_brain_scores + '/metadata.txt'
+        with open(path_to_metadata_file, 'w') as f:
+            f.write(f"Model: {checkpoint_name}\n")
+            f.write(f"Layers: {layer_list}\n")
+            f.write(f"Finetuned: {finetuned}\n")
+            f.write(f"Score per feature: {score_per_feature}\n")
+            f.write(f"Train percentage: {train_perc}\n")
+            f.write(f"Validation percentage: {val_perc}\n")
+            f.write(f"Date: {date}\n")
+            f.write("\n Checkpoint metadata below: \n")
+
+            #load metadata from checkpoint as well
+            parent_path = os.path.dirname(path_to_model)
+            grandparent_path = os.path.dirname(parent_path)
+
+            yaml_path = os.path.join(grandparent_path, 'hparams.yaml')
+            with open(yaml_path, 'r') as file:
+                yaml_contents = yaml.load(file, Loader=yaml.FullLoader)
+
+                for i in yaml_contents.keys():
+                    f.write(f"{i}: {yaml_contents[i]}\n")
+
         if score_per_feature:
             for i in coeff_of_det_per_subject.keys():
 
@@ -310,5 +330,3 @@ if __name__ == '__main__':
         break
 
     #wrapper(path_to_model, ['2'], date, finetuned=False)
-
-    #still put metadata inside folder, fix score per feature bool to new functionality
