@@ -1,12 +1,24 @@
-transformers
-torch==1.13.1
+datasets
+datalad
+einops
+ipywidgets
+lightning
+nibabel
+nilearn
+numpy==1.25.*
+pybids
+pynvml
+pyparsing
+scikit-learn
+sentencepiece
+setuptools
+simple-parsing
+torch == 2.0.*
 torchaudio
 torchvision
-#cudatoolkit==11.6
-pandas
-lightning[extra]  # for lightning, extra is for tensorboard support
-bids
-nilearn
-nibabel
-sympy
-numpy
+tokenizers>=0.13.3
+tqdm
+transformers == 4.31.*
+wandb
+webdataset
+wheel

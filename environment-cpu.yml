@@ -1,0 +1,34 @@
+channels:
+  - r
+  - pytorch
+  - defaults
+dependencies:
+  - datalad
+  - einops
+  - conda-forge::datasets
+  - conda-forge::transformers == 4.31.*
+  - conda-forge::tokenizers => 0.13.3
+  - ipywidgets
+  - lightning
+  - nibabel
+  - nilearn
+  - numpy==1.25.*
+  - pybids
+  - pynvml
+  - pyparsing
+  - pytorch::pytorch == 2.0.*
+  - pytorch::torchaudio
+  - pytorch::torchvision
+  - scikit-learn
+  - sentencepiece
+  - setuptools
+  - simple-parsing
+  - tqdm
+  - wandb
+  - webdataset
+  - wheel
+  - python=3.10
+  - pip
+  - git
+  - make
+  - cpuonly

@@ -1,5 +1,6 @@
 from csv import DictReader
 from pathlib import Path
+from utils.constants import Sampling
 
 class DS000212Scenarios(object):
     event_to_scenario = {
@@ -15,8 +16,9 @@ class DS000212Scenarios(object):
         "J_NI": ("intentional", "Neutral"),
     }
 
-    def __init__(self, scenarios_csv) -> None:
+    def __init__(self, scenarios_csv, config) -> None:
         self._init_scenarios(scenarios_csv)
+        self._config = config
 
     def _init_scenarios(self, scenarios_csv: Path):
         self._scenarios = []
@@ -25,7 +27,7 @@ class DS000212Scenarios(object):
             for row in reader:
                 self._scenarios.append(row)
 
-    def parse_label(self, label, len_intervals: int = 1) -> list[str]:
+    def parse_label(self, label) -> list[str]:
         condition, item, key = label
         if condition not in DS000212Scenarios.event_to_scenario:
             return None
@@ -36,31 +38,24 @@ class DS000212Scenarios(object):
         found = found[0]
         assert found['type'] == stype, f"Scenario with {item} item does not match the '{stype}' expected type. Scenario: {found}. Event: {event}."
 
-        # TODO: clean up later
-        # For now we do multiple
-        part1 = ' '.join([
-            found['background'],
-        ])
-        part2 = ' '.join([
-            found['background'],
-            found['action'],
-        ])
-        part3 = ' '.join([
-            found['background'],
-            found['action'],
-            found['outcome'],
-        ])
-        part4 = ' '.join([
-            found['background'],
-            found['action'],
-            found['outcome'],
-            found[skind]
-        ])
+        part_names = ['background', 'action', 'outcome', skind]
+        parts = [
+            ' '.join(
+                found[k] for k in part_names[:num]
+            )
+            for num in range(4)
+        ]
+        if self._config['sampling_method'] in Sampling.ONE_POINT_METHODS:
+            len_intervals = 1
+        elif self._config['sampling_method'] is Sampling.SENTENCES:
+            len_intervals = 4
+        else:
+            raise NotImplementedError()
         if len_intervals == 1:
-            return part4
+            return parts[3]
         elif len_intervals == 2:
-            return [part2, part4]
+            return [parts[1], parts[3]]
         elif len_intervals == 4:
-            return [part1, part2, part3, part4]
+            return parts
         else:
             raise ValueError(f"Unexpected length of intervals: {len_intervals}")

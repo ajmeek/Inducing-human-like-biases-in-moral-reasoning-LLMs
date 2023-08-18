@@ -10,16 +10,22 @@ import pandas as pd
 import torch
 import torch.nn as nn
 import numpy as np
+from torch.utils.data import DataLoader
 from transformers import AutoModel, AutoTokenizer, AutoConfig, RobertaModel
 
 from src.main import get_config
 from src.model import BERT
 from src.utils.loading_data import load_ds000212
 from src.utils.loading_data import return_path_to_latest_checkpoint
+from main import get_config
+from model import BERT
+from utils.DS000212_LFB_Dataset import DS000212_LFB_Dataset
+
 from sklearn.linear_model import RidgeCV
 from scipy.stats import pearsonr
 from sklearn.feature_selection import r_regression
 
+from utils.constants import Sampling
 
 def calculate_brain_scores(model: nn.Module,
                            model_inputs: torch.tensor,
@@ -229,6 +235,12 @@ if __name__ == '__main__':
         #subjects = [f'sub-{i:02}' for i in range(3, 4)]
         subject_list = [3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,22,23,24,27,28,29,30,31,32,33,34,35,38,39,40,41,42,44,45,46,47]
         subjects = [f'sub-{i:02}' for i in subject_list]
+    # Load the data
+    context = get_config()
+    context['datapath'] = Path(environ.get('AISCBB_DATA_DIR','./data'))
+    context['batch_size'] = 2  # Make the batch large enough so we definitely have one subject. This is a bit hacky but works for now.
+    context['sampling_method'] = Sampling.SENTENCES
+    subjects = [f'sub-{i:02}' for i in range(3, 4)]  # TODO: there are missing subjects, so catch this here already. (47 is the last subject, so use range(3, 48))
 
         all_brain_scores = {'subjects': [], 'layer.module': [], 'brain_score': []}
 
@@ -240,6 +252,16 @@ if __name__ == '__main__':
             data = next(iter(fmri_data[0]))  # Get the first batch of data which is one entire subject.
             model_inputs = (data[0], data[1])
             test_data = data[2]  # Shape (batch_size, num_features) (60, 1024) for a single participant.
+    all_brain_scores = {'subjects': [], 'layer.module': [], 'brain_score': []}
+    for subject in subjects:
+        ds000212 = DS000212_LFB_Dataset(context, tokenizer, subject=subject)
+        fmri_data = DataLoader(
+            ds000212,
+            batch_size=context['batch_size']
+        )
+        data = next(iter(fmri_data)) # Get the first batch of data which is one entire subject.
+        model_inputs = (data[0], data[1])
+        test_data = data[2]  # Shape (batch_size, num_features) (60, 1024) for a single participant.
 
             # Calculate the brain scores
             layers = layer_list   # The layers to calculate the brain scores for.
@@ -323,7 +345,7 @@ if __name__ == '__main__':
     #wrapper(path_to_model, layer_list, finetuned=False)
 
     #instead of using layer list, just pass a single layer to the wrapper function and loop using that.
-    #will need to incorporate the layer into the directory name then. 
+    #will need to incorporate the layer into the directory name then.
     for i in layer_list:
         wrapper(path_to_model, [i], date, finetuned=False)
         wrapper(path_to_model, [i], date, finetuned=True)
