@@ -226,9 +226,9 @@ if __name__ == '__main__':
         test_data_path = Path(environ.get('AISCBB_DATA_DIR'))
         config = get_config()
         config['batch_size'] = 2  # Make the batch large enough so we definitely have one subject. This is a bit hacky but works for now.
-        subjects = [f'sub-{i:02}' for i in range(3, 4)]
-        # subject_list = [3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,22,23,24,27,28,29,30,31,32,33,34,35,38,39,40,41,42,44,45,46,47]
-        # subjects = [f'sub-{i:02}' for i in subject_list]
+        #subjects = [f'sub-{i:02}' for i in range(3, 4)]
+        subject_list = [3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,22,23,24,27,28,29,30,31,32,33,34,35,38,39,40,41,42,44,45,46,47]
+        subjects = [f'sub-{i:02}' for i in subject_list]
 
         all_brain_scores = {'subjects': [], 'layer.module': [], 'brain_score': []}
 
@@ -317,7 +317,7 @@ if __name__ == '__main__':
         #print("coeff of det per subject: ", coeff_of_det_per_subject, "\nridge regress per subject: ", ridge_regress_predict_per_subject)
 
     #base BERT has 12 encoder layers
-    layer_list = ['2','3','4','5','6','7','8','9','10','11','12'] #including layer 1 and 12 breaks it for some reason
+    layer_list = ['2','3','4','5','6','7','8','9','10','11']#,'12'] #including layer 1 and 12 breaks it for some reason
     path_to_model = return_path_to_latest_checkpoint()
     date = datetime.now().strftime("%Y-%m-%d_%H-%M-%S") #for naming
     #wrapper(path_to_model, layer_list, finetuned=False)
@@ -327,6 +327,6 @@ if __name__ == '__main__':
     for i in layer_list:
         wrapper(path_to_model, [i], date, finetuned=False)
         wrapper(path_to_model, [i], date, finetuned=True)
-        break
+        #break
 
     #wrapper(path_to_model, ['2'], date, finetuned=False)
