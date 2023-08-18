@@ -7,13 +7,14 @@ from transformers import PreTrainedTokenizer, AutoTokenizer
 from pathlib import Path
 from torch.nn import functional as F
 from os import environ
+import os
 from datetime import datetime
 from torch.utils.data import DataLoader, IterableDataset
 from transformers import PreTrainedTokenizer
 
-from utils.DS000212RawDataSet import DS000212RawDataset
-from utils.DS000212_LFB_Dataset import DS000212_LFB_Dataset
-from utils.EthicsDataset import EthicsDataset
+from .DS000212RawDataSet import DS000212RawDataset
+from .DS000212_LFB_Dataset import DS000212_LFB_Dataset
+from .EthicsDataset import EthicsDataset
 
 DATASETS = {
     k.__name__ : k for k in (

@@ -15,7 +15,7 @@ from transformers import AutoModel, AutoTokenizer, AutoConfig, RobertaModel
 
 from src.main import get_config
 from src.model import BERT
-from src.utils.loading_data import load_ds000212
+#from src.utils.loading_data import load_ds000212
 from src.utils.loading_data import return_path_to_latest_checkpoint
 from main import get_config
 from model import BERT
@@ -229,39 +229,35 @@ if __name__ == '__main__':
             model.load_state_dict(state_dict_hf)
 
         # Load the data
-        test_data_path = Path(environ.get('AISCBB_DATA_DIR'))
-        config = get_config()
-        config['batch_size'] = 2  # Make the batch large enough so we definitely have one subject. This is a bit hacky but works for now.
+        context = get_config()
+        context['datapath'] = Path(environ.get('AISCBB_DATA_DIR','./data'))
+        context['batch_size'] = 2  # Make the batch large enough so we definitely have one subject. This is a bit hacky but works for now.
+        context['sampling_method'] = Sampling.SENTENCES
         #subjects = [f'sub-{i:02}' for i in range(3, 4)]
         subject_list = [3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,22,23,24,27,28,29,30,31,32,33,34,35,38,39,40,41,42,44,45,46,47]
         subjects = [f'sub-{i:02}' for i in subject_list]
-    # Load the data
-    context = get_config()
-    context['datapath'] = Path(environ.get('AISCBB_DATA_DIR','./data'))
-    context['batch_size'] = 2  # Make the batch large enough so we definitely have one subject. This is a bit hacky but works for now.
-    context['sampling_method'] = Sampling.SENTENCES
-    subjects = [f'sub-{i:02}' for i in range(3, 4)]  # TODO: there are missing subjects, so catch this here already. (47 is the last subject, so use range(3, 48))
+
 
         all_brain_scores = {'subjects': [], 'layer.module': [], 'brain_score': []}
 
         features_per_subject = {}
         coeff_of_det_per_subject = {}
         ridge_regress_predict_per_subject = {}
+        # for subject in subjects:
+        #     fmri_data = load_ds000212(test_data_path, tokenizer, config, subject=subject, intervals=[2, 4, 6, 8])  # Use [2, 4, 6, 8] to use the background, action, outcome, and skind. Use -1 to use only the last fMRI.
+        #     data = next(iter(fmri_data[0]))  # Get the first batch of data which is one entire subject.
+        #     model_inputs = (data[0], data[1])
+        #     test_data = data[2]  # Shape (batch_size, num_features) (60, 1024) for a single participant.
+        all_brain_scores = {'subjects': [], 'layer.module': [], 'brain_score': []}
         for subject in subjects:
-            fmri_data = load_ds000212(test_data_path, tokenizer, config, subject=subject, intervals=[2, 4, 6, 8])  # Use [2, 4, 6, 8] to use the background, action, outcome, and skind. Use -1 to use only the last fMRI.
-            data = next(iter(fmri_data[0]))  # Get the first batch of data which is one entire subject.
+            ds000212 = DS000212_LFB_Dataset(context, tokenizer, subject=subject)
+            fmri_data = DataLoader(
+                ds000212,
+                batch_size=context['batch_size']
+            )
+            data = next(iter(fmri_data)) # Get the first batch of data which is one entire subject.
             model_inputs = (data[0], data[1])
             test_data = data[2]  # Shape (batch_size, num_features) (60, 1024) for a single participant.
-    all_brain_scores = {'subjects': [], 'layer.module': [], 'brain_score': []}
-    for subject in subjects:
-        ds000212 = DS000212_LFB_Dataset(context, tokenizer, subject=subject)
-        fmri_data = DataLoader(
-            ds000212,
-            batch_size=context['batch_size']
-        )
-        data = next(iter(fmri_data)) # Get the first batch of data which is one entire subject.
-        model_inputs = (data[0], data[1])
-        test_data = data[2]  # Shape (batch_size, num_features) (60, 1024) for a single participant.
 
             # Calculate the brain scores
             layers = layer_list   # The layers to calculate the brain scores for.
