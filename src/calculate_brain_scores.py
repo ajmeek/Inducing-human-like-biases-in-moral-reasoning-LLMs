@@ -231,7 +231,8 @@ if __name__ == '__main__':
         # Load the data
         context = get_config()
         context['datapath'] = Path(environ.get('AISCBB_DATA_DIR','./data'))
-        context['batch_size'] = 2  # Make the batch large enough so we definitely have one subject. This is a bit hacky but works for now.
+        #context['batch_size'] = 2  # Make the batch large enough so we definitely have one subject. This is a bit hacky but works for now.
+        context['batch_size'] = 2
         context['sampling_method'] = Sampling.SENTENCES
         #subjects = [f'sub-{i:02}' for i in range(3, 4)]
         subject_list = [3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,22,23,24,27,28,29,30,31,32,33,34,35,38,39,40,41,42,44,45,46,47]
@@ -255,9 +256,15 @@ if __name__ == '__main__':
                 ds000212,
                 batch_size=context['batch_size']
             )
+            #correct_time_points = ds000212.sample_from_bold_sequence(fmri_data, Sampling.SENTENCES)
             data = next(iter(fmri_data)) # Get the first batch of data which is one entire subject.
             model_inputs = (data[0], data[1])
             test_data = data[2]  # Shape (batch_size, num_features) (60, 1024) for a single participant.
+
+            print("test_data.shape: ", test_data.shape)
+            print("test_data: ", test_data)
+            break
+            #correct_time_points = ds000212.sample_from_bold_sequence(test_data, Sampling.SENTENCES)
 
             # Calculate the brain scores
             layers = layer_list   # The layers to calculate the brain scores for.

@@ -13,6 +13,8 @@ class FMRI:
     TR = 2
     REACT_TIME = 3 // TR
 
+    # Note - should this be 6 ? About 6 ms hemodynamic lag divided by 2 seconds TR
+
 @dataclass(frozen=True)
 class DS000212:
     @dataclass(frozen=True)
@@ -29,3 +31,6 @@ class DS000212:
             INTENT // FMRI.TR,
             JUDGMENT // FMRI.TR
         ]
+
+        #Note - shouldn't these be different based on which scenario was passed in?
+        #presumably the background will not always take the same amount of time to explain, etc.
