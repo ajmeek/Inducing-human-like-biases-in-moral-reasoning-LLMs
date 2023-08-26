@@ -10,8 +10,9 @@ class Sampling(Flag):
 
 @dataclass(frozen=True)
 class FMRI:
+    HEMODYNAMIC_LAG = 6
     TR = 2
-    REACT_TIME = 3 // TR
+    REACT_TIME = HEMODYNAMIC_LAG // TR
 
 @dataclass(frozen=True)
 class DS000212:
