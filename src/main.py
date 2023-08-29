@@ -18,6 +18,7 @@ import wandb
 def train(context):
     pprint('Context:')
     pprint(context, indent=2)
+
     # Define the tokenizer and model
     tokenizer = AutoTokenizer.from_pretrained(context['checkpoint'])
     # TODO make sure it doesn't add SEP tokens when there's a full stop

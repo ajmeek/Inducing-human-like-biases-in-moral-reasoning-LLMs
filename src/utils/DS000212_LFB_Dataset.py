@@ -17,26 +17,33 @@ class DS000212_LFB_Dataset(IterableDataset):
     """
 
     @staticmethod
-    def sample_from_bold_sequence(sequence : np.array, method : Sampling) -> torch.Tensor:
-        if method in Sampling.LAST:
-            result = sequence[-FMRI.REACT_TIME]
-        elif method is Sampling.AVG:
-            result = np.average(sequence, axis=-2)
-        elif method is Sampling.MIDDLE:
-            result = sequence[len(sequence) // 2]
-        elif method is Sampling.SENTENCES:
-            result = sequence[DS000212.Periods.ENDS[:3] + [-FMRI.REACT_TIME]]
-        else:
-            raise NotImplementedError()
+    # def sample_from_bold_sequence(sequence : np.array, method : Sampling) -> torch.Tensor:
+    def sample_from_bold_sequence(sequence : np.array) -> torch.Tensor:
+        # if method in Sampling.LAST:
+            # result = sequence[-FMRI.REACT_TIME]
+        # elif method is Sampling.AVG:
+            # result = np.average(sequence, axis=-2)
+        # elif method is Sampling.MIDDLE:
+            # result = sequence[len(sequence) // 2]
+        # elif method is Sampling.SENTENCES:
+            # result = sequence[DS000212.Periods.ENDS[:3] + [-FMRI.REACT_TIME]]
+        # else:
+            # raise NotImplementedError()
+
+        result = sequence[-FMRI.REACT_TIME]
+
         return torch.from_numpy(result).to(torch.float)
 
     def __init__(self, context, tokenizer, subject=None):
         datapath = context['datapath']
-        dataset_path = datapath / 'ds000212_learning-from-brains'
-        scenarios_csv = datapath / 'ds000212_scenarios.csv'
+        # dataset_path = datapath / 'ds000212_learning-from-brains' # 
+        dataset_path = datapath + '/' + 'ds000212_learning-from-brains'
+        # scenarios_csv = datapath / 'ds000212_scenarios.csv' 
+        scenarios_csv = datapath + '/' +  'ds000212_scenarios.csv'
+        
 
-        assert dataset_path.exists(), f"No dataset found at '{dataset_path} (hint: run.sh datasets)"
-        assert scenarios_csv.exists()
+        # assert dataset_path.exists(), f"No dataset found at '{dataset_path} (hint: run.sh datasets)"
+        # assert scenarios_csv.exists()
         self.head_dims = None
         self._dataset_path = dataset_path
         self._tokenizer = tokenizer
@@ -67,7 +74,8 @@ class DS000212_LFB_Dataset(IterableDataset):
 
             if bold is not None:
                 key = out['__key__']
-                tsvfile = Path(self._dataset_path / f"{key}.tsv")
+                # tsvfile = Path(self._dataset_path / f"{key}.tsv")
+                tsvfile = Path(self._dataset_path + '/' + f"{key}.tsv")
                 if not tsvfile.exists():
                     continue
                 data_items, labels = self._process_tsv(tsvfile)
@@ -81,7 +89,7 @@ class DS000212_LFB_Dataset(IterableDataset):
                         tokenized = self._tokenizer(text, padding='max_length', truncation=True)
                         tokens = torch.tensor(tokenized['input_ids'])
                         mask = torch.tensor(tokenized['attention_mask'])
-                    target = DS000212_LFB_Dataset.sample_from_bold_sequence(bold[start:end], self._context['sampling_method'])
+                    target = DS000212_LFB_Dataset.sample_from_bold_sequence(bold[start:end]) #, self._context['sampling_method'])
                     error_msg = f'expect each sample has its label but ({target.shape=}, {tokens.shape=})'
                     if target.ndim == 1:
                         assert target.ndim == tokens.ndim, error_msg
