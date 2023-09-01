@@ -1,6 +1,6 @@
 from csv import DictReader
 from pathlib import Path
-from utils.constants import Sampling
+from constants import Sampling
 
 class DS000212Scenarios(object):
     event_to_scenario = {
@@ -16,9 +16,9 @@ class DS000212Scenarios(object):
         "J_NI": ("intentional", "Neutral"),
     }
 
-    def __init__(self, scenarios_csv, config) -> None:
+    def __init__(self, scenarios_csv, sampling : Sampling) -> None:
         self._init_scenarios(scenarios_csv)
-        self._config = config
+        self._sampling = sampling
 
     def _init_scenarios(self, scenarios_csv: Path):
         self._scenarios = []
@@ -45,9 +45,9 @@ class DS000212Scenarios(object):
             )
             for num in range(4)
         ]
-        if self._config['sampling_method'] in Sampling.ONE_POINT_METHODS:
+        if self._sampling in Sampling.ONE_POINT_METHODS:
             len_intervals = 1
-        elif self._config['sampling_method'] is Sampling.SENTENCES:
+        elif self._sampling == Sampling.SENTENCES:
             len_intervals = 4
         else:
             raise NotImplementedError()

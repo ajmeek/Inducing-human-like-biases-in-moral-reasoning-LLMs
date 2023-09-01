@@ -25,7 +25,7 @@ export PYTHON_ENV_NAME=brainbias
 
 
 function datasets() {
-    source ./bin/_datasets.sh "$@"
+    ./data/ds000212/make.sh "$@"
 }
 
 function train() {

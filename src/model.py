@@ -1,45 +1,39 @@
-import math
-from typing import Union
+from datasets import Dataset, IterableDataset, ClassLabel, Value, ClassLabel, Sequence
+from utils.BrainBiasDataModule import DatasetConfig, BrainBiasDataModule
 import torch.nn as nn
+from typing import Union
 
-# model including the base and multiple heads
-# the heads are specified by the head_dims argument - the dimensionality of
-# each head can be an int or a tuple of ints
+
 class BERT(nn.Module):
-    def __init__(self, base_model, head_dims: list[Union[int, tuple[int]]] = (2,)):
+    def __init__(self, base_model, data_module: BrainBiasDataModule):
         super().__init__()
         self.base = base_model
-
-        # initialize all the heads
-        # if the desired output has multiple axes, we want to output it flattened
-        # and then reshape it at the end
-        self.head_dims = head_dims
         head_in_dim = base_model.config.hidden_size
 
-        heads = []
-        for head_d in head_dims:
-            # For now, we make everything a flattened 1D output
-            head_d_flat = math.prod(head_d) if type(head_d) is tuple else head_d
-            heads.append(nn.Linear(head_in_dim, head_d_flat))
-        self.heads = nn.ModuleList(heads)
+        self._heads = {}
+        ds_cfg: DatasetConfig
+        for ds_cfg, splits in data_module.ds_cfg_to_splits.items():
+            ds: Union[IterableDataset, Dataset] = next(splits[s] for s in splits)
+            label = ds.features[ds_cfg.label_col]
+            if isinstance(label, ClassLabel):
+                self._heads[ds_cfg] = nn.Linear(head_in_dim, label.num_classes)
+            elif isinstance(label, Sequence):
+                assert (
+                    label.length > 0
+                ), f"Expected positive length of label but {label.length=}"
+                self._heads[ds_cfg] = nn.Linear(head_in_dim, label.length)
+            elif isinstance(label, Value):
+                self._heads[ds_cfg] = nn.Linear(head_in_dim, 1)
+            else:
+                raise NotImplemented()
+
+            self.register_module(ds_cfg.name, self._heads[ds_cfg])
 
     def forward(self, tokens, mask):
-        # tokens: [batch seq_len]
-        # mask: [batch seq_len]
-        base_out = self.base(tokens, mask)  # [batch seq_len d_model]
-        base_out = base_out.last_hidden_state  # use last layer activations
-        base_out = base_out[:, 0, :]  # only take the encoding of [CLS] -> [batch, d_model]
-
-        outs = []
-        for head, head_d in zip(self.heads, self.head_dims):
-            head_out = head(base_out)  # [batch d_out_flat]
-
-            # if out_dim is multidimensional, reshape the output
-            if type(head_d) is tuple:
-                d_batch = head_out.shape[0]
-                # Unflatten the output again, note that targets are also not flat.
-                head_out = head_out.reshape((d_batch, *head_d))  # [batch *head_d]
-
-            outs.append(head_out)
-
-        return outs
+        """Returns predictions per dataset per feature."""
+        base_out = self.base(tokens, mask)
+        base_out = base_out.last_hidden_state
+        base_out = base_out[
+            :, 0, :
+        ]  # Only take the encoding of [CLS] -> [batch, d_model]
+        return {ds_cfg: self._heads[ds_cfg](base_out) for ds_cfg in self._heads}

@@ -1,12 +1,13 @@
 from dataclasses import dataclass
-from enum import Flag, auto
 
-class Sampling(Flag):
-    LAST = auto()
-    AVG = auto()
-    MIDDLE = auto()
-    SENTENCES = auto()
-    ONE_POINT_METHODS = LAST | AVG | MIDDLE
+@dataclass(frozen=True)
+class Sampling:
+    LAST = "LAST"
+    AVG = "AVG"
+    MIDDLE = "MIDDLE"
+    SENTENCES = "SENTENCES"
+    ONE_POINT_METHODS = [LAST, AVG, MIDDLE]
+    ALL = [LAST, AVG, MIDDLE, SENTENCES]
 
 @dataclass(frozen=True)
 class FMRI:

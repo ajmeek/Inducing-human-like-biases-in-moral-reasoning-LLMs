@@ -1,6 +1,5 @@
 .idea
 *.log
 __pycache__
-data/
 artifacts/
 wandb

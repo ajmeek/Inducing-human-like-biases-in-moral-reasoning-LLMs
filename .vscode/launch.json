@@ -9,7 +9,7 @@
             "type": "python",
             "request": "launch",
             "program": "${workspaceRoot}/src/main.py",
-            "args": ["--sampling_method", "SENTENCES"],
+            "args": [],
             "cwd": "${workspaceFolder}"
         }
     ]
