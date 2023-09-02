@@ -53,8 +53,8 @@ class LitBert(pl.LightningModule):
 
     def training_step(self, dl_batches, _):
         loss = 0
-        for dl_idx, batch in enumerate(dl_batches):
-            ds_cfg: DatasetConfig = self._get_ds_cfg_by(Split.TRAIN, dl_idx)
+        for ds_cfg, batch in dl_batches.item():
+            ds_cfg: DatasetConfig
             outputs = self._model(batch["input_ids"], batch["attention_mask"])
             predictions: torch.Tensor = outputs[ds_cfg]
             targets = batch[ds_cfg.label_col]
@@ -73,33 +73,33 @@ class LitBert(pl.LightningModule):
         self.log("train_loss", loss, prog_bar=True, sync_dist=True)
         return loss
 
-    def validation_step(self, batch, dataloader_idx: int = 0):
-        ds_cfg: DatasetConfig = self._get_ds_cfg_by(Split.VALIDATION, dataloader_idx)
-        outputs = self._model(batch["input_ids"], batch["attention_mask"])
-        logits = outputs[ds_cfg]
-        probs = F.softmax(logits, dim=-1)
-        predicted_label = probs.argmax(dim=-1)
-        targets = batch[ds_cfg.label_col]
-        accuracy = (predicted_label == targets).float().mean()
-        self.log("val_acc", accuracy)
+    def validation_step(self, batch, batch_idx):
+        for ds_cfg, inner_b in batch.item():
+            ds_cfg: DatasetConfig
+            outputs = self._model(inner_b["input_ids"], inner_b["attention_mask"])
+            logits = outputs[ds_cfg]
+            probs = F.softmax(logits, dim=-1)
+            predicted_label = probs.argmax(dim=-1)
+            targets = inner_b[ds_cfg.label_col]
+            accuracy = (predicted_label == targets).float().mean()
+            self.log("val_acc", accuracy)
 
-    def test_step(self, batch, batch_idx, dataloader_idx: int = 0):
-        ds_cfg: DatasetConfig = self._get_ds_cfg_by(Split.TEST, dataloader_idx)
-        tokens = batch["input_ids"]  # Tokens in a batch.
-        masks = batch["attention_mask"]
-        targets = batch[ds_cfg.label_col]
-        output = self._model(tokens, masks)
-        logits = output[ds_cfg]
-        probs = F.softmax(logits, dim=-1)
-        predicted_label = probs.argmax(dim=-1)
-        # log the accuracy (this automatically accumulates it over the whole test set)
-        self.log(
-            "test_acc",
-            (predicted_label == targets).float().mean(),
-            prog_bar=True,
-            sync_dist=True,
-        )
-        return predicted_label
+    def test_step(self, batch, batch_idx):
+        for ds_cfg, inner_b in batch.item():
+            tokens = inner_b["input_ids"]
+            masks = inner_b["attention_mask"]
+            targets = inner_b[ds_cfg.label_col]
+            output = self._model(tokens, masks)
+            logits = output[ds_cfg]
+            probs = F.softmax(logits, dim=-1)
+            predicted_label = probs.argmax(dim=-1)
+            # log the accuracy (this automatically accumulates it over the whole test set)
+            self.log(
+                "test_acc",
+                (predicted_label == targets).float().mean(),
+                prog_bar=True,
+                sync_dist=True,
+            )
 
     def configure_optimizers(self):
         # ! FIXME this breaks if you first only train head and then train the whole thing
@@ -110,11 +110,3 @@ class LitBert(pl.LightningModule):
         # See BERT: https://github.com/google-research/bert/blob/master/optimization.py#L65
         optimizer = torch.optim.AdamW(self.parameters(), **vars(self._plc.adamw))
         return optimizer
-
-    def _get_ds_cfg_by(self, split: str, dl_idx: int) -> DatasetConfig:
-        if not split in self._data_module.dataloader_idx_to_ds_cfg:
-            return None
-        s_to_ds = self._data_module.dataloader_idx_to_ds_cfg[split]
-        if dl_idx >= len(s_to_ds):
-            return None
-        return s_to_ds[dl_idx]

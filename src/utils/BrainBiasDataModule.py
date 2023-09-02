@@ -5,8 +5,9 @@ from lightning.pytorch.utilities.types import EVAL_DATALOADERS, TRAIN_DATALOADER
 from pathlib import Path
 from torch.utils.data import DataLoader
 from typing import Optional, Union, List
+from lightning.pytorch.utilities.combined_loader import CombinedLoader
+from lightning.pytorch import LightningDataModule
 import importlib
-import lightning.pytorch as pl
 import sys
 
 
@@ -70,12 +71,11 @@ class HFDatasetConfig(DatasetConfig):
     """
 
 
-class BrainBiasDataModule(pl.LightningDataModule):
+class BrainBiasDataModule(LightningDataModule):
     def __init__(self, ds_configs: List[DatasetConfig], tokenizer) -> None:
         super().__init__()
         self._ds_configs = ds_configs
         self._tokenizer = tokenizer
-        self.dataloader_idx_to_ds_cfg = {}
         self._load_datasets()
 
     def _load_datasets(self):
@@ -162,27 +162,23 @@ class BrainBiasDataModule(pl.LightningDataModule):
     def _dataloaders(self, split: Split):
         """Create DataLoaders for all dataset per the given split."""
         s = str(split)
-        res = []
-        for ds_cfg, splits in self.ds_cfg_to_splits.items():
-            if s not in splits or not splits[s]:
-                continue
-            s_cfg = vars(ds_cfg)[s]
-            res.append(
-                (
-                    ds_cfg,
-                    DataLoader(
-                        splits[s], batch_size=s_cfg.batch_size, shuffle=s_cfg.shuffle
-                    ),
+        return CombinedLoader(
+            {
+                ds_cfg: DataLoader(
+                    splits[s], batch_size=s_cfg.batch_size, shuffle=s_cfg.shuffle
                 )
-            )
-        self.dataloader_idx_to_ds_cfg[s] = [cfg for cfg, _ in res]
-        return [dl for _, dl in res]
+                for ds_cfg, splits in self.ds_cfg_to_splits.items()
+                for s_cfg in (vars(ds_cfg)[s],)
+                if s in splits and splits[s]
+            },
+            mode="sequential",
+        )
 
     def train_dataloader(self) -> TRAIN_DATALOADERS:
-        return list(self._dataloaders(Split.TRAIN))
+        return self._dataloaders(Split.TRAIN)
 
     def val_dataloader(self) -> EVAL_DATALOADERS:
-        return list(self._dataloaders(Split.VALIDATION))
+        return self._dataloaders(Split.VALIDATION)
 
     def test_dataloader(self) -> EVAL_DATALOADERS:
-        return list(self._dataloaders(Split.TEST))
+        return self._dataloaders(Split.TEST)
