@@ -100,9 +100,9 @@ class Context(Serializable):
         path="hendrycks/ethics",
         name="commonsense",
         revision="refs/pr/3",
-        train=SplitConfig(batch_size=200, shuffle=True, slicing="[:100]"),
-        validation=SplitConfig(batch_size=200, shuffle=False, slicing="[:100]"),
-        test=SplitConfig(batch_size=200, shuffle=False, slicing="[:100]"),
+        train=SplitConfig(batch_size=50, shuffle=True, slicing="[:100]"),
+        validation=SplitConfig(batch_size=50, shuffle=False, slicing="[:100]"),
+        test=SplitConfig(batch_size=50, shuffle=False, slicing="[:100]"),
         loss_fn="cross_entropy",
     )
 
@@ -111,7 +111,7 @@ class Context(Serializable):
             path="data/ds000212",
             name="learning_from_brains",
             sampling_method="LAST",
-            train=SplitConfig(batch_size=10, shuffle=False),
+            train=SplitConfig(batch_size=2, shuffle=False),
             validation=None,
             test=None,
             loss_fn="mse_loss",
