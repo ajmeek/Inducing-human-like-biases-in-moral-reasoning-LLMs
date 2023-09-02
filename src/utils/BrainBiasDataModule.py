@@ -21,8 +21,6 @@ class SplitConfig:
     slicing: str = None
     """ 
     Split slicing specification. See https://www.tensorflow.org/datasets/splits . 
-    In square parantheses. Example: '[:50%]' - half of a split, '[50:-100]' - from 50th sample till 100th. 
-
     """
 
 
