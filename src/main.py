@@ -8,7 +8,6 @@ import wandb
 from transformers import AutoModel, AutoTokenizer
 from Context import Context
 from Context import Context
-from model import BERT
 from pl_model import LitBert
 from utils.BrainBiasDataModule import BrainBiasDataModule
 
@@ -26,8 +25,7 @@ def train(context: Context):
     #     base_model = modify_with_ia3(base_model, layers_to_replace_with_ia3)
 
     data_module = BrainBiasDataModule(context.get_ds_configs(), tokenizer)
-    model = BERT(base_model, data_module)
-    lit_model = LitBert(model, context.plc, data_module)
+    model = LitBert(base_model, context.plc, data_module)
 
     logger = WandbLogger(save_dir=context.artifactspath, project="AISC_BB")
     logger.log_hyperparams(jsloads(context.dumps_json()))
@@ -42,10 +40,13 @@ def train(context: Context):
         **vars(context.pltc),
     )
     print("Fitting...")
-    trainer.fit(lit_model, data_module)
+    trainer.fit(model, data_module)
 
     print("Testing...")
-    trainer.test(lit_model, data_module)
+    # Warning. This uses the best weights (not always last):
+    # See https://lightning.ai/docs/pytorch/stable/common/lightning_module.html#test-loop
+    # Also don't run on parallel setting because possible a same batch used.
+    trainer.test(model, data_module)
 
     logger.save()
     wandb.finish()

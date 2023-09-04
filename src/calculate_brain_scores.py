@@ -12,7 +12,6 @@ from torch.utils.data import DataLoader
 from transformers import AutoModel, AutoTokenizer, AutoConfig, RobertaModel
 
 from main import get_config
-from model import BERT
 from utils.DS000212_LFB_Dataset import DS000212_LFB_Dataset
 
 from sklearn.linear_model import RidgeCV
