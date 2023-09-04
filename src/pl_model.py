@@ -33,7 +33,7 @@ class AdamWConfig:
 
 @dataclass
 class PLModelConfig:
-    only_train_heads: bool = True
+    train_full: bool = False
     """ Train only attached head(s). """
 
     adamw: AdamWConfig = AdamWConfig()
@@ -169,7 +169,7 @@ class PLModel(pl.LightningModule):
 
     def configure_optimizers(self):
         # ! FIXME this breaks if you first only train head and then train the whole thing
-        if self._plc.only_train_heads:
+        if not self._plc.train_full:
             for param in self._base_model.parameters():
                 param.requires_grad = False
         # TODO: Consider exclude Laynorm and other.
