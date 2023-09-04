@@ -21,7 +21,6 @@ def load(
     split = [s for s in split if s]
     if any("[" in s or "]" in s for s in split):
         raise NotImplemented()
-
     assert len(split) == 1 and split[0] == 'train', "Only 'train' split supported."
 
     if name == CONFIGURATIONS[0]:

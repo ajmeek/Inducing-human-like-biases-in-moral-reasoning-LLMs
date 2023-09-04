@@ -50,7 +50,7 @@ class DatasetConfig:
     def __hash__(self) -> int:
         return hash((self.path or "") + (self.name or ""))
 
-    def get_split_spec(self, split: str):
+    def get_split_spec(self, split: str) -> str:
         cd = vars(self)  # Dataset config dictionary.
         if split not in cd or not cd[split]:
             return None
@@ -99,7 +99,7 @@ class BrainBiasDataModule(LightningDataModule):
         for ds_config in self._ds_configs:
             self.ds_cfg_to_splits[ds_config] = {}
             split_spec = [
-                ds_config.get_split_spec(split) for split in train_validation_test
+                ds_config.get_split_spec(str(split)) for split in train_validation_test
             ]
             if isinstance(ds_config, FMRIDatasetConfig):
                 ds_config: FMRIDatasetConfig
