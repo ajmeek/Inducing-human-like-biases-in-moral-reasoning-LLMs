@@ -45,8 +45,14 @@ class PLModelConfig:
     regularization_coef: Optional[float] = 0.1
     """Regularization from init coef."""
 
+    token_location: int = 0
+    """ 
+    Which token to use for prediction. Example: 0 - to take 
+    [CLS] token for BERT like models.
+    """
 
-class LitBert(pl.LightningModule):
+
+class PLModel(pl.LightningModule):
     def __init__(
         self,
         base_model: nn.Module,
@@ -87,9 +93,7 @@ class LitBert(pl.LightningModule):
         """Returns predictions per dataset per feature."""
         base_out = self._base_model(tokens, mask)
         base_out = base_out.last_hidden_state
-        base_out = base_out[
-            :, 0, :
-        ]  # Only take the encoding of [CLS] -> [batch, d_model]
+        base_out = base_out[:, self._plc.token_location, :]
         return {ds_cfg: self._heads[ds_cfg](base_out) for ds_cfg in self._heads}
 
     def training_step(self, dl_batches, _):
@@ -99,7 +103,7 @@ class LitBert(pl.LightningModule):
         """
         loss = 0
         for ds_cfg, batch in dl_batches.items():
-            if not batch: 
+            if not batch:
                 continue
             ds_cfg: DatasetConfig
             outputs = self.forward(batch["input_ids"], batch["attention_mask"])

@@ -50,6 +50,18 @@ class DatasetConfig:
     def __hash__(self) -> int:
         return hash((self.path or "") + (self.name or ""))
 
+    def get_split_spec(self, split: str):
+        cd = vars(self)  # Dataset config dictionary.
+        if split not in cd or not cd[split]:
+            return None
+        si: SplitConfig = cd[split]
+        if not si.slicing:
+            return split
+        assert (
+            "[" in si.slicing and "]" in si.slicing
+        ), f'Invalid slicing format: "{si.slicing}"'
+        return f"{split}{si.slicing}"
+
 
 @dataclass(frozen=True)
 class FMRIDatasetConfig(DatasetConfig):
@@ -82,25 +94,12 @@ class BrainBiasDataModule(LightningDataModule):
     def _load_datasets(self):
         """Load datasets splits into memory."""
 
-        def _get_split_spec(c, s):
-            s = str(s)
-            cd = vars(c)
-            if s not in cd or not cd[s]:
-                return None
-            si: SplitConfig = cd[s]
-            if not si.slicing:
-                return s
-            assert (
-                "[" in si.slicing and "]" in si.slicing
-            ), f'Invalid slicing format: "{si.slicing}"'
-            return f"{s}{si.slicing}"
-
         self.ds_cfg_to_splits = {}
         train_validation_test = (Split.TRAIN, Split.VALIDATION, Split.TEST)
         for ds_config in self._ds_configs:
             self.ds_cfg_to_splits[ds_config] = {}
             split_spec = [
-                _get_split_spec(ds_config, split) for split in train_validation_test
+                ds_config.get_split_spec(split) for split in train_validation_test
             ]
             if isinstance(ds_config, FMRIDatasetConfig):
                 ds_config: FMRIDatasetConfig
@@ -160,7 +159,7 @@ class BrainBiasDataModule(LightningDataModule):
                     .with_format("torch")
                 )
 
-    def _get_split_to_dls(self, split: Split):
+    def _create_dataloaders(self, split: Split):
         s = str(split)
         res = {
             ds_cfg: DataLoader(
@@ -174,13 +173,15 @@ class BrainBiasDataModule(LightningDataModule):
         return res
 
     def train_dataloader(self) -> TRAIN_DATALOADERS:
-        # Warning. Currently Lightning doesn't support any mode for 
-        # CombinedLoader in all train, validataion, test methods.
+        # Warning. Currently Lightning doesn't support any mode for
+        # CombinedLoader in all methods (train, validataion, test).
         # See https://lightning.ai/docs/pytorch/stable/data/iterables.html#multiple-iterables
-        return CombinedLoader(self._get_split_to_dls(Split.TRAIN), mode='max_size')
+        return CombinedLoader(self._create_dataloaders(Split.TRAIN), mode="max_size")
 
     def val_dataloader(self) -> EVAL_DATALOADERS:
-        return CombinedLoader(self._get_split_to_dls(Split.VALIDATION), mode='sequential')
+        return CombinedLoader(
+            self._create_dataloaders(Split.VALIDATION), mode="sequential"
+        )
 
     def test_dataloader(self) -> EVAL_DATALOADERS:
-        return CombinedLoader(self._get_split_to_dls(Split.TEST), mode='sequential')
+        return CombinedLoader(self._create_dataloaders(Split.TEST), mode="sequential")

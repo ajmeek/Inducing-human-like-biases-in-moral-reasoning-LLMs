@@ -8,7 +8,7 @@ import wandb
 from transformers import AutoModel, AutoTokenizer
 from Context import Context
 from Context import Context
-from pl_model import LitBert
+from pl_model import PLModel
 from utils.BrainBiasDataModule import BrainBiasDataModule
 
 
@@ -25,7 +25,7 @@ def train(context: Context):
     #     base_model = modify_with_ia3(base_model, layers_to_replace_with_ia3)
 
     data_module = BrainBiasDataModule(context.get_ds_configs(), tokenizer)
-    model = LitBert(base_model, context.plc, data_module)
+    model = PLModel(base_model, context.plc, data_module)
 
     logger = WandbLogger(save_dir=context.artifactspath, project="AISC_BB")
     logger.log_hyperparams(jsloads(context.dumps_json()))
