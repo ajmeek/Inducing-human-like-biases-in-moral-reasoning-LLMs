@@ -76,6 +76,7 @@ class BrainBiasDataModule(LightningDataModule):
         super().__init__()
         self._ds_configs = ds_configs
         self._tokenizer = tokenizer
+        self.dataloader_idx_to_config = []
         self._load_datasets()
 
     def _load_datasets(self):
@@ -159,26 +160,27 @@ class BrainBiasDataModule(LightningDataModule):
                     .with_format("torch")
                 )
 
-    def _dataloaders(self, split: Split):
-        """Create DataLoaders for all dataset per the given split."""
+    def _get_split_to_dls(self, split: Split):
         s = str(split)
-        return CombinedLoader(
-            {
-                ds_cfg: DataLoader(
-                    splits[s], batch_size=s_cfg.batch_size, shuffle=s_cfg.shuffle
-                )
-                for ds_cfg, splits in self.ds_cfg_to_splits.items()
-                for s_cfg in (vars(ds_cfg)[s],)
-                if s in splits and splits[s]
-            },
-            mode="sequential",
-        )
+        res = {
+            ds_cfg: DataLoader(
+                splits[s], batch_size=s_cfg.batch_size, shuffle=s_cfg.shuffle
+            )
+            for ds_cfg, splits in self.ds_cfg_to_splits.items()
+            for s_cfg in (vars(ds_cfg)[s],)
+            if s in splits and splits[s]
+        }
+        self.dataloader_idx_to_config = list(res.keys())
+        return res
 
     def train_dataloader(self) -> TRAIN_DATALOADERS:
-        return self._dataloaders(Split.TRAIN)
+        # Warning. Currently Lightning doesn't support any mode for 
+        # CombinedLoader in all train, validataion, test methods.
+        # See https://lightning.ai/docs/pytorch/stable/data/iterables.html#multiple-iterables
+        return CombinedLoader(self._get_split_to_dls(Split.TRAIN), mode='max_size')
 
     def val_dataloader(self) -> EVAL_DATALOADERS:
-        return self._dataloaders(Split.VALIDATION)
+        return CombinedLoader(self._get_split_to_dls(Split.VALIDATION), mode='sequential')
 
     def test_dataloader(self) -> EVAL_DATALOADERS:
-        return self._dataloaders(Split.TEST)
+        return CombinedLoader(self._get_split_to_dls(Split.TEST), mode='sequential')

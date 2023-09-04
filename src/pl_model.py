@@ -69,18 +69,19 @@ class LitBert(pl.LightningModule):
             ds: Union[IterableDataset, Dataset] = next(splits[s] for s in splits)
             label = ds.features[ds_cfg.label_col]
             if isinstance(label, ClassLabel):
-                self._heads[ds_cfg] = nn.Linear(head_in_dim, label.num_classes)
+                head = nn.Linear(head_in_dim, label.num_classes)
             elif isinstance(label, Sequence):
                 assert (
                     label.length > 0
                 ), f"Expected positive length of label but {label.length=}"
-                self._heads[ds_cfg] = nn.Linear(head_in_dim, label.length)
+                head = nn.Linear(head_in_dim, label.length)
             elif isinstance(label, Value):
-                self._heads[ds_cfg] = nn.Linear(head_in_dim, 1)
+                head = nn.Linear(head_in_dim, 1)
             else:
                 raise NotImplemented()
 
-            self.register_module(ds_cfg.name, self._heads[ds_cfg])
+            self._heads[ds_cfg] = head
+            self.register_module(ds_cfg.name, head)
 
     def forward(self, tokens, mask):
         """Returns predictions per dataset per feature."""
@@ -92,8 +93,14 @@ class LitBert(pl.LightningModule):
         return {ds_cfg: self._heads[ds_cfg](base_out) for ds_cfg in self._heads}
 
     def training_step(self, dl_batches, _):
+        """
+        Runs train loop. This expects multiple dataloaders, i.e. CombinedLoader
+        with mode other than 'sequential'.
+        """
         loss = 0
-        for ds_cfg, batch in dl_batches.item():
+        for ds_cfg, batch in dl_batches.items():
+            if not batch: 
+                continue
             ds_cfg: DatasetConfig
             outputs = self.forward(batch["input_ids"], batch["attention_mask"])
             predictions: torch.Tensor = outputs[ds_cfg]
@@ -113,33 +120,48 @@ class LitBert(pl.LightningModule):
         self.log("train_loss", loss, prog_bar=True, sync_dist=True)
         return loss
 
-    def validation_step(self, batch, batch_idx):
-        for ds_cfg, inner_b in batch.item():
-            ds_cfg: DatasetConfig
-            outputs = self.forward(inner_b["input_ids"], inner_b["attention_mask"])
-            logits = outputs[ds_cfg]
-            probs = F.softmax(logits, dim=-1)
-            predicted_label = probs.argmax(dim=-1)
-            targets = inner_b[ds_cfg.label_col]
-            accuracy = (predicted_label == targets).float().mean()
-            self.log("val_acc", accuracy)
+    def validation_step(self, batch, batch_idx, dataloader_idx: int = 0):
+        """
+        Runs validation loop. This expects multiple dataloaders, i.e. CombinedLoader
+        with the 'sequential' mode.
+        """
+        if not batch:
+            return
+        ds_cfg: DatasetConfig = self._data_module.dataloader_idx_to_config[
+            dataloader_idx
+        ]
+        outputs = self.forward(batch["input_ids"], batch["attention_mask"])
+        logits = outputs[ds_cfg]
+        probs = F.softmax(logits, dim=-1)
+        predicted_label = probs.argmax(dim=-1)
+        targets = batch[ds_cfg.label_col]
+        accuracy = (predicted_label == targets).float().mean()
+        self.log("val_acc", accuracy)
 
-    def test_step(self, batch, batch_idx):
-        for ds_cfg, inner_b in batch.item():
-            tokens = inner_b["input_ids"]
-            masks = inner_b["attention_mask"]
-            targets = inner_b[ds_cfg.label_col]
-            output = self.forward(tokens, masks)
-            logits = output[ds_cfg]
-            probs = F.softmax(logits, dim=-1)
-            predicted_label = probs.argmax(dim=-1)
-            # log the accuracy (this automatically accumulates it over the whole test set)
-            self.log(
-                "test_acc",
-                (predicted_label == targets).float().mean(),
-                prog_bar=True,
-                sync_dist=True,
-            )
+    def test_step(self, batch, batch_idx, dataloader_idx: int = 0):
+        """
+        Runs test loop. This expects multiple dataloaders, i.e. CombinedLoader
+        with the 'sequential' mode.
+        """
+        if not batch:
+            return
+        ds_cfg: DatasetConfig = self._data_module.dataloader_idx_to_config[
+            dataloader_idx
+        ]
+        tokens = batch["input_ids"]
+        masks = batch["attention_mask"]
+        targets = batch[ds_cfg.label_col]
+        output = self.forward(tokens, masks)
+        logits = output[ds_cfg]
+        probs = F.softmax(logits, dim=-1)
+        predicted_label = probs.argmax(dim=-1)
+        # log the accuracy (this automatically accumulates it over the whole test set)
+        self.log(
+            "test_acc",
+            (predicted_label == targets).float().mean(),
+            prog_bar=True,
+            sync_dist=True,
+        )
 
     def configure_optimizers(self):
         # ! FIXME this breaks if you first only train head and then train the whole thing
