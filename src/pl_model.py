@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional, Union
+from typing import Optional, Union, Tuple
 from utils.BrainBiasDataModule import DatasetConfig
 from datasets import (
     Dataset,
@@ -22,13 +22,13 @@ import torch.nn.functional as F
 class AdamWConfig:
     """See https://pytorch.org/docs/stable/generated/torch.optim.AdamW.html"""
 
-    lr = 0.0006538379548447884
+    lr : float = 0.0006538379548447884
 
-    betas = (0.9, 0.999)
+    betas : Tuple[float, float] = (0.9, 0.999)
 
-    eps = 1e-8
+    eps : float = 1e-8
 
-    weight_decay = 1e-2
+    weight_decay : float = 1e-2
 
 
 @dataclass
