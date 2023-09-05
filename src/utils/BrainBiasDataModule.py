@@ -43,6 +43,10 @@ class DatasetConfig:
     """ Configuration of dataset. """
 
     label_col: str = "label"
+    """ Name of the target column. """
+
+    input_col: str = "input"
+    """ Name of the input column. """
 
     loss_fn: str = "cross_entropy"
     """ Loss function as given in torch.nn.functional namespace. """
@@ -138,23 +142,25 @@ class BrainBiasDataModule(LightningDataModule):
     def setup(self, stage):
         """Preprocess datasets splits before creating DataLoaders."""
 
-        def _map(batch):
-            # TODO make sure it doesn't add SEP tokens when there's a full stop
-            d = self._tokenizer(batch["input"], padding="max_length", truncation=False)
-            return d
+        def _create_map(ds_cfg):
+            def map_(batch):
+                # TODO make sure it doesn't add SEP tokens when there's a full stop
+                d = self._tokenizer(batch[ds_cfg.input_col], padding="max_length", truncation=False)
+                return d
+            return map_
 
         def _filter(batch):
             return [
                 len(e) == self._tokenizer.model_max_length for e in batch["input_ids"]
             ]
 
-        for _, splits in self.ds_cfg_to_splits.items():
+        for ds_cfg, splits in self.ds_cfg_to_splits.items():
             for s in splits:
                 if not splits[s]:
                     continue
                 ds: Union[IterableDataset, Dataset] = splits[s]
                 splits[s] = (
-                    ds.map(_map, batched=True, batch_size=10000)
+                    ds.map(_create_map(ds_cfg), batched=True, batch_size=10000)
                     .filter(_filter, batched=True, batch_size=10000)
                     .with_format("torch")
                 )
