@@ -1,1 +1,1 @@
-./run.sh train --max_epochs 100 --ds1.train.batch_size 500 --ds1.validation.batch_size 500 --ds1.test.batch_size 500 --ds1.train.slicing [:50%] --ds1.validation.slicing [:50%] --ds1.test.slicing [:40%] --only_train_heads False --check_val_every_n_epoch 5 --ds2.train.batch_size 5
+./run.sh train --max_epochs 100 --ds1.train.batch_size 500 --ds1.validation.batch_size 500 --ds1.test.batch_size 500 --ds1.train.slicing [:50%] --ds1.validation.slicing [:50%] --ds1.test.slicing [:40%] --train_all True --check_val_every_n_epoch 5 --ds2.train.batch_size 5
