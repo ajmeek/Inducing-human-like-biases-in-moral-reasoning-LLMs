@@ -53,6 +53,8 @@ class PLModelConfig:
 
 
 class PLModel(pl.LightningModule):
+    VAL_ACC = "val_acc"
+
     def __init__(
         self,
         base_model: nn.Module,
@@ -140,7 +142,7 @@ class PLModel(pl.LightningModule):
         predicted_label = probs.argmax(dim=-1)
         targets = batch[ds_cfg.label_col]
         accuracy = (predicted_label == targets).float().mean()
-        self.log("val_acc", accuracy)
+        self.log(PLModel.VAL_ACC, accuracy)
 
     def test_step(self, batch, batch_idx, dataloader_idx: int = 0):
         """

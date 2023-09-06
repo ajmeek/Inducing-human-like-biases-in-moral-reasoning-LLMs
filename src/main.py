@@ -1,4 +1,5 @@
 import lightning.pytorch as pl
+from lightning.pytorch.callbacks import EarlyStopping
 from lightning.pytorch.loggers import WandbLogger
 from datetime import datetime
 from json import loads as jsloads
@@ -31,12 +32,24 @@ def train(context: Context):
     logger.log_hyperparams(jsloads(context.dumps_json()))
 
     # train the model
+    callbacks = []
+    if context.is_early_stop:
+        # Stop when no val accuracy improvement after 100 epochs.
+        callbacks.append(EarlyStopping(
+            PLModel.VAL_ACC,
+            mode='max', 
+            stopping_threshold=0.8,  # Stop if >=0.8
+            min_delta=0.1, # Expect more than 0.1 improvement.
+            patience=100,
+            check_on_train_epoch_end=True
+        ))
     trainer = pl.Trainer(
         accelerator="auto",
         devices="auto",
         strategy="auto",
         logger=logger,
         default_root_dir=context.artifactspath,
+        callbacks=callbacks,
         **vars(context.pltc),
     )
     print("Fitting...")

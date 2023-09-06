@@ -88,6 +88,10 @@ class PLTrainerConfig:
         It will configure a default ModelCheckpoint callback if there is no user-defined ModelCheckpoint in :paramref:`~lightning.pytorch.trainer.trainer.Trainer.callbacks`.
     """
 
+    overfit_batches : Union[int, float] = 0.0
+    ''' Overfit a fraction of training/validation data (float) or a set number of batches (int). '''
+
+
 
 @dataclass
 class Context(Serializable):
@@ -132,6 +136,9 @@ class Context(Serializable):
 
     to_save_model: bool = False
     """ Whether to save checkpoint of the model after the test. """
+
+    is_early_stop : bool =  False
+    """ Monitor validation accuracy and stop when it stops improving. """
 
     def get_ds_configs(self) -> List[DatasetConfig]:
         return [self.ds1, self.ds2]
