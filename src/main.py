@@ -33,15 +33,12 @@ def train(context: Context):
 
     # train the model
     callbacks = []
-    if context.is_early_stop:
+    if context.early_stop_threshold is not None:
         # Stop when no val accuracy improvement after 100 epochs.
         callbacks.append(EarlyStopping(
             PLModel.VAL_ACC,
             mode='max', 
-            stopping_threshold=0.8,  # Stop if >=0.8
-            min_delta=0.1, # Expect more than 0.1 improvement.
-            patience=100,
-            check_on_train_epoch_end=True
+            stopping_threshold=context.early_stop_threshold
         ))
     trainer = pl.Trainer(
         accelerator="auto",

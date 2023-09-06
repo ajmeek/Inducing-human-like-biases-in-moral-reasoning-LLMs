@@ -137,8 +137,11 @@ class Context(Serializable):
     to_save_model: bool = False
     """ Whether to save checkpoint of the model after the test. """
 
-    is_early_stop : bool =  False
-    """ Monitor validation accuracy and stop when it stops improving. """
+    early_stop_threshold : Optional[float] = None
+    """ 
+    Monitor validation accuracy and stop when it reaches the
+    threshold. If not set then no early stopping.
+    """
 
     def get_ds_configs(self) -> List[DatasetConfig]:
         return [self.ds1, self.ds2]
