@@ -54,7 +54,7 @@ def load_LFB_dataset(basedir : Path, sampling_method=Sampling.LAST, subject=None
                     text = scenarios.parse_label(label)
                     if not text:
                         continue
-                    target = _sample_from_bold_sequence(bold[start:end], sampling_method)
+                    target : np.array = _sample_from_bold_sequence(bold[start:end], sampling_method)
                     error_msg = f'expect each sample has its label but ({len(text)=}, {target.shape=})'
                     if target.ndim == 1:
                         assert len(target) == DATA_LENGTH, f"{len(target)=} == {DATA_LENGTH=}"
@@ -64,8 +64,8 @@ def load_LFB_dataset(basedir : Path, sampling_method=Sampling.LAST, subject=None
                             'input': text
                         }
                     else:
-                        assert target.size(0) == len(text), error_msg
-                        for i in range(target.size(0)):
+                        assert target.shape[0] == len(text), error_msg
+                        for i in range(target.shape[0]):
                             assert len(target) == DATA_LENGTH, f"{len(target[i])=} == {DATA_LENGTH=}"
                             yield {
                                 'label': target[i].tolist(),
