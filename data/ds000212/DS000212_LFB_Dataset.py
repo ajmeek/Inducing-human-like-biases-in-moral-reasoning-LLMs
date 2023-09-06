@@ -66,7 +66,7 @@ def load_LFB_dataset(basedir : Path, sampling_method=Sampling.LAST, subject=None
                     else:
                         assert target.shape[0] == len(text), error_msg
                         for i in range(target.shape[0]):
-                            assert len(target) == DATA_LENGTH, f"{len(target[i])=} == {DATA_LENGTH=}"
+                            assert len(target[i]) == DATA_LENGTH, f"{len(target[i])=} == {DATA_LENGTH=}"
                             yield {
                                 'label': target[i].tolist(),
                                 'input': text[i]
