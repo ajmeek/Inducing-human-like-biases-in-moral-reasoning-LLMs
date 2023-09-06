@@ -178,3 +178,10 @@ class PLModel(pl.LightningModule):
         # See BERT: https://github.com/google-research/bert/blob/master/optimization.py#L65
         optimizer = torch.optim.AdamW(self.parameters(), **vars(self._plc.adamw))
         return optimizer
+        # TODO:
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                # See https://lightning.ai/docs/pytorch/stable/common/lightning_module.html#configure-optimizers
+            },
+        }
