@@ -30,6 +30,15 @@ class AdamWConfig:
 
     weight_decay : float = 1e-2
 
+@dataclass 
+class ReduceLROnPlateauConfig:
+
+    patience : int = 10
+    factor : float = 0.1
+    cooldown : int = 100
+    min_lr : float = 1e-10
+    eps : float = 1e-8
+    verbose:bool = True
 
 @dataclass
 class PLModelConfig:
@@ -38,6 +47,17 @@ class PLModelConfig:
 
     adamw: AdamWConfig = AdamWConfig()
     """ See https://pytorch.org/docs/stable/generated/torch.optim.AdamW.html """
+
+    has_ReduceLROnPlateau : bool = True
+
+    reduceLROnPlateau_config : ReduceLROnPlateauConfig = ReduceLROnPlateauConfig()
+
+    lr_scheduler_steps_frequency : int = 3000
+    """
+    How many steps should pass between calls to `scheduler.step()`. 
+    1 corresponds to updating the learning rate after every step.
+    It monitors "train_loss" metric.
+    """
 
     regularize_from_init: Optional[bool] = False
     """Regularize from init (base) model."""
@@ -177,11 +197,20 @@ class PLModel(pl.LightningModule):
         # TODO: Consider exclude Laynorm and other.
         # See BERT: https://github.com/google-research/bert/blob/master/optimization.py#L65
         optimizer = torch.optim.AdamW(self.parameters(), **vars(self._plc.adamw))
-        return optimizer
-        # TODO:
+        if not self._plc.has_ReduceLROnPlateau:
+            return optimizer
+        lr_scheduler_config = {
+            # See https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.core.LightningModule.html#lightning.pytorch.core.LightningModule.configure_optimizers
+
+            "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(
+                optimizer,
+                **vars(self._plc.reduceLROnPlateau_config)
+            ),
+            "interval": "step",
+            "frequency": self._plc.lr_scheduler_steps_frequency,
+            "monitor": "train_loss",
+        }
         return {
             "optimizer": optimizer,
-            "lr_scheduler": {
-                # See https://lightning.ai/docs/pytorch/stable/common/lightning_module.html#configure-optimizers
-            },
+            "lr_scheduler": lr_scheduler_config,
         }

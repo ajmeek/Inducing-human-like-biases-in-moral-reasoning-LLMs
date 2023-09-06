@@ -91,6 +91,11 @@ class PLTrainerConfig:
     overfit_batches : Union[int, float] = 0.0
     ''' Overfit a fraction of training/validation data (float) or a set number of batches (int). '''
 
+    precision : str = "32-true"
+    """
+    Double precision (64, '64' or '64-true'), full precision (32, '32' or '32-true'), 16bit mixed precision (16, '16', '16-mixed') or bfloat16 mixed precision ('bf16', 'bf16-mixed').
+        Can be used on CPU, GPU, TPUs, HPUs or IPUs.
+    """
 
 
 @dataclass
