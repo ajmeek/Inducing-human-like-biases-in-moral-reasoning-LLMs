@@ -2,11 +2,11 @@
     --check_val_every_n_epoch 3 \
     --ds1.name commonsense \
     --ds1.test.slicing '[:0]' \
-    --ds1.train.batch_size 10 \
+    --ds1.train.batch_size 5 \
     --ds1.train.slicing '[:100%]' \
-    --ds1.validation.batch_size 10 \
+    --ds1.validation.batch_size 5 \
     --ds1.validation.slicing '[:100%]' \
-    --ds2.train.batch_size 10 \
+    --ds2.train.batch_size 5 \
     --max_epochs 500 \
     --model_path 'bert-large-cased' \
     --sampling_method SENTENCES \
@@ -18,9 +18,9 @@
     --check_val_every_n_epoch 3 \
     --ds1.name commonsense \
     --ds1.test.slicing '[:0]' \
-    --ds1.train.batch_size 10 \
+    --ds1.train.batch_size 5 \
     --ds1.train.slicing '[:100%]' \
-    --ds1.validation.batch_size 10 \
+    --ds1.validation.batch_size 5 \
     --ds1.validation.slicing '[:100%]' \
     --ds2.enable False \
     --max_epochs 500 \
