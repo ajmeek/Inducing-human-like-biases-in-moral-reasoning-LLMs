@@ -3,12 +3,12 @@
     --ds1.name commonsense \
     --ds1.test.batch_size 20 \
     --ds1.test.slicing '[:100%]' \
-    --ds1.train.batch_size 15 \
+    --ds1.train.batch_size 10 \
     --ds1.train.slicing '[:100%]' \
-    --ds1.validation.batch_size 15 \
+    --ds1.validation.batch_size 10 \
     --ds1.validation.slicing '[:100%]' \
-    --ds2.train.batch_size 15 \
-    --max_epochs 1000 \
+    --ds2.train.batch_size 10 \
+    --max_epochs 500 \
     --model_path 'bert-large-cased' \
     --sampling_method SENTENCES \
     --has_ReduceLROnPlateau False \
@@ -20,12 +20,12 @@
     --ds1.name commonsense \
     --ds1.test.batch_size 20 \
     --ds1.test.slicing '[:100%]' \
-    --ds1.train.batch_size 15 \
+    --ds1.train.batch_size 10 \
     --ds1.train.slicing '[:100%]' \
-    --ds1.validation.batch_size 15 \
+    --ds1.validation.batch_size 10 \
     --ds1.validation.slicing '[:100%]' \
     --ds2.enable False \
-    --max_epochs 1000 \
+    --max_epochs 500 \
     --model_path 'bert-large-cased' \
     --sampling_method SENTENCES \
     --has_ReduceLROnPlateau False \
