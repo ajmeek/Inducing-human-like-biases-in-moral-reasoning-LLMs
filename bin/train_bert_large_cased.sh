@@ -11,7 +11,7 @@
     --model_path 'bert-large-cased' \
     --sampling_method SENTENCES \
     --has_ReduceLROnPlateau False \
-    --lr_scheduler_steps_frequency 3000 \
+    --lr_scheduler_steps_frequency 1500 \
     --train_all True
 
 ./run.sh train \
