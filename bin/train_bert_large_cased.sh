@@ -1,0 +1,16 @@
+./run.sh train \
+    --check_val_every_n_epoch 3 \
+    --ds1.name commonsense \
+    --ds1.test.batch_size 20 \
+    --ds1.test.slicing '[:100%]' \
+    --ds1.train.batch_size 15 \
+    --ds1.train.slicing '[:100%]' \
+    --ds1.validation.batch_size 15 \
+    --ds1.validation.slicing '[:100%]' \
+    --ds2.train.batch_size 15 \
+    --max_epochs 1000 \
+    --model_path 'bert-large-cased' \
+    --sampling_method SENTENCES \
+    --has_ReduceLROnPlateau False \
+    --lr_scheduler_steps_frequency 3000 \
+    --train_all True
