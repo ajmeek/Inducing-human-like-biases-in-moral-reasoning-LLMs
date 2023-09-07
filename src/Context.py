@@ -149,4 +149,4 @@ class Context(Serializable):
     """
 
     def get_ds_configs(self) -> List[DatasetConfig]:
-        return [self.ds1, self.ds2]
+        return [ds for ds in (self.ds1, self.ds2) if ds.enable]

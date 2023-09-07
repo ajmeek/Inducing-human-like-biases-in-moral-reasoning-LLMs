@@ -27,6 +27,7 @@ class SplitConfig:
 
 @dataclass(frozen=True)
 class DatasetConfig:
+
     train: Optional[SplitConfig]
     """ Relates to Split.TRAIN """
 
@@ -35,6 +36,9 @@ class DatasetConfig:
 
     test: Optional[SplitConfig]
     """ Relates to Split.TEST """
+
+    enable : Optional[bool] = True
+    """ Whether to use this dataset."""
 
     path: str = None
     """ Path to a local folder or remote url. """
