@@ -22,23 +22,49 @@ import torch.nn.functional as F
 class AdamWConfig:
     """See https://pytorch.org/docs/stable/generated/torch.optim.AdamW.html"""
 
-    lr : float = 0.0006538379548447884
+    lr: float = 1e-3
+    """ Learn rate. Default for AdamW is 1e-3. """
 
-    betas : Tuple[float, float] = (0.9, 0.999)
+    betas: Tuple[float, float] = (0.9, 0.999)
 
-    eps : float = 1e-8
+    eps: float = 1e-8
 
-    weight_decay : float = 1e-2
+    weight_decay: float = 1e-2
 
-@dataclass 
+
+@dataclass
 class ReduceLROnPlateauConfig:
+    patience: int = 10
+    """ 
+    Number of epochs with no improvement after which learning rate
+    will be reduced. For example, if `patience = 2`, then we will
+    ignore the first 2 epochs with no improvement, and will only decrease 
+    the LR after the 3rd epoch if the loss still hasn't improved then.
+    """
 
-    patience : int = 10
-    factor : float = 0.1
-    cooldown : int = 100
-    min_lr : float = 1e-10
-    eps : float = 1e-8
-    verbose:bool = True
+    factor: float = 0.1
+    """
+    Factor by which the learning rate will be reduced. new_lr = lr * factor.
+    """
+
+    cooldown: int = 0
+    """
+    Number of epochs to wait before resuming normal operation after 
+    lr has been reduced.
+    """
+
+    min_lr: float = 0
+    """
+    A scalar or a list of scalars. A lower bound on the learning rate
+    of all param groups or each group respectively.
+    """
+    eps: float = 1e-8
+    """
+    Minimal decay applied to lr. If the difference between new and old lr
+    is smaller than eps, the update is ignored. 
+    """
+    verbose: bool = True
+
 
 @dataclass
 class PLModelConfig:
@@ -48,16 +74,17 @@ class PLModelConfig:
     adamw: AdamWConfig = AdamWConfig()
     """ See https://pytorch.org/docs/stable/generated/torch.optim.AdamW.html """
 
-    has_ReduceLROnPlateau : bool = True
+    has_ReduceLROnPlateau: bool = True
 
-    reduceLROnPlateau_config : ReduceLROnPlateauConfig = ReduceLROnPlateauConfig()
+    reduceLROnPlateau_config: ReduceLROnPlateauConfig = ReduceLROnPlateauConfig()
 
-    lr_scheduler_steps_frequency : int = 3000
+    lr_scheduler_frequency: Optional[int] = 10
     """
-    How many steps should pass between calls to `scheduler.step()`. 
-    1 corresponds to updating the learning rate after every step.
-    It monitors "train_loss" metric.
+    How many intervals (step/epoch) should pass. 1 corresponds to updating the 
+    learning rate after every step/epoch.  It monitors "train_loss" metric.
     """
+
+    lr_scheduler_interval : Optional[str] = 'epoch'
 
     regularize_from_init: Optional[bool] = False
     """Regularize from init (base) model."""
@@ -201,13 +228,11 @@ class PLModel(pl.LightningModule):
             return optimizer
         lr_scheduler_config = {
             # See https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.core.LightningModule.html#lightning.pytorch.core.LightningModule.configure_optimizers
-
             "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(
-                optimizer,
-                **vars(self._plc.reduceLROnPlateau_config)
+                optimizer, **vars(self._plc.reduceLROnPlateau_config)
             ),
-            "interval": "step",
-            "frequency": self._plc.lr_scheduler_steps_frequency,
+            "interval": self._plc.lr_scheduler_interval,
+            "frequency": self._plc.lr_scheduler_frequency,
             "monitor": "train_loss",
         }
         return {

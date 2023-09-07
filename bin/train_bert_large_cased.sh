@@ -7,11 +7,14 @@
     --ds1.validation.batch_size 5 \
     --ds1.validation.slicing '[:100%]' \
     --ds2.train.batch_size 5 \
-    --max_epochs 500 \
+    --has_ReduceLROnPlateau False \
+    --lr 2e-3 \
+    --lr_scheduler_frequency 10 \
+    --lr_scheduler_interval epoch \
+    --max_epochs 1000 \
     --model_path 'bert-large-cased' \
     --sampling_method SENTENCES \
-    --has_ReduceLROnPlateau False \
-    --lr_scheduler_steps_frequency 1500 \
+    --to_save_model True \
     --train_all True
 
 ./run.sh train \
@@ -23,9 +26,12 @@
     --ds1.validation.batch_size 5 \
     --ds1.validation.slicing '[:100%]' \
     --ds2.enable False \
-    --max_epochs 500 \
+    --has_ReduceLROnPlateau False \
+    --lr 2e-3 \
+    --lr_scheduler_frequency 10 \
+    --lr_scheduler_interval epoch \
+    --max_epochs 1000 \
     --model_path 'bert-large-cased' \
     --sampling_method SENTENCES \
-    --has_ReduceLROnPlateau False \
-    --lr_scheduler_steps_frequency 1500 \
+    --to_save_model False \
     --train_all True
