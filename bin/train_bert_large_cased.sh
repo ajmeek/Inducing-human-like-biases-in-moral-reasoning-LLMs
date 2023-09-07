@@ -1,8 +1,7 @@
 ./run.sh train \
     --check_val_every_n_epoch 3 \
     --ds1.name commonsense \
-    --ds1.test.batch_size 20 \
-    --ds1.test.slicing '[:100%]' \
+    --ds1.test.slicing '[:0]' \
     --ds1.train.batch_size 10 \
     --ds1.train.slicing '[:100%]' \
     --ds1.validation.batch_size 10 \
@@ -18,8 +17,7 @@
 ./run.sh train \
     --check_val_every_n_epoch 3 \
     --ds1.name commonsense \
-    --ds1.test.batch_size 20 \
-    --ds1.test.slicing '[:100%]' \
+    --ds1.test.slicing '[:0]' \
     --ds1.train.batch_size 10 \
     --ds1.train.slicing '[:100%]' \
     --ds1.validation.batch_size 10 \
@@ -29,5 +27,5 @@
     --model_path 'bert-large-cased' \
     --sampling_method SENTENCES \
     --has_ReduceLROnPlateau False \
-    --lr_scheduler_steps_frequency 3000 \
+    --lr_scheduler_steps_frequency 1500 \
     --train_all True
