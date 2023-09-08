@@ -1,9 +1,10 @@
 
 if [[ "${VAST_CONTAINERLABEL:-}" != "" ]] ; then
+    apt install nnn htop neovim  # Handy tools.
+    pip install vastai
     _mamba
     mamba env create --force -n $PYTHON_ENV_NAME -f environment-cuda.yml
     apt install netbase  # To enable /etc/protocols which is required by git-annex.
-    pip install vastai
     mamba activate $PYTHON_ENV_NAME
     echo Done
 else 
