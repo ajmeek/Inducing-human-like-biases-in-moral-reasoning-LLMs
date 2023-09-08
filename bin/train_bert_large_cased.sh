@@ -14,7 +14,7 @@
     --max_epochs 1000 \
     --model_path 'bert-large-cased' \
     --sampling_method SENTENCES \
-    --enable_checkpointing True \ 
+    --enable_checkpointing True \
     --train_all True
 
 ./run.sh train \
@@ -33,7 +33,7 @@
     --max_epochs 1000 \
     --model_path 'bert-large-cased' \
     --sampling_method SENTENCES \
-    --enable_checkpointing True \ 
+    --enable_checkpointing True \
     --train_all True
 
 
