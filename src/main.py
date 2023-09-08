@@ -1,5 +1,5 @@
 import lightning.pytorch as pl
-from lightning.pytorch.callbacks import EarlyStopping
+from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
 from lightning.pytorch.loggers import WandbLogger
 from datetime import datetime
 from json import loads as jsloads
@@ -39,6 +39,16 @@ def train(context: Context):
             PLModel.VAL_ACC,
             mode='max', 
             stopping_threshold=context.early_stop_threshold
+        ))
+    if context.pltc.enable_checkpointing:
+        callbacks.append(ModelCheckpoint(
+            monitor=PLModel.VAL_ACC,
+            dirpath=Context.artifactspath,
+            verbose=True,
+            mode="max",
+            auto_insert_metric_name=True,
+            every_n_epochs=3,
+            save_top_k=1
         ))
     trainer = pl.Trainer(
         accelerator="auto",
