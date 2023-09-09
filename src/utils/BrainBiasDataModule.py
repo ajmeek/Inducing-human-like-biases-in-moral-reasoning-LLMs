@@ -27,7 +27,6 @@ class SplitConfig:
 
 @dataclass(frozen=True)
 class DatasetConfig:
-
     train: Optional[SplitConfig]
     """ Relates to Split.TRAIN """
 
@@ -37,7 +36,7 @@ class DatasetConfig:
     test: Optional[SplitConfig]
     """ Relates to Split.TEST """
 
-    enable : Optional[bool] = True
+    enable: Optional[bool] = True
     """ Whether to use this dataset."""
 
     path: str = None
@@ -141,7 +140,7 @@ class BrainBiasDataModule(LightningDataModule):
         module = path.parts[-1]
         if not path in sys.path:
             sys.path.append(str(path.parent))
-        #module_name = path.parts[-1]
+        # module_name = path.parts[-1]
         return importlib.import_module(f"{module}.{module}")
 
     def setup(self, stage):
@@ -150,8 +149,11 @@ class BrainBiasDataModule(LightningDataModule):
         def _create_map(ds_cfg):
             def map_(batch):
                 # TODO make sure it doesn't add SEP tokens when there's a full stop
-                d = self.tokenizer(batch[ds_cfg.input_col], padding="max_length", truncation=False)
+                d = self.tokenizer(
+                    batch[ds_cfg.input_col], padding="max_length", truncation=False
+                )
                 return d
+
             return map_
 
         def _filter(batch):
