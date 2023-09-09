@@ -88,13 +88,28 @@ class PLTrainerConfig:
         It will configure a default ModelCheckpoint callback if there is no user-defined ModelCheckpoint in :paramref:`~lightning.pytorch.trainer.trainer.Trainer.callbacks`.
     """
 
-    overfit_batches : Union[int, float] = 0.0
-    ''' Overfit a fraction of training/validation data (float) or a set number of batches (int). '''
+    overfit_batches: Union[int, float] = 0.0
+    """ Overfit a fraction of training/validation data (float) or a set number of batches (int). """
 
-    precision : str = "32-true"
+    precision: str = "32-true"
     """
     Double precision (64, '64' or '64-true'), full precision (32, '32' or '32-true'), 16bit mixed precision (16, '16', '16-mixed') or bfloat16 mixed precision ('bf16', 'bf16-mixed').
         Can be used on CPU, GPU, TPUs, HPUs or IPUs.
+    """
+
+    limit_train_batches: Optional[Union[int, float]] = 1.0
+    """
+    How much of training dataset to check (float = fraction, int = num_batches).
+    """
+
+    limit_val_batches: Optional[Union[int, float]] = 1.0
+    """
+    How much of validation dataset to check (float = fraction, int = num_batches).
+    """
+
+    limit_test_batches: Optional[Union[int, float]] = 1.0
+    """
+        How much of test dataset to check (float = fraction, int = num_batches).
     """
 
 
@@ -142,7 +157,7 @@ class Context(Serializable):
     to_save_model: bool = False
     """ Whether to save checkpoint of the model after the test. """
 
-    early_stop_threshold : Optional[float] = None
+    early_stop_threshold: Optional[float] = None
     """ 
     Monitor validation accuracy and stop when it reaches the
     threshold. If not set then no early stopping.
