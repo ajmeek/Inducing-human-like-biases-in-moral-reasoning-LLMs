@@ -1,6 +1,8 @@
 from csv import DictReader
 from pathlib import Path
-from constants import Sampling
+from typing import List
+from .constants import Sampling
+
 
 class DS000212Scenarios(object):
     event_to_scenario = {
@@ -16,46 +18,33 @@ class DS000212Scenarios(object):
         "J_NI": ("intentional", "Neutral"),
     }
 
-    def __init__(self, scenarios_csv, sampling : Sampling) -> None:
+    def __init__(self, scenarios_csv, sampling: Sampling) -> None:
         self._init_scenarios(scenarios_csv)
         self._sampling = sampling
 
     def _init_scenarios(self, scenarios_csv: Path):
         self._scenarios = []
-        with open(scenarios_csv, newline='', encoding='utf-8') as csvfile:
+        with open(scenarios_csv, newline="", encoding="utf-8") as csvfile:
             reader = DictReader(csvfile)
             for row in reader:
                 self._scenarios.append(row)
 
-    def parse_label(self, label) -> list[str]:
-        condition, item, key = label
+    def parse_label(self, condition : str, item : int) -> List[str]:
         if condition not in DS000212Scenarios.event_to_scenario:
             return None
-        skind, stype = DS000212Scenarios.event_to_scenario[condition]
-        found = [s for s in self._scenarios if s['item'] == item]
+        a_or_i, stype = DS000212Scenarios.event_to_scenario[condition]
+        assert a_or_i in ('accidental', 'intentional')
+        found = next((s for s in self._scenarios if s["item"] == str(item)), None)
         if not found:
             return None
-        found = found[0]
-        assert found['type'] == stype, f"Scenario with {item} item does not match the '{stype}' expected type. Scenario: {found}. Event: {event}."
+        assert (
+            found["type"] == stype
+        ), f"Scenario with {item} item does not match the '{stype}' expected type. Scenario: {found}."
 
-        part_names = ['background', 'action', 'outcome', skind]
-        parts = [
-            ' '.join(
-                found[k] for k in part_names[:num]
-            )
-            for num in range(4)
-        ]
+        part_names = ["background", "action", "outcome", a_or_i]
         if self._sampling in Sampling.ONE_POINT_METHODS:
-            len_intervals = 1
+            return " ".join(found[k] for k in part_names)
         elif self._sampling == Sampling.SENTENCES:
-            len_intervals = 4
+            return [" ".join(found[k] for k in part_names[:num]) for num in range(1, 5)]
         else:
             raise NotImplementedError()
-        if len_intervals == 1:
-            return parts[3]
-        elif len_intervals == 2:
-            return [parts[1], parts[3]]
-        elif len_intervals == 4:
-            return parts
-        else:
-            raise ValueError(f"Unexpected length of intervals: {len_intervals}")

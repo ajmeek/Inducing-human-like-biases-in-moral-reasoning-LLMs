@@ -95,7 +95,7 @@ class BrainBiasDataModule(LightningDataModule):
     def __init__(self, ds_configs: List[DatasetConfig], tokenizer) -> None:
         super().__init__()
         self._ds_configs = ds_configs
-        self._tokenizer = tokenizer
+        self.tokenizer = tokenizer
         self.dataloader_idx_to_config = []
         self._load_datasets()
 
@@ -138,10 +138,11 @@ class BrainBiasDataModule(LightningDataModule):
         path = Path(dsconfig.path)
         assert path.exists() and path.is_dir()
         path = path.resolve()
+        module = path.parts[-1]
         if not path in sys.path:
-            sys.path.append(str(path))
-        module_name = path.parts[-1]
-        return importlib.import_module(module_name)
+            sys.path.append(str(path.parent))
+        #module_name = path.parts[-1]
+        return importlib.import_module(f"{module}.{module}")
 
     def setup(self, stage):
         """Preprocess datasets splits before creating DataLoaders."""
@@ -149,13 +150,13 @@ class BrainBiasDataModule(LightningDataModule):
         def _create_map(ds_cfg):
             def map_(batch):
                 # TODO make sure it doesn't add SEP tokens when there's a full stop
-                d = self._tokenizer(batch[ds_cfg.input_col], padding="max_length", truncation=False)
+                d = self.tokenizer(batch[ds_cfg.input_col], padding="max_length", truncation=False)
                 return d
             return map_
 
         def _filter(batch):
             return [
-                len(e) == self._tokenizer.model_max_length for e in batch["input_ids"]
+                len(e) == self.tokenizer.model_max_length for e in batch["input_ids"]
             ]
 
         for ds_cfg, splits in self.ds_cfg_to_splits.items():
