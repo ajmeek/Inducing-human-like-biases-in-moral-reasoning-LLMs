@@ -1,12 +1,9 @@
 
 .ONESHELL:
 
-py = python3
-niigz_script = ./bin/ds000212prep_process_niigz.py
-target_name = $(TARGET_DS_NAME)
-source_name = $(SOURCE_DS_NAME)
-target_dir = $(AISCBB_DATA_DIR)/$(target_name)
-source_dir = $(AISCBB_DATA_DIR)/$(source_name)
+niigz_script = ./ds000212prep_process_niigz.py
+target_dir = $(TARGET_DS_NAME)
+source_dir = $(SOURCE_DS_NAME)
 brain_source_niigz_files = $(wildcard $(source_dir)/sub-*/func/sub*dis_run*_res-2_desc-preproc_bold.nii.gz)
 target_files = $(patsubst $(source_dir)%.nii.gz,$(target_dir)%.npz,$(brain_source_niigz_files))
 
@@ -29,7 +26,7 @@ $(target_dir)%.npz : $(source_dir)%.nii.gz
 
 	to_npz=$@
 	mkdir -p "$$( dirname $$to_npz )"
-	$(py) $(niigz_script) "$$brain_niigz" "$$mask_niigz" "$$to_npz"
+	python3 $(niigz_script) "$$brain_niigz" "$$mask_niigz" "$$to_npz"
 	
 	datalad drop "$$brain_niigz"
 	datalad drop "$$brain_json"

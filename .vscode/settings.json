@@ -2,5 +2,15 @@
 	"[makefile]": {
 		"editor.insertSpaces": false,
 		"editor.detectIndentation": false
-	}
+	},
+	"[python]": {
+		"editor.defaultFormatter": "ms-python.black-formatter"
+	},
+	"python.formatting.provider": "none",
+	"python.testing.pytestArgs": [
+		"tests"
+	],
+	"python.testing.unittestEnabled": false,
+	"python.testing.pytestEnabled": true,
+	"python.analysis.inlayHints.pytestParameters": false
 }
