@@ -121,7 +121,7 @@ class Context(Serializable):
      """
 
     ds1: HFDatasetConfig = HFDatasetConfig(
-        path="hendrycks/ethics",
+        path="../../hendrycks/ethics",
         name="commonsense",
         revision="refs/pr/3",
         train=SplitConfig(batch_size=50, shuffle=True, slicing="[:100]"),
@@ -132,7 +132,7 @@ class Context(Serializable):
 
     ds2: FMRIDatasetConfig = field(
         default_factory=lambda: FMRIDatasetConfig(
-            path="data/ds000212",
+            path="../../data/ds000212",
             name="learning_from_brains",
             sampling_method="LAST",
             train=SplitConfig(batch_size=2, shuffle=False),
