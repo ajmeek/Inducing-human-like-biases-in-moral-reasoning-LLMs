@@ -4,7 +4,7 @@
 
 # Modified version to use on UD HPC cluster.
 
-USAGE=`cat README.md`
+USAGE=`cat ../../README.md`
 
 set -euo pipefail
 IFS=$'\n\t'
