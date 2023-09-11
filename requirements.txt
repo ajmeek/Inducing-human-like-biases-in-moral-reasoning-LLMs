@@ -5,7 +5,7 @@ ipywidgets
 lightning
 nibabel
 nilearn
-numpy==1.25.*
+numpy==1.24.4
 pybids
 pynvml
 pyparsing
