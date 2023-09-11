@@ -28,7 +28,7 @@ export PYTHON_ENV_NAME=brainbias
 
 function datasets() {
     echo cwd: $(pwd)
-    ./data/ds000212/make.sh "$@"
+    ../../data/ds000212/make.sh "$@"
 }
 
 function train() {
