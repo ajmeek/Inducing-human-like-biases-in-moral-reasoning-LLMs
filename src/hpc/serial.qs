@@ -16,3 +16,5 @@ source activate /work/cniel/ajmeek/AISC_LLM_Brain_Bias/venv/
 # Run bash / python script below
 # 'python main.py ... etc' or just 'run.sh'
 # or now, run_ud_hpc.sh
+
+python ../../run.sh
