@@ -121,7 +121,7 @@ class Context(Serializable):
      """
 
     ds1: HFDatasetConfig = HFDatasetConfig(
-        path="../../hendrycks/ethics",
+        path="hendrycks/ethics", #should be ../.. from hpc script directory
         name="commonsense",
         revision="refs/pr/3",
         train=SplitConfig(batch_size=50, shuffle=True, slicing="[:100]"),
