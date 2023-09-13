@@ -211,6 +211,10 @@ if __name__ == '__main__':
 
         # Load our custom pre-trained model on ETHICS and fMRI data.
 
+
+        # Note 13/9 why do the train head dimensions have 2,1024 instead of just 1024?
+        # want to switch this to using the context structure that Artyom defined.
+
         # Warning - training head dims should match difumo resolution
         train_head_dims = [2, 1024]
         model = AutoModel.from_pretrained(checkpoint_name)
