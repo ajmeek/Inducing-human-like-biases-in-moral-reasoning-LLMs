@@ -25,7 +25,7 @@ export PYTHON_ENV_NAME=brainbias
 
 
 function datasets() {
-    source ./bin/_datasets.sh "$@"
+    ./data/ds000212/make.sh "$@"
 }
 
 function train() {
@@ -33,12 +33,14 @@ function train() {
 }
 
 function _mamba() {
-    if ! which mamba ; then
+    export MAMBA_SH="${HOME}/mambaforge/etc/profile.d/conda.sh"
+    if [[ ! -e $MAMBA_SH ]] ; then
+        echo 'Installing Mamba...'
         wget "https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-$(uname)-$(uname -m).sh"
         bash Mambaforge-$(uname)-$(uname -m).sh
         rm  Mambaforge-$(uname)-$(uname -m).sh
-        source ~/.bashrc  # To get `mamba` command.
     fi
+    source $MAMBA_SH 
 }
 
 function local() {

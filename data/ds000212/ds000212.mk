@@ -3,21 +3,22 @@
 
 .ONESHELL:
 
-niigz_script = bin/ds000212_process_niigz.py
-target_name = $(TARGET_DS_NAME)
-source_name = $(SOURCE_DS_NAME)
-target_dir = $(AISCBB_DATA_DIR)/$(target_name)
-source_dir = $(AISCBB_DATA_DIR)/$(source_name)
+niigz_script = ./ds000212_process_niigz.py
+target_dir = $(TARGET_DS_NAME)
+source_dir = $(SOURCE_DS_NAME)
+
 # Only for 'dis' files:
 source_files = $(wildcard $(source_dir)/sub-*/func/*dis_run*.nii.gz)
+
 # Use existent files to get names for npz files 
 # because just using wildcard '*' wont' resolve into anything.
 target_files = $(patsubst $(source_dir)%.nii.gz,$(target_dir)%.npz,$(source_files))
+
 # Normilized targets to signal that a .npz file was normilized.
 normalized_targets = $(subst .npz,-normalized,$(target_files))
 procesed_file = $(target_dir)/processed
-# Default task. Finish when all .npz files are normilized.
 
+# Default task. Finish when all .npz files are normilized.
 all : $(normalized_targets)
 
 $(normalized_targets) : $(procesed_file) 
@@ -25,7 +26,7 @@ $(normalized_targets) : $(procesed_file)
 # Task to run when all target .npz files were converted from .nii.gz.
 # The task run per each target file is defined in a pattern rule.
 $(procesed_file) : $(target_files)
-    # This gets max value for the second dim among all .npz files:
+	# This gets max value for the second dim among all .npz files:
 	cat $(target_dir)/sub*/func/*-description.txt \
 	 | sed -En '/data shape/s_.*\([0-9]+, *([0-9]+)\)_\1_p'  \
 	 | sort -n -r \
@@ -49,7 +50,7 @@ $(target_dir)%.npz : $(source_dir)%.nii.gz
 # Static pattern rule to run per each .npz file to get it normalized.
 $(target_dir)%-normalized : $(target_dir)%.npz 
 	max_len=$$( cat $(procesed_file) )
-	python3 bin/normalize.py $$max_len "$<" "$@"
+	python3 ./normalize.py $$max_len "$<" "$@"
 	
  $(source_dir)%.nii.gz :
 	datalad get "$@"

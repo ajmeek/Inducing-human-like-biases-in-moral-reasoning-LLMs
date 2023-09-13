@@ -1,94 +1,227 @@
-from typing import Literal, Any, Optional
+from dataclasses import dataclass
+from typing import Optional, Union, Tuple
+from utils.BrainBiasDataModule import DatasetConfig
+from datasets import (
+    Dataset,
+    IterableDataset,
+    ClassLabel,
+    Value,
+    ClassLabel,
+    Sequence,
+)
+from utils.BrainBiasDataModule import BrainBiasDataModule
+from torch.optim.lr_scheduler import StepLR, ConstantLR, SequentialLR
+
+import copy
+import lightning.pytorch as pl
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from lightning.pytorch.utilities.types import STEP_OUTPUT
-import copy
-
-import lightning.pytorch as pl
 
 
-# lightning wrapper for training (scaling, parallelization etc)
-class LitBert(pl.LightningModule):
-    def __init__(self, model: nn.Module, config : dict):
+@dataclass
+class AdamWConfig:
+    """See https://pytorch.org/docs/stable/generated/torch.optim.AdamW.html"""
+
+    lr: float = 5e-2
+    """ Learn rate. """
+
+    betas: Tuple[float, float] = (0.9, 0.999)
+
+    eps: float = 1e-8
+
+    weight_decay: float = 1e-2
+
+
+@dataclass
+class PLModelConfig:
+    train_all: bool = False
+    """ Train only attached head(s) or model and all heads. """
+
+    adamw: AdamWConfig = AdamWConfig()
+    """ See https://pytorch.org/docs/stable/generated/torch.optim.AdamW.html """
+
+    has_learning_rate_decay: bool = True
+    """ If to use LR linear decay. """
+
+    before_lr_decay_warm_up_steps: Optional[int] = 10_000
+    """ Steps before running linear LR decay. """
+
+    regularize_from_init: Optional[bool] = False
+    """Regularize from init (base) model."""
+
+    regularization_coef: Optional[float] = 0.1
+    """Regularization from init coef."""
+
+    token_location: int = 0
+    """ 
+    Which token to use for prediction. Example: 0 - to take 
+    [CLS] token for BERT like models.
+    """
+
+    stepLR_gamma: Optional[float] = 0.99
+    """ Multiplicative factor of learning rate decay. """
+
+    stepLR_step_size: Optional[int] = 10
+    """ Period of learning rate decay."""
+
+
+class PLModel(pl.LightningModule):
+    VAL_ACC = "val_acc"
+
+    def __init__(
+        self,
+        base_model: nn.Module,
+        plc: PLModelConfig,
+        data_module: BrainBiasDataModule,
+    ):
         super().__init__()
-        self.model = model
-        self.config = config
-        self.loss_names = config['loss_names']
-        self.loss_weights = config['loss_weights'] or [1 for _ in self.loss_names]
-        self.regularize_from_init = config['regularize_from_init']
-        self.regularization_coef = config['regularization_coef']
-        # store the initial weights of the model (used for regularization)
-        # note that we're not applying the regularization to the heads
-        self.init_params = copy.deepcopy([p for p in model.base.parameters()])
-        self.dataset_names = config['train_datasets']
+        self._base_model = base_model
+        self._plc = plc
+        self._data_module = data_module
+        if self._plc.regularize_from_init:
+            self._init_params = copy.deepcopy([p for p in base_model.parameters()])
+        self._init_heads()
 
-    def training_step(self, batch, _):
-        loss = 0
-        # Batch has now multiple dataloaders (can also still be 1)
-        for index, dataloader in enumerate(batch):
-            tokens, mask, target = dataloader
-            predictions = self.model(tokens, mask)[index]
-
-            # Compute weighted and summed loss
-            loss_weight = self.loss_weights[index]
-            loss_name = self.loss_names[index]
-            if loss_name == 'cross-entropy':
-                loss += loss_weight * F.cross_entropy(predictions, target)
-            elif loss_name == 'mse':
-                loss += loss_weight * F.mse_loss(predictions, target)
+    def _init_heads(self):
+        self._heads = {}
+        head_in_dim = self._base_model.config.hidden_size
+        ds_cfg: DatasetConfig
+        for ds_cfg, splits in self._data_module.ds_cfg_to_splits.items():
+            ds: Union[IterableDataset, Dataset] = next(splits[s] for s in splits)
+            label = ds.features[ds_cfg.label_col]
+            if isinstance(label, ClassLabel):
+                head = nn.Linear(head_in_dim, label.num_classes)
+            elif isinstance(label, Sequence):
+                assert (
+                    label.length > 0
+                ), f"Expected positive length of label but {label.length=}"
+                head = nn.Linear(head_in_dim, label.length)
+            elif isinstance(label, Value):
+                head = nn.Linear(head_in_dim, 1)
             else:
-                print(f"\n\nUnsupported loss name {loss_name}\n")
+                raise NotImplemented()
 
-        if self.regularize_from_init:
-            # add regularization from the initial weights
-            # (encourages staying closer to the pretrained base model weights)
+            self._heads[ds_cfg] = head
+            self.register_module(ds_cfg.name, head)
+
+    def forward(self, tokens, mask):
+        """Returns predictions per dataset per feature."""
+        base_out = self._base_model(tokens, mask)
+        base_out = base_out.last_hidden_state
+        base_out = base_out[:, self._plc.token_location, :]
+        return {ds_cfg: self._heads[ds_cfg](base_out) for ds_cfg in self._heads}
+
+    def training_step(self, dl_batches, _):
+        """
+        Runs train loop. This expects multiple dataloaders, i.e. CombinedLoader
+        with mode other than 'sequential'.
+        """
+        loss = 0
+        total_batch_size = 0
+        for ds_cfg, batch in dl_batches.items():
+            ds_cfg: DatasetConfig
+            if not batch:
+                continue
+            outputs = self.forward(batch["input_ids"], batch["attention_mask"])
+            predictions: torch.Tensor = outputs[ds_cfg]
+            targets = batch[ds_cfg.label_col]
+            loss_fn = vars(F)[ds_cfg.loss_fn]
+            loss += loss_fn(predictions, targets)
+            total_batch_size += ds_cfg.train.batch_size
+
+        if self._plc.regularize_from_init:
             reg_loss = 0
-            params = self.model.base.parameters()
-            for w, w0 in zip(params, self.init_params):
+            params = self._base_model.parameters()
+            for w, w0 in zip(params, self._init_params):
                 w0 = w0.to(w.device)
                 reg_loss += torch.pow(w - w0, 2).sum()
-            loss += self.regularization_coef * reg_loss
+            loss += self._plc.regularization_coef * reg_loss
 
         # log and return
-        self.log("train_loss", loss, prog_bar=True, sync_dist=True)
+        self.log(
+            "train_loss",
+            loss,
+            prog_bar=True,
+            sync_dist=True,
+            batch_size=total_batch_size,
+        )
+        self.optimizers
         return loss
 
     def validation_step(self, batch, batch_idx, dataloader_idx: int = 0):
-        dataset_name = self.dataset_names[dataloader_idx]
-        if dataset_name.startswith('ethics'):
-            return self.test_step(batch, batch_idx, dataloader_idx)
-        elif dataset_name == 'ds000212':
-            tokens, mask, target = batch
-            predictions = self.model(tokens, mask)[dataloader_idx]
-            mse_loss = F.mse_loss(predictions, target)
-            self.log("val_mse", mse_loss, prog_bar=True)
-            return mse_loss
+        """
+        Runs validation loop. This expects multiple dataloaders, i.e. CombinedLoader
+        with the 'sequential' mode.
+        """
+        if not batch:
+            return
+        ds_cfg: DatasetConfig = self._data_module.dataloader_idx_to_config[
+            dataloader_idx
+        ]
+        outputs = self.forward(batch["input_ids"], batch["attention_mask"])
+        logits = outputs[ds_cfg]
+        probs = F.softmax(logits, dim=-1)
+        predicted_label = probs.argmax(dim=-1)
+        targets = batch[ds_cfg.label_col]
+        accuracy = (predicted_label == targets).float().mean()
+        self.log(PLModel.VAL_ACC, accuracy)
 
     def test_step(self, batch, batch_idx, dataloader_idx: int = 0):
-        tokens, mask, target = batch
-        predictions = self.model(tokens, mask)
-        logits = predictions[0]  # Note: take the first, so we use the ETHICS head to predict.
-
+        """
+        Runs test loop. This expects multiple dataloaders, i.e. CombinedLoader
+        with the 'sequential' mode.
+        """
+        if not batch:
+            return
+        ds_cfg: DatasetConfig = self._data_module.dataloader_idx_to_config[
+            dataloader_idx
+        ]
+        tokens = batch["input_ids"]
+        masks = batch["attention_mask"]
+        targets = batch[ds_cfg.label_col]
+        output = self.forward(tokens, masks)
+        logits = output[ds_cfg]
         probs = F.softmax(logits, dim=-1)
         predicted_label = probs.argmax(dim=-1)
         # log the accuracy (this automatically accumulates it over the whole test set)
-        self.log("test_acc", (predicted_label == target).float().mean(), prog_bar=True, sync_dist=True)
-        return predicted_label
-
-    def predict_step(self, batch: Any, batch_idx: int, dataloader_idx: int = 0):
-        tokens, mask, target, dataset_index = batch
-        predictions = self.model(tokens, mask)
-        logits = predictions[dataset_index[0].item()]
-        return F.softmax(logits, dim=-1)
+        self.log(
+            "test_acc",
+            (predicted_label == targets).float().mean(),
+            prog_bar=True,
+            sync_dist=True,
+        )
 
     def configure_optimizers(self):
         # ! FIXME this breaks if you first only train head and then train the whole thing
-        if self.config['only_train_head']:
-            for param in self.model.base.parameters():
+        if not self._plc.train_all:
+            for param in self._base_model.parameters():
                 param.requires_grad = False
-        optimizer = torch.optim.AdamW(
-            self.parameters(),
-            lr=self.config['lr']
-        )
+        # TODO: Consider exclude Laynorm and other.
+        # See BERT: https://github.com/google-research/bert/blob/master/optimization.py#L65
+        optimizer = torch.optim.AdamW(self.parameters(), **vars(self._plc.adamw))
+        if self._plc.has_learning_rate_decay:
+            constantlr = ConstantLR(
+                optimizer,
+                factor=1.0,
+                total_iters=self._plc.before_lr_decay_warm_up_steps,
+            )
+            llr = StepLR(
+                optimizer,
+                gamma=self._plc.stepLR_gamma,
+                step_size=self._plc.stepLR_step_size,
+            )
+            return {
+                "optimizer": optimizer,
+                "lr_scheduler": {
+                    "scheduler": SequentialLR(
+                        optimizer,
+                        schedulers=[constantlr, llr],
+                        milestones=[self._plc.before_lr_decay_warm_up_steps],
+                    ),
+                    "interval": "step",
+                    "frequency": 1,
+                    "monitor": "train_loss",
+                },
+            }
         return optimizer
