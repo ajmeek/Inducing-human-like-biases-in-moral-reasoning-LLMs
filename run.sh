@@ -25,7 +25,7 @@ export PYTHON_ENV_NAME=brainbias
 
 
 function datasets() {
-    source ./bin/_datasets.sh "$@"
+    ./data/ds000212/make.sh "$@"
 }
 
 function train() {
@@ -37,7 +37,7 @@ function _mamba() {
         wget "https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-$(uname)-$(uname -m).sh"
         bash Mambaforge-$(uname)-$(uname -m).sh
         rm  Mambaforge-$(uname)-$(uname -m).sh
-        source ~/.bashrc  # To get `mamba` command.
+        echo "Please re-enter into your shell to activate Mamba. Then run again ./run.sh vast"
     fi
 }
 

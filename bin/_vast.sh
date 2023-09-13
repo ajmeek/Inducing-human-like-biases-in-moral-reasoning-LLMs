@@ -1,13 +1,14 @@
 
 if [[ "${VAST_CONTAINERLABEL:-}" != "" ]] ; then
+    apt install nnn htop neovim  # Handy tools.
+    pip install vastai
     _mamba
     mamba env create --force -n $PYTHON_ENV_NAME -f environment-cuda.yml
     apt install netbase  # To enable /etc/protocols which is required by git-annex.
-    pip install vastai
     mamba activate $PYTHON_ENV_NAME
     echo Done
 else 
-    [[ $# -eq 0 ]] && ( echo 'Usage: run.sh vast <GIT_TOKEN> <SSH_CONNECT_COMMAND>'  ; exit 1 )
+    [[ $# -le 1 ]] && ( echo 'Usage: run.sh vast <GIT_TOKEN> <SSH_CONNECT_COMMAND>'  ; exit 1 )
     GIT_TOKEN=$1
     shift 1
     SSH_CMD=$*
@@ -22,5 +23,5 @@ else
     echo 'Clonning...'
     git clone -b $GITBRANCH https://$GIT_TOKEN@$GIT_REMOTE $CLONEDIR
 EOF
-    echo 'Done clonning. Next loging and run `run.sh vast` to provision'
+    echo 'Done clonning. Next log in using your ssh command and run `run.sh vast` to provision'
 fi

@@ -1,11 +1,9 @@
 
 .ONESHELL:
 
-niigz_script = ./bin/ds000212prep_process_niigz.py
-target_name = $(TARGET_DS_NAME)
-source_name = $(SOURCE_DS_NAME)
-target_dir = $(AISCBB_DATA_DIR)/$(target_name)
-source_dir = $(AISCBB_DATA_DIR)/$(source_name)
+niigz_script = ./ds000212prep_process_niigz.py
+target_dir = $(TARGET_DS_NAME)
+source_dir = $(SOURCE_DS_NAME)
 brain_source_niigz_files = $(wildcard $(source_dir)/sub-*/func/sub*dis_run*_res-2_desc-preproc_bold.nii.gz)
 target_files = $(patsubst $(source_dir)%.nii.gz,$(target_dir)%.npz,$(brain_source_niigz_files))
 

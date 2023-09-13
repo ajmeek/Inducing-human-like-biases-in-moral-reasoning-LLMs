@@ -18,7 +18,6 @@ from src.model import BERT
 #from src.utils.loading_data import load_ds000212
 from src.utils.loading_data import return_path_to_latest_checkpoint
 from main import get_config
-from model import BERT
 from utils.DS000212_LFB_Dataset import DS000212_LFB_Dataset
 
 from sklearn.linear_model import RidgeCV

@@ -3,11 +3,9 @@
 
 .ONESHELL:
 
-niigz_script = bin/ds000212_process_niigz.py
-target_name = $(TARGET_DS_NAME)
-source_name = $(SOURCE_DS_NAME)
-target_dir = $(AISCBB_DATA_DIR)/$(target_name)
-source_dir = $(AISCBB_DATA_DIR)/$(source_name)
+niigz_script = ./ds000212_process_niigz.py
+target_dir = $(TARGET_DS_NAME)
+source_dir = $(SOURCE_DS_NAME)
 # Only for 'dis' files:
 source_files = $(wildcard $(source_dir)/sub-*/func/*dis_run*.nii.gz)
 # Use existent files to get names for npz files 
@@ -49,7 +47,7 @@ $(target_dir)%.npz : $(source_dir)%.nii.gz
 # Static pattern rule to run per each .npz file to get it normalized.
 $(target_dir)%-normalized : $(target_dir)%.npz 
 	max_len=$$( cat $(procesed_file) )
-	python3 bin/normalize.py $$max_len "$<" "$@"
+	python3 ./normalize.py $$max_len "$<" "$@"
 	
  $(source_dir)%.nii.gz :
 	datalad get "$@"
