@@ -1,19 +1,22 @@
-import lightning.pytorch as pl
-from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint, LearningRateMonitor
-from lightning.pytorch.loggers import WandbLogger
+from Context import Context
 from datetime import datetime
 from json import loads as jsloads
+from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint, LearningRateMonitor
+from lightning.pytorch.loggers import WandbLogger
+from lightning.pytorch.profilers import PyTorchProfiler
+from lightning.pytorch.tuner import Tuner
+from pl_model import PLModel
 from pprint import pprint
 from simple_parsing import ArgumentParser
-import wandb
 from transformers import AutoModel, AutoTokenizer
-from Context import Context
-from Context import Context
-from pl_model import PLModel
 from utils.BrainBiasDataModule import BrainBiasDataModule
+import lightning.pytorch as pl
+import wandb
+
 
 def train(context: Context):
     pprint(context)
+    context.artifactspath.mkdir(parents=True, exist_ok=True)
 
     base_model = AutoModel.from_pretrained(context.model_path)
     tokenizer = AutoTokenizer.from_pretrained(context.model_path)
@@ -55,12 +58,23 @@ def train(context: Context):
             )
         )
     callbacks.append(LearningRateMonitor(logging_interval='step'))
+    profiler = PyTorchProfiler( filename='profiling-results', export_to_chrome=True)
     trainer = pl.Trainer(
         logger=logger,
         default_root_dir=context.artifactspath,
         callbacks=callbacks,
+        profiler=(profiler if context.debug else None),
         **vars(context.pltc)
     )
+    if context.find_learning_rate:
+        print("Finding learning rate...")
+        tuner = Tuner(trainer)
+        lr_finder = tuner.lr_find(model, data_module)
+        print(lr_finder.results)
+        suggested_lr = lr_finder.suggestion()
+        context.plc.adamw.lr = suggested_lr
+        model.learning_rate = suggested_lr
+
     print("Fitting...")
     trainer.fit(model, data_module)
 

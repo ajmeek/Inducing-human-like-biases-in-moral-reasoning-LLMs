@@ -98,6 +98,13 @@ class BrainBiasDataModule(LightningDataModule):
         self.dataloader_idx_to_config = []
         self._load_datasets()
 
+        self.batch_size = sum(
+            c.train.batch_size
+            for c in self._ds_configs
+            if c.train and c.train.batch_size
+        )
+        assert self.batch_size > 0
+
     def _load_datasets(self):
         """Load datasets splits into memory."""
 
@@ -127,6 +134,7 @@ class BrainBiasDataModule(LightningDataModule):
             else:
                 raise NotImplemented()
 
+            # Map dataset configs to splits.
             for idx, split in enumerate(train_validation_test):
                 if idx < len(ds_array):
                     self.ds_cfg_to_splits[ds_config][str(split)] = ds_array[idx]
