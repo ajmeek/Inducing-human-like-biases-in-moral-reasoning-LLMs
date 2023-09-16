@@ -13,18 +13,24 @@ import numpy as np
 from torch.utils.data import DataLoader
 from transformers import AutoModel, AutoTokenizer, AutoConfig, RobertaModel
 
-from src.main import get_config
-from src.model import BERT
-#from src.utils.loading_data import load_ds000212
-from src.utils.loading_data import return_path_to_latest_checkpoint
-from main import get_config
-from utils.DS000212_LFB_Dataset import DS000212_LFB_Dataset
+from Context import Context
+from utils.BrainBiasDataModule import BrainBiasDataModule
+from pl_model import PLModel
 
-from sklearn.linear_model import RidgeCV
-from scipy.stats import pearsonr
-from sklearn.feature_selection import r_regression
 
-from utils.constants import Sampling
+# commented out for now while I rework the brain score functionality
+# from src.main import get_config
+# from src.model import BERT
+# #from src.utils.loading_data import load_ds000212
+# from src.utils.loading_data import return_path_to_latest_checkpoint
+# from main import get_config
+# from utils.DS000212_LFB_Dataset import DS000212_LFB_Dataset
+#
+# from sklearn.linear_model import RidgeCV
+# from scipy.stats import pearsonr
+# from sklearn.feature_selection import r_regression
+#
+# from utils.constants import Sampling
 
 def calculate_brain_scores(model: nn.Module,
                            model_inputs: torch.tensor,
@@ -215,6 +221,14 @@ if __name__ == '__main__':
         # Note 13/9 why do the train head dimensions have 2,1024 instead of just 1024?
         # want to switch this to using the context structure that Artyom defined.
 
+        # not sure why still. Also need to figure out how to replicate the old functionality we had with the BERT class
+        # in src.model which Artyom replaced. Will look into it but if I can't figure it out I'll shoot him a message.
+
+        # check the pl_model file. Artyom has automated the heads and their linear mapping to the correct dimensions.
+        # alright, have this create a pl_model as in main.py and then check what I can get from the ._heads attribute,
+        # which should have what I want.
+        # No need to reinitialize the model over and over in this wrapper either. Let me move it below.
+
         # Warning - training head dims should match difumo resolution
         train_head_dims = [2, 1024]
         model = AutoModel.from_pretrained(checkpoint_name)
@@ -344,17 +358,27 @@ if __name__ == '__main__':
                     index=False, sep=',')
         #print("coeff of det per subject: ", coeff_of_det_per_subject, "\nridge regress per subject: ", ridge_regress_predict_per_subject)
 
-    #base BERT has 12 encoder layers
-    layer_list = ['2','3','4','5','6','7','8','9','10','11']#,'12'] #including layer 1 and 12 breaks it for some reason
-    path_to_model = return_path_to_latest_checkpoint()
-    date = datetime.now().strftime("%Y-%m-%d_%H-%M-%S") #for naming
-    #wrapper(path_to_model, layer_list, finetuned=False)
+    # instantiating a model here. For now this is a base model. Will want to look at how to load a checkpoint with
+    # the new pl_model wrapper we have now.
 
-    #instead of using layer list, just pass a single layer to the wrapper function and loop using that.
-    #will need to incorporate the layer into the directory name then.
-    for i in layer_list:
-        wrapper(path_to_model, [i], date, finetuned=False)
-        wrapper(path_to_model, [i], date, finetuned=True)
-        #break
+    # base model
+    base_model = AutoModel.from_pretrained(Context.model_path)
+    tokenizer = AutoTokenizer.from_pretrained(Context.model_path)
+    data_module = BrainBiasDataModule(Context.get_ds_configs(), tokenizer)
+    model = PLModel(base_model, Context.plc, data_module)
 
-    #wrapper(path_to_model, ['2'], date, finetuned=False)
+    # commented out for now to look at model's internals in debugger without wrecking my old laptop
+    # #base BERT has 12 encoder layers
+    # layer_list = ['2','3','4','5','6','7','8','9','10','11']#,'12'] #including layer 1 and 12 breaks it for some reason
+    # path_to_checkpoint = return_path_to_latest_checkpoint()
+    # date = datetime.now().strftime("%Y-%m-%d_%H-%M-%S") #for naming
+    # #wrapper(path_to_model, layer_list, finetuned=False)
+    #
+    # #instead of using layer list, just pass a single layer to the wrapper function and loop using that.
+    # #will need to incorporate the layer into the directory name then.
+    # for i in layer_list:
+    #     wrapper(path_to_checkpoint, [i], date, finetuned=False)
+    #     wrapper(path_to_checkpoint, [i], date, finetuned=True)
+    #     #break
+    #
+    # #wrapper(path_to_model, ['2'], date, finetuned=False)
