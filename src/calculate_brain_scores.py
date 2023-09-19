@@ -32,6 +32,48 @@ from pl_model import PLModel
 #
 # from utils.constants import Sampling
 
+def return_path_to_latest_checkpoint() -> Path:
+    """
+    Iterates through the artifacts folder to find the latest saved checkpoint for calculation of brain scores
+    :return: path to checkpoint
+    """
+    artifactspath = Path(environ.get('AISCBB_ARTIFACTS_DIR', '/artifacts'))
+    subdirectories = [d for d in os.listdir(artifactspath) if os.path.isdir(os.path.join(artifactspath, d))]
+    if not subdirectories:
+        return None
+
+    #sort subdirectories to get most recent directory first
+    #technically, checkpoint names aren't fully accurate to your specific timezone necessarily. but they're consistent
+    subdirectories_sorted = []
+    for i in subdirectories:
+        converted = datetime.strptime(i, '%y%m%d-%H%M%S')
+        subdirectories_sorted.append((converted, i))
+
+    subdirectories_sorted_final = sorted(subdirectories_sorted, key=lambda x: x[0], reverse=True)
+
+    for i in subdirectories_sorted_final:
+
+        #checkpoints path
+        checkpoint_path = Path(i[1] + '/version_0/checkpoints')
+        checkpoint_path = os.path.join(artifactspath, checkpoint_path)
+
+        if os.path.isdir(checkpoint_path):
+            items_in_directory = os.listdir(checkpoint_path)
+            if len(items_in_directory) == 1:
+                # Get the path to the single item in the directory
+                item_name = items_in_directory[0]
+                item_path = os.path.join(checkpoint_path, item_name)
+                return item_path
+            else:
+                #error, multiple checkpoints from one run.
+                print("Error in return path to latest checkpoint, multiple checkpoints in run ", i[1])
+
+# path = return_path_to_latest_checkpoint()
+# print(path)
+
+
+
+
 def calculate_brain_scores(model: nn.Module,
                            model_inputs: torch.tensor,
                            test_data: torch.tensor,
@@ -364,6 +406,20 @@ if __name__ == '__main__':
     # base model
     base_model = AutoModel.from_pretrained(Context.model_path)
     tokenizer = AutoTokenizer.from_pretrained(Context.model_path)
+    data_module = BrainBiasDataModule(Context.get_ds_configs(), tokenizer)
+    model = PLModel(base_model, Context.plc, data_module)
+
+    # finetuned model - note that the data module should be the same.
+    # actually finetuning needs to be a little more subtle. Load it with torch and then prune some of the data
+    # structure nesting to make it compatible with HF.
+    if Context.finetuned_path is not None:
+        base_model = AutoModel.from_pretrained(Context.finetuned_path)
+        tokenizer = AutoTokenizer.from_pretrained(Context.finetuned_path)
+    else:
+        # move the old code from return path to latest checkpoint to this file. got wiped out in the merge
+        path_to_checkpoint = return_path_to_latest_checkpoint()
+        base_model = AutoModel.from_pretrained(path_to_checkpoint)
+        tokenizer = AutoTokenizer.from_pretrained(path_to_checkpoint)
     data_module = BrainBiasDataModule(Context.get_ds_configs(), tokenizer)
     model = PLModel(base_model, Context.plc, data_module)
 

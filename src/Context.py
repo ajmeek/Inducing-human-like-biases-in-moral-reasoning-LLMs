@@ -120,6 +120,11 @@ class Context(Serializable):
         See https://huggingface.co/docs/transformers/v4.32.1/en/model_doc/auto#transformers.AutoModel.from_pretrained
      """
 
+    finetuned_path: str = None
+    """
+    Filepath to finetuned model .ckpt file to run brain scores on.
+    """
+
     ds1: HFDatasetConfig = HFDatasetConfig(
         path="hendrycks/ethics",
         name="commonsense",
