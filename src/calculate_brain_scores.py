@@ -70,8 +70,22 @@ def return_path_to_latest_checkpoint() -> Path:
 
 # path = return_path_to_latest_checkpoint()
 # print(path)
+def load_from_checkpoint(model,context: Context):
+    """
+    This util function loads a lightning .ckpt checkpoint file into a HF model.
+    Up to the user to make sure they're loading compatible models.
+    For instance, load a deberta checkpoint into a deberta model and a bert base ckpt into a bert base model.
+
+    :param model: the HF model to load into
+    :param context: where to find the path, or if none, use return path util func above.
+    :return: the HF model that's been loaded into (pass by reference and can eliminate? forgot how that works in Python)
+    """
+
+    if context.finetuned_path is not None:
+        checkpoint_path = context.finetuned_path
 
 
+    pass
 
 
 def calculate_brain_scores(model: nn.Module,
