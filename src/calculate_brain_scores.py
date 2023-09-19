@@ -70,7 +70,7 @@ def return_path_to_latest_checkpoint() -> Path:
 
 # path = return_path_to_latest_checkpoint()
 # print(path)
-def load_from_checkpoint(model,context: Context):
+def load_from_checkpoint(model, context):
     """
     This util function loads a lightning .ckpt checkpoint file into a HF model.
     Up to the user to make sure they're loading compatible models.
@@ -82,10 +82,25 @@ def load_from_checkpoint(model,context: Context):
     """
 
     if context.finetuned_path is not None:
-        checkpoint_path = context.finetuned_path
+        path_to_model = Path(context.finetuned_path)
+
+        state_dict = torch.load(path_to_model)
+        state_dict_hf = state_dict['state_dict']
+        state_dict_hf = {k.replace('model.', ''): state_dict_hf[k] for k in state_dict_hf}
+        model.load_state_dict(state_dict_hf)
+    else:
+        path_to_model = return_path_to_latest_checkpoint()
+
+        state_dict = torch.load(path_to_model)
+        state_dict_hf = state_dict['state_dict']
+        state_dict_hf = {k.replace('model.', ''): state_dict_hf[k] for k in state_dict_hf}
+        model.load_state_dict(state_dict_hf)
+    return model
 
 
-    pass
+
+
+
 
 
 def calculate_brain_scores(model: nn.Module,
@@ -285,21 +300,6 @@ if __name__ == '__main__':
         # which should have what I want.
         # No need to reinitialize the model over and over in this wrapper either. Let me move it below.
 
-        # Warning - training head dims should match difumo resolution
-        train_head_dims = [2, 1024]
-        model = AutoModel.from_pretrained(checkpoint_name)
-        model = BERT(model, head_dims=train_head_dims)
-        tokenizer = AutoTokenizer.from_pretrained(checkpoint_name)
-
-        if finetuned:
-            # manually adjusting state dict so that lightning models fit with HF
-            # there are 8 dictionary entries specific to lightning that are not needed. everything else should be the same
-            state_dict = torch.load(path_to_model)
-            state_dict_hf = state_dict['state_dict']
-
-            state_dict_hf = {k.replace('model.', ''): state_dict_hf[k] for k in state_dict_hf}
-
-            model.load_state_dict(state_dict_hf)
 
         # Load the data
         context = get_config()
@@ -417,25 +417,28 @@ if __name__ == '__main__':
     # instantiating a model here. For now this is a base model. Will want to look at how to load a checkpoint with
     # the new pl_model wrapper we have now.
 
+    # TODO investigate why the following line was necessary in the old before this. Artyom fixed this to make it automatic
+    # but still don't fully understand it
+    # Warning - training head dims should match difumo resolution
+    # train_head_dims = [2, 1024]
+
     # base model
-    base_model = AutoModel.from_pretrained(Context.model_path)
+    model = AutoModel.from_pretrained(Context.model_path)
     tokenizer = AutoTokenizer.from_pretrained(Context.model_path)
     data_module = BrainBiasDataModule(Context.get_ds_configs(), tokenizer)
-    model = PLModel(base_model, Context.plc, data_module)
+    base_model = PLModel(model, Context.plc, data_module)
 
-    # finetuned model - note that the data module should be the same.
-    # actually finetuning needs to be a little more subtle. Load it with torch and then prune some of the data
-    # structure nesting to make it compatible with HF.
-    if Context.finetuned_path is not None:
-        base_model = AutoModel.from_pretrained(Context.finetuned_path)
-        tokenizer = AutoTokenizer.from_pretrained(Context.finetuned_path)
-    else:
-        # move the old code from return path to latest checkpoint to this file. got wiped out in the merge
-        path_to_checkpoint = return_path_to_latest_checkpoint()
-        base_model = AutoModel.from_pretrained(path_to_checkpoint)
-        tokenizer = AutoTokenizer.from_pretrained(path_to_checkpoint)
+    # finetuned model
+    model = AutoModel.from_pretrained(Context.model_path)
+    tokenizer = AutoTokenizer.from_pretrained(Context.model_path)
+
+    finetuned_model = load_from_checkpoint(model, Context)
     data_module = BrainBiasDataModule(Context.get_ds_configs(), tokenizer)
-    model = PLModel(base_model, Context.plc, data_module)
+    finetuned_model = PLModel(finetuned_model, Context.plc, data_module)
+
+    # now, just pass n different models to the wrapper function to finetune or not.
+    # no need to load them each time within the wrapper.
+
 
     # commented out for now to look at model's internals in debugger without wrecking my old laptop
     # #base BERT has 12 encoder layers
