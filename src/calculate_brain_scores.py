@@ -82,19 +82,23 @@ def load_from_checkpoint(model, context):
     :return: the HF model that's been loaded into (pass by reference and can eliminate? forgot how that works in Python)
     """
 
+    # TODO - for some reason the lightning checkpoint has extra data for the weights and biases of the heads
+    # check that the checkpoint is also the same as the bert base cased.
+    # for now, ignore and continue. I did change replace("model." to "model.base." for future reference
+
     if context.finetuned_path is not None:
         path_to_model = Path(context.finetuned_path)
 
         state_dict = torch.load(path_to_model)
         state_dict_hf = state_dict['state_dict']
-        state_dict_hf = {k.replace('model.', ''): state_dict_hf[k] for k in state_dict_hf}
+        state_dict_hf = {k.replace('model.base.', ''): state_dict_hf[k] for k in state_dict_hf}
         model.load_state_dict(state_dict_hf)
     else:
         path_to_model = return_path_to_latest_checkpoint()
 
         state_dict = torch.load(path_to_model)
         state_dict_hf = state_dict['state_dict']
-        state_dict_hf = {k.replace('model.', ''): state_dict_hf[k] for k in state_dict_hf}
+        state_dict_hf = {k.replace('model.base.', ''): state_dict_hf[k] for k in state_dict_hf}
         model.load_state_dict(state_dict_hf)
     return model
 
@@ -428,7 +432,9 @@ if __name__ == '__main__':
     """
     Regarding the heads. Yes, pulling apart the pl_model class has heads set up to go to fmri dataset and the hf dataset.
     fMRI dataset has dimension 1024 and hf dataset has dimensionality 2. For the life of me I cannot remember why we
-    need a head with dimensionality of 2. Is it my myopia due to focusing only on brain scores?
+    need a head with dimendata_module = BrainBiasDataModule(context.get_ds_configs(), tokenizer)sionality of 2. Is it my myopia due to focusing only on brain scores?
+    Split into acceptable or unacceptable by Hendrycks.
+    
     
     Anyways, to get this for each layer use the forward function of the pl_model and pass it the tokens and attention
     mask, as usual. In return, get the results.
@@ -438,6 +444,7 @@ if __name__ == '__main__':
     the model output at each step. 
     
     In order to test that, first need to load some data and get some sample tokens and attention masks.
+    Load in data in batches as I specify. Then can get 1/8 or whatever with my batch size for ridge regression.
     """
 
     # base model
@@ -447,12 +454,12 @@ if __name__ == '__main__':
     base_model = PLModel(model, context.plc, data_module)
 
     # finetuned model
-    model = AutoModel.from_pretrained(context.model_path)
-    tokenizer = AutoTokenizer.from_pretrained(context.model_path)
-
-    finetuned_model = load_from_checkpoint(model, context)
-    data_module = BrainBiasDataModule(context.get_ds_configs(), tokenizer)
-    finetuned_model = PLModel(finetuned_model, context.plc, data_module)
+    # model = AutoModel.from_pretrained(context.model_path)
+    # tokenizer = AutoTokenizer.from_pretrained(context.model_path)
+    #
+    # finetuned_model = load_from_checkpoint(model, context)
+    # data_module = BrainBiasDataModule(context.get_ds_configs(), tokenizer)
+    # finetuned_model = PLModel(finetuned_model, context.plc, data_module)
 
     # now, just pass n different models to the wrapper function to finetune or not.
     # no need to load them each time within the wrapper.
@@ -460,6 +467,11 @@ if __name__ == '__main__':
     """
     As per above, now testing dataloaders to get sample token and attention mask.
     """
+
+    data_module = BrainBiasDataModule(context.get_ds_configs(), tokenizer)
+    combined_dataloader = data_module.train_dataloader()
+
+    print()
 
 
     # commented out for now to look at model's internals in debugger without wrecking my old laptop
