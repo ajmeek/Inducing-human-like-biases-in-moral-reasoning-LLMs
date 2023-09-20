@@ -32,6 +32,7 @@ def train(context: Context):
 
     logger = WandbLogger(save_dir=context.artifactspath, project="AISC_BB")
     logger.log_hyperparams(jsloads(context.dumps_json()))
+    
 
     # train the model
     callbacks = []
@@ -46,10 +47,12 @@ def train(context: Context):
             )
         )
     if context.pltc.enable_checkpointing:
+        fn = ((logger.experiment.name or '') + '{epoch}-{val_acc:.2f}-{train_loss:.2f}-{step}')
         callbacks.append(
             ModelCheckpoint(
                 monitor=PLModel.VAL_ACC,
                 dirpath=Context.artifactspath,
+                filename=fn,
                 verbose=True,
                 mode="max",
                 auto_insert_metric_name=True,
@@ -63,7 +66,7 @@ def train(context: Context):
         logger=logger,
         default_root_dir=context.artifactspath,
         callbacks=callbacks,
-        profiler=(profiler if context.debug else None),
+        profiler=context.profiler,
         **vars(context.pltc)
     )
     if context.find_learning_rate:

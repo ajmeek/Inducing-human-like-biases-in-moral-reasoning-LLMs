@@ -205,7 +205,7 @@ class PLModel(pl.LightningModule):
             lr=self.learning_rate,  # To facilitate LR finder.
             betas=self._plc.adamw.betas,
             eps=self._plc.adamw.eps,
-            weight_decay=self._plc.adamw.weight_decay
+            weight_decay=self._plc.adamw.weight_decay,
         )
         if self._plc.has_learning_rate_decay:
             constantlr = ConstantLR(

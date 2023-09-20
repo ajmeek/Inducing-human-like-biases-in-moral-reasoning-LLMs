@@ -1,10 +1,5 @@
 from pl_model import PLModelConfig
-from utils.BrainBiasDataModule import (
-    DatasetConfig,
-    FMRIDatasetConfig,
-    HFDatasetConfig,
-    SplitConfig,
-)
+from utils.BrainBiasDataModule import DatasetConfig, SplitConfig
 
 
 from simple_parsing import Serializable, field
@@ -104,9 +99,8 @@ class PLTrainerConfig:
     Overfit a fraction of training/validation data (float) or a set number of batches (int).
     """
 
-    accumulate_grad_batches : int = 1
+    accumulate_grad_batches: int = 1
     """ Accumulates gradients over k batches before stepping the optimizer.  """
-
 
 
 @dataclass
@@ -116,7 +110,7 @@ class Context(Serializable):
         See https://huggingface.co/docs/transformers/v4.32.1/en/model_doc/auto#transformers.AutoModel.from_pretrained
      """
 
-    ds1: HFDatasetConfig = HFDatasetConfig(
+    ds1: DatasetConfig = DatasetConfig(
         path="hendrycks/ethics",
         name="commonsense",
         revision="refs/pr/3",
@@ -126,16 +120,13 @@ class Context(Serializable):
         loss_fn="cross_entropy",
     )
 
-    ds2: FMRIDatasetConfig = field(
-        default_factory=lambda: FMRIDatasetConfig(
-            path="data/ds000212",
-            name="learning_from_brains",
-            sampling_method="LAST",
-            train=SplitConfig(batch_size=2, shuffle=False),
-            validation=None,
-            test=None,
-            loss_fn="mse_loss",
-        )
+    ds2: DatasetConfig = DatasetConfig(
+        path="data/ds000212/ds000212_lfb",
+        name="LFB-LAST",
+        train=SplitConfig(batch_size=2, shuffle=False),
+        validation=None,
+        test=None, # TODO: Try using test split.
+        loss_fn="mse_loss",
     )
 
     pltc: PLTrainerConfig = PLTrainerConfig()
@@ -159,9 +150,13 @@ class Context(Serializable):
     threshold. If not set then no early stopping.
     """
 
-    debug : bool = False
+    profiler: Optional[str] = None
+    """ 
+    To profile individual steps during training and assist in identifying bottlenecks.
+    Options: simple, advanced
+    """
 
-    find_learning_rate : bool = False
+    find_learning_rate: bool = False
 
     def get_ds_configs(self) -> List[DatasetConfig]:
         return [ds for ds in (self.ds1, self.ds2) if ds.enable]

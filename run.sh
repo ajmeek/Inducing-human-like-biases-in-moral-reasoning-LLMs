@@ -58,6 +58,10 @@ function gcp() {
     source bin/_gcp.sh "$@"
 }
 
+function test() {
+    (cd data/ds000212/ds000212_lfb ; pytest )
+}
+
 ##########################################################################
 
 
