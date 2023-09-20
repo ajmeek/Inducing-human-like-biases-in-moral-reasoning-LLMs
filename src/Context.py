@@ -137,7 +137,7 @@ class Context(Serializable):
 
     ds2: FMRIDatasetConfig = field(
         default_factory=lambda: FMRIDatasetConfig(
-            path="data/ds000212",
+            path="../data/ds000212", #changed to run calc brain scores. keep in mind when making shell script
             name="learning_from_brains",
             sampling_method="LAST",
             train=SplitConfig(batch_size=2, shuffle=False),

@@ -10,6 +10,8 @@ from lightning.pytorch import LightningDataModule
 import importlib
 import sys
 
+#test
+import os
 
 @dataclass(frozen=True)
 class SplitConfig:
@@ -135,6 +137,8 @@ class BrainBiasDataModule(LightningDataModule):
     def _import_module(self, dsconfig: FMRIDatasetConfig):
         dsconfig: FMRIDatasetConfig
         path = Path(dsconfig.path)
+        #test
+        print(os.getcwd())
         assert path.exists() and path.is_dir()
         path = path.resolve()
         module = path.parts[-1]

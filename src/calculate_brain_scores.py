@@ -16,6 +16,7 @@ from transformers import AutoModel, AutoTokenizer, AutoConfig, RobertaModel
 from Context import Context
 from utils.BrainBiasDataModule import BrainBiasDataModule
 from pl_model import PLModel
+from simple_parsing import ArgumentParser
 
 
 # commented out for now while I rework the brain score functionality
@@ -96,10 +97,6 @@ def load_from_checkpoint(model, context):
         state_dict_hf = {k.replace('model.', ''): state_dict_hf[k] for k in state_dict_hf}
         model.load_state_dict(state_dict_hf)
     return model
-
-
-
-
 
 
 
@@ -274,7 +271,13 @@ if __name__ == '__main__':
     # Specify parameters
     # path_to_model = r'models/cm_roberta-large.pt'  # Specify the path to the model.
 
-
+    # parser = ArgumentParser()
+    # parser.add_arguments(Context(), dest="context")
+    # args = parser.parse_args()
+    # context = args.context
+    context = Context()
+    # print(type(context.ds2))
+    # context.ds2['path'] = Path('../data/ds000212') #since this file located in src, make filepath jump higher
     def wrapper(path_to_model, layer_list, date, finetuned):
         """
         This wrapper abstracts the running of the code to loop over all possibilities.
@@ -422,22 +425,41 @@ if __name__ == '__main__':
     # Warning - training head dims should match difumo resolution
     # train_head_dims = [2, 1024]
 
+    """
+    Regarding the heads. Yes, pulling apart the pl_model class has heads set up to go to fmri dataset and the hf dataset.
+    fMRI dataset has dimension 1024 and hf dataset has dimensionality 2. For the life of me I cannot remember why we
+    need a head with dimensionality of 2. Is it my myopia due to focusing only on brain scores?
+    
+    Anyways, to get this for each layer use the forward function of the pl_model and pass it the tokens and attention
+    mask, as usual. In return, get the results.
+    However, he has it set up for a specific token location, i.e. to grab the CLS token or something.
+    But I want to have it run over all the tokens.
+    I need to step through the different calculations in a single call of forward and see the dimensionality of
+    the model output at each step. 
+    
+    In order to test that, first need to load some data and get some sample tokens and attention masks.
+    """
+
     # base model
-    model = AutoModel.from_pretrained(Context.model_path)
-    tokenizer = AutoTokenizer.from_pretrained(Context.model_path)
-    data_module = BrainBiasDataModule(Context.get_ds_configs(), tokenizer)
-    base_model = PLModel(model, Context.plc, data_module)
+    model = AutoModel.from_pretrained(context.model_path)
+    tokenizer = AutoTokenizer.from_pretrained(context.model_path)
+    data_module = BrainBiasDataModule(context.get_ds_configs(), tokenizer)
+    base_model = PLModel(model, context.plc, data_module)
 
     # finetuned model
-    model = AutoModel.from_pretrained(Context.model_path)
-    tokenizer = AutoTokenizer.from_pretrained(Context.model_path)
+    model = AutoModel.from_pretrained(context.model_path)
+    tokenizer = AutoTokenizer.from_pretrained(context.model_path)
 
-    finetuned_model = load_from_checkpoint(model, Context)
-    data_module = BrainBiasDataModule(Context.get_ds_configs(), tokenizer)
-    finetuned_model = PLModel(finetuned_model, Context.plc, data_module)
+    finetuned_model = load_from_checkpoint(model, context)
+    data_module = BrainBiasDataModule(context.get_ds_configs(), tokenizer)
+    finetuned_model = PLModel(finetuned_model, context.plc, data_module)
 
     # now, just pass n different models to the wrapper function to finetune or not.
     # no need to load them each time within the wrapper.
+
+    """
+    As per above, now testing dataloaders to get sample token and attention mask.
+    """
 
 
     # commented out for now to look at model's internals in debugger without wrecking my old laptop
