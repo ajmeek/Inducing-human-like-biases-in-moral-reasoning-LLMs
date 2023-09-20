@@ -104,6 +104,10 @@ class PLTrainerConfig:
     Overfit a fraction of training/validation data (float) or a set number of batches (int).
     """
 
+    accumulate_grad_batches : int = 1
+    """ Accumulates gradients over k batches before stepping the optimizer.  """
+
+
 
 @dataclass
 class Context(Serializable):
@@ -154,6 +158,10 @@ class Context(Serializable):
     Monitor validation accuracy and stop when it reaches the
     threshold. If not set then no early stopping.
     """
+
+    debug : bool = False
+
+    find_learning_rate : bool = False
 
     def get_ds_configs(self) -> List[DatasetConfig]:
         return [ds for ds in (self.ds1, self.ds2) if ds.enable]

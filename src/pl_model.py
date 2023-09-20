@@ -62,7 +62,7 @@ class PLModelConfig:
     stepLR_gamma: Optional[float] = 0.99
     """ Multiplicative factor of learning rate decay. """
 
-    stepLR_step_size: Optional[int] = 10
+    stepLR_step_size: Optional[int] = 500
     """ Period of learning rate decay."""
 
 
@@ -82,6 +82,8 @@ class PLModel(pl.LightningModule):
         if self._plc.regularize_from_init:
             self._init_params = copy.deepcopy([p for p in base_model.parameters()])
         self._init_heads()
+        self.learning_rate = plc.adamw.lr
+        self.batch_size = self._data_module.batch_size  # For LR Finder.
 
     def _init_heads(self):
         self._heads = {}
@@ -146,7 +148,6 @@ class PLModel(pl.LightningModule):
             sync_dist=True,
             batch_size=total_batch_size,
         )
-        self.optimizers
         return loss
 
     def validation_step(self, batch, batch_idx, dataloader_idx: int = 0):
@@ -199,7 +200,13 @@ class PLModel(pl.LightningModule):
                 param.requires_grad = False
         # TODO: Consider exclude Laynorm and other.
         # See BERT: https://github.com/google-research/bert/blob/master/optimization.py#L65
-        optimizer = torch.optim.AdamW(self.parameters(), **vars(self._plc.adamw))
+        optimizer = torch.optim.AdamW(
+            self.parameters(),
+            lr=self.learning_rate,  # To facilitate LR finder.
+            betas=self._plc.adamw.betas,
+            eps=self._plc.adamw.eps,
+            weight_decay=self._plc.adamw.weight_decay
+        )
         if self._plc.has_learning_rate_decay:
             constantlr = ConstantLR(
                 optimizer,
