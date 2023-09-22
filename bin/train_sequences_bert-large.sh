@@ -14,7 +14,8 @@ echo "First train only a head on Ethics"
     --max_epochs 20 \
     --model_path 'bert-large-cased' \
     --before_lr_decay_warm_up_steps 100 \
-    --find_learning_rate 1 \
+    --find_learning_rate 0 \
+    --lr 0.00000120226443461741 \
     --accumulate_grad_batches 10 \
     --stepLR_gamma 0.99 \
     --stepLR_step_size 10 \
@@ -41,7 +42,8 @@ echo "Now train all on fMRI only and see if Ethics accuracy improves"
     --max_epochs 100 \
     --model_path 'bert-large-cased' \
     --before_lr_decay_warm_up_steps 100 \
-    --find_learning_rate 1 \
+    --find_learning_rate 0 \
+    --lr 0.00000120226443461741 \
     --accumulate_grad_batches 100 \
     --stepLR_gamma 0.99 \
     --stepLR_step_size 10 \

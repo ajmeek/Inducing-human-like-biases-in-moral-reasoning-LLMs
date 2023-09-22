@@ -46,7 +46,7 @@ function _mamba() {
 
 function local() {
     _mamba
-    mamba create -n $PYTHON_ENV_NAME --file environment-cpu.yml
+    mamba env create -n $PYTHON_ENV_NAME --file environment-cpu.yml
     mamba activate $PYTHON_ENV_NAME
     echo Done
 }
