@@ -140,7 +140,7 @@ class Context(Serializable):
             path="../data/ds000212", #changed to run calc brain scores. keep in mind when making shell script
             name="learning_from_brains",
             sampling_method="LAST",
-            train=SplitConfig(batch_size=2, shuffle=False),
+            train=SplitConfig(batch_size=8, shuffle=False), #change batch size to eight
             validation=None,
             test=None,
             loss_fn="mse_loss",

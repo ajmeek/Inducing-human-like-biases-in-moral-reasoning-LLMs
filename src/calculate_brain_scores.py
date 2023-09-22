@@ -471,6 +471,11 @@ if __name__ == '__main__':
     data_module = BrainBiasDataModule(context.get_ds_configs(), tokenizer)
     combined_dataloader = data_module.train_dataloader()
 
+    #fmri_dataset = combin
+    for batch, samples in enumerate(combined_dataloader):
+        ethics_scores, fmri = samples
+        break
+
     print()
 
 
