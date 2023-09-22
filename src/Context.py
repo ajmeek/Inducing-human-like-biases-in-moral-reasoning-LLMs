@@ -123,9 +123,9 @@ class Context(Serializable):
     ds2: DatasetConfig = DatasetConfig(
         path="data/ds000212/ds000212_lfb",
         name="LFB-LAST",
-        train=SplitConfig(batch_size=2, shuffle=False),
+        train=SplitConfig(batch_size=10, shuffle=True, slicing="[:1000]"),
         validation=None,
-        test=None, # TODO: Try using test split.
+        test=SplitConfig(batch_size=10, shuffle=False, slicing="[:100]"),
         loss_fn="mse_loss",
     )
 
@@ -141,8 +141,16 @@ class Context(Serializable):
     datapath: Path = Path(environ.get("AISCBB_DATA_DIR", "./data"))
     """ Path to the folder with datasets.  """
 
-    to_save_model: bool = False
-    """ Whether to save checkpoint of the model after the test. """
+    checkpoint_path: str = None
+    """
+    Path to checkpoint which will be used to load initial weights from.
+    """
+
+    last_checkpoint_path: str = None
+    """ 
+    Whether to save the checkpoint of the model after the test stage to the path. 
+    If no path provided it is not saved.
+    """
 
     early_stop_threshold: Optional[float] = None
     """ 
@@ -153,10 +161,13 @@ class Context(Serializable):
     profiler: Optional[str] = None
     """ 
     To profile individual steps during training and assist in identifying bottlenecks.
-    Options: simple, advanced
+    Options: simple, advanced, pytorch
     """
 
     find_learning_rate: bool = False
+
+    num_workers : int = 0
+    """ Number of workers for DataLoader. Specify 0 to disable. """
 
     def get_ds_configs(self) -> List[DatasetConfig]:
         return [ds for ds in (self.ds1, self.ds2) if ds.enable]

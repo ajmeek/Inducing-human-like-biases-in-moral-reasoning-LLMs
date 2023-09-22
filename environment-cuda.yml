@@ -9,6 +9,7 @@ dependencies:
   - conda-forge::datasets
   - conda-forge::transformers == 4.31.*
   - conda-forge::tokenizers => 0.13.3
+  - conda-forge::torchmetrics
   - ipywidgets
   - lightning
   - nibabel
@@ -20,6 +21,7 @@ dependencies:
   - pytorch::pytorch == 2.0.*
   - pytorch::torchaudio
   - pytorch::torchvision
+  - torchmetrics
   - scikit-learn
   - sentencepiece
   - setuptools
