@@ -118,7 +118,7 @@ class PLModel(pl.LightningModule):
 
                 def _add(metric):
                     m_name = type(metric).__name__
-                    name = f"{ds_cfg}-{split}-{m_name}"
+                    name = f"{ds_cfg.name}-{split}-{m_name}"
                     metrics = self.metrics.get(ds_cfg, {})
                     metrics[split] = (name, metric)
                     # To make it move to the same device as this PL module:
