@@ -18,7 +18,7 @@ import lightning.pytorch as pl
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torchmetrics
+from torchmetrics import MetricCollection, Accuracy, MeanSquaredError
 
 
 @dataclass
@@ -87,10 +87,11 @@ class PLModel(pl.LightningModule):
         if self._plc.regularize_from_init:
             self._init_params = copy.deepcopy([p for p in base_model.parameters()])
         self._init_heads()
-        self._init_metrics()
 
     def _init_heads(self):
         self._heads = {}
+        self._head_metrics = defaultdict(dict)
+
         head_in_dim = self._base_model.config.hidden_size
         ds_cfg: DatasetConfig
         for ds_cfg, splits in self.data_module._cfg_to_datasets.items():
@@ -110,34 +111,23 @@ class PLModel(pl.LightningModule):
 
             self._heads[ds_cfg] = head
             self.register_module(ds_cfg.name, head)
+            self._init_metrics(ds_cfg, label)
 
-    def _init_metrics(self):
-        self.metrics = defaultdict(dict)
+    def _init_metrics(self, ds_cfg: DatasetConfig, label):
+        for split in (PLModel._VALIDATION, PLModel._TEST):
+            collection: MetricCollection = None
+            if isinstance(label, ClassLabel):
+                collection = MetricCollection(
+                    [Accuracy(task="multiclass", num_classes=label.num_classes)],
+                    prefix=f"{split}-",
+                )
+            elif isinstance(label, Sequence):
+                collection = MetricCollection([MeanSquaredError()], prefix=f"{split}-")
 
-        for ds_cfg in self.data_module.ds_cfg_to_features:
-            label_feature = self.data_module.get_label_by(ds_cfg)
-            for split in (PLModel._VALIDATION, PLModel._TEST):
-                if split not in vars(ds_cfg) or not vars(ds_cfg)[split]:
-                    continue
-
-                def _add(metric):
-                    m_name = type(metric).__name__
-                    name = f"{ds_cfg.name}-{split}-{m_name}"
-                    self.metrics[ds_cfg][split] = (name, metric)
-                    # To make it move to the same device as this PL module:
-                    self.register_module(name, module=metric)
-
-                if isinstance(label_feature, ClassLabel):
-                    cl: ClassLabel = label_feature
-                    _add(
-                        torchmetrics.Accuracy(
-                            task="multiclass", num_classes=len(cl.names)
-                        )
-                    )
-                elif isinstance(label_feature, Sequence):
-                    _add(torchmetrics.MeanSquaredError())
-                else:
-                    raise NotImplemented()
+            if collection:
+                name = f"{ds_cfg.name}-{split}-metrics"
+                self.register_module(name, collection)
+                self._head_metrics[ds_cfg][split] = (name, collection)
 
     def forward(self, tokens, mask):
         """Returns predictions per dataset per feature."""
@@ -187,27 +177,32 @@ class PLModel(pl.LightningModule):
         Runs validation loop. This expects multiple dataloaders, i.e. CombinedLoader
         with the 'sequential' mode.
         """
-        self._calc_metrics("validation", batch, dataloader_idx)
+        self._calc_metrics(PLModel._VALIDATION, batch, dataloader_idx)
 
     def test_step(self, batch, batch_idx, dataloader_idx: int = 0):
         """
         Runs test loop. This expects multiple dataloaders, i.e. CombinedLoader
         with the 'sequential' mode.
         """
-        self._calc_metrics("test", batch, dataloader_idx)
+        self._calc_metrics(PLModel._TEST, batch, dataloader_idx)
 
     def _calc_metrics(self, step_name, batch, dataloader_idx):
         if not batch:
             return
-        ds_cfg: DatasetConfig
         ds_cfg = self.data_module.dataloader_idx_to_config[dataloader_idx]
-        if ds_cfg in self.metrics and step_name in self.metrics[ds_cfg]:
-            m_name, metric = self.metrics[ds_cfg][step_name]
-            outputs = self.forward(batch["input_ids"], batch["attention_mask"])
-            predictions = outputs[ds_cfg]
-            targets = batch[ds_cfg.label_col]
-            metric(predictions, targets)
-            self.log(m_name, metric, prog_bar=True)
+        name, metric_col = self._head_metrics[ds_cfg][step_name]
+        outputs = self.forward(batch["input_ids"], batch["attention_mask"])
+        predictions = outputs[ds_cfg]
+        targets = batch[ds_cfg.label_col]
+        m_result = metric_col(predictions, targets)
+        self.log_dict(m_result)
+
+    def on_validation_epoch_end(self):
+        for ds_conf, splits_d in self._head_metrics.items():
+            for split, (m_name, metric_col) in splits_d.items():
+                output = metric_col.compute()
+                self.log_dict(output)
+                metric_col.reset()
 
     def configure_optimizers(self):
         if not self._plc.train_all:
