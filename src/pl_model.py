@@ -1,3 +1,4 @@
+from collections import defaultdict
 from dataclasses import dataclass
 from typing import Optional, Union, Tuple
 from utils.BrainBiasDataModule import DatasetConfig
@@ -68,6 +69,9 @@ class PLModelConfig:
 
 
 class PLModel(pl.LightningModule):
+    _VALIDATION = "validation"
+    _TEST = "test"
+
     def __init__(
         self,
         plc: PLModelConfig,
@@ -108,19 +112,18 @@ class PLModel(pl.LightningModule):
             self.register_module(ds_cfg.name, head)
 
     def _init_metrics(self):
-        self.metrics = {}
+        self.metrics = defaultdict(dict)
 
         for ds_cfg in self.data_module.ds_cfg_to_features:
             label_feature = self.data_module.get_label_by(ds_cfg)
-            for split in ("validation", "test"):
+            for split in (PLModel._VALIDATION, PLModel._TEST):
                 if split not in vars(ds_cfg) or not vars(ds_cfg)[split]:
                     continue
 
                 def _add(metric):
                     m_name = type(metric).__name__
                     name = f"{ds_cfg.name}-{split}-{m_name}"
-                    metrics = self.metrics.get(ds_cfg, {})
-                    metrics[split] = (name, metric)
+                    self.metrics[ds_cfg][split] = (name, metric)
                     # To make it move to the same device as this PL module:
                     self.register_module(name, module=metric)
 
