@@ -132,15 +132,10 @@ class PLModel(pl.LightningModule):
                     _add(
                         torchmetrics.Accuracy(
                             task="multiclass", num_classes=len(cl.names)
-                        ),
+                        )
                     )
                 elif isinstance(label_feature, Sequence):
-                    _add(
-                        torchmetrics.MeanSquaredError(),
-                    )
-                    _add(
-                        torchmetrics.PearsonCorrCoef(),
-                    )
+                    _add(torchmetrics.MeanSquaredError())
                 else:
                     raise NotImplemented()
 
