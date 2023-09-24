@@ -10,6 +10,7 @@ from datasets import (
     Sequence,
 )
 from utils.BrainBiasDataModule import BrainBiasDataModule
+from torch.optim.lr_scheduler import StepLR, ConstantLR, SequentialLR
 
 import copy
 import lightning.pytorch as pl
@@ -22,48 +23,14 @@ import torch.nn.functional as F
 class AdamWConfig:
     """See https://pytorch.org/docs/stable/generated/torch.optim.AdamW.html"""
 
-    lr: float = 1e-3
-    """ Learn rate. Default for AdamW is 1e-3. """
+    lr: float = 5e-2
+    """ Learn rate. """
 
     betas: Tuple[float, float] = (0.9, 0.999)
 
     eps: float = 1e-8
 
     weight_decay: float = 1e-2
-
-
-@dataclass
-class ReduceLROnPlateauConfig:
-    patience: int = 10
-    """ 
-    Number of epochs with no improvement after which learning rate
-    will be reduced. For example, if `patience = 2`, then we will
-    ignore the first 2 epochs with no improvement, and will only decrease 
-    the LR after the 3rd epoch if the loss still hasn't improved then.
-    """
-
-    factor: float = 0.1
-    """
-    Factor by which the learning rate will be reduced. new_lr = lr * factor.
-    """
-
-    cooldown: int = 0
-    """
-    Number of epochs to wait before resuming normal operation after 
-    lr has been reduced.
-    """
-
-    min_lr: float = 0
-    """
-    A scalar or a list of scalars. A lower bound on the learning rate
-    of all param groups or each group respectively.
-    """
-    eps: float = 1e-8
-    """
-    Minimal decay applied to lr. If the difference between new and old lr
-    is smaller than eps, the update is ignored. 
-    """
-    verbose: bool = True
 
 
 @dataclass
@@ -74,17 +41,11 @@ class PLModelConfig:
     adamw: AdamWConfig = AdamWConfig()
     """ See https://pytorch.org/docs/stable/generated/torch.optim.AdamW.html """
 
-    has_ReduceLROnPlateau: bool = True
+    has_learning_rate_decay: bool = True
+    """ If to use LR linear decay. """
 
-    reduceLROnPlateau_config: ReduceLROnPlateauConfig = ReduceLROnPlateauConfig()
-
-    lr_scheduler_frequency: Optional[int] = 10
-    """
-    How many intervals (step/epoch) should pass. 1 corresponds to updating the 
-    learning rate after every step/epoch.  It monitors "train_loss" metric.
-    """
-
-    lr_scheduler_interval : Optional[str] = 'epoch'
+    before_lr_decay_warm_up_steps: Optional[int] = 10_000
+    """ Steps before running linear LR decay. """
 
     regularize_from_init: Optional[bool] = False
     """Regularize from init (base) model."""
@@ -97,6 +58,12 @@ class PLModelConfig:
     Which token to use for prediction. Example: 0 - to take 
     [CLS] token for BERT like models.
     """
+
+    stepLR_gamma: Optional[float] = 0.99
+    """ Multiplicative factor of learning rate decay. """
+
+    stepLR_step_size: Optional[int] = 500
+    """ Period of learning rate decay."""
 
 
 class PLModel(pl.LightningModule):
@@ -115,6 +82,8 @@ class PLModel(pl.LightningModule):
         if self._plc.regularize_from_init:
             self._init_params = copy.deepcopy([p for p in base_model.parameters()])
         self._init_heads()
+        self.learning_rate = plc.adamw.lr
+        self.batch_size = self._data_module.batch_size  # For LR Finder.
 
     def _init_heads(self):
         self._heads = {}
@@ -151,15 +120,17 @@ class PLModel(pl.LightningModule):
         with mode other than 'sequential'.
         """
         loss = 0
+        total_batch_size = 0
         for ds_cfg, batch in dl_batches.items():
+            ds_cfg: DatasetConfig
             if not batch:
                 continue
-            ds_cfg: DatasetConfig
             outputs = self.forward(batch["input_ids"], batch["attention_mask"])
             predictions: torch.Tensor = outputs[ds_cfg]
             targets = batch[ds_cfg.label_col]
             loss_fn = vars(F)[ds_cfg.loss_fn]
             loss += loss_fn(predictions, targets)
+            total_batch_size += ds_cfg.train.batch_size
 
         if self._plc.regularize_from_init:
             reg_loss = 0
@@ -170,7 +141,13 @@ class PLModel(pl.LightningModule):
             loss += self._plc.regularization_coef * reg_loss
 
         # log and return
-        self.log("train_loss", loss, prog_bar=True, sync_dist=True)
+        self.log(
+            "train_loss",
+            loss,
+            prog_bar=True,
+            sync_dist=True,
+            batch_size=total_batch_size,
+        )
         return loss
 
     def validation_step(self, batch, batch_idx, dataloader_idx: int = 0):
@@ -223,19 +200,35 @@ class PLModel(pl.LightningModule):
                 param.requires_grad = False
         # TODO: Consider exclude Laynorm and other.
         # See BERT: https://github.com/google-research/bert/blob/master/optimization.py#L65
-        optimizer = torch.optim.AdamW(self.parameters(), **vars(self._plc.adamw))
-        if not self._plc.has_ReduceLROnPlateau:
-            return optimizer
-        lr_scheduler_config = {
-            # See https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.core.LightningModule.html#lightning.pytorch.core.LightningModule.configure_optimizers
-            "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(
-                optimizer, **vars(self._plc.reduceLROnPlateau_config)
-            ),
-            "interval": self._plc.lr_scheduler_interval,
-            "frequency": self._plc.lr_scheduler_frequency,
-            "monitor": "train_loss",
-        }
-        return {
-            "optimizer": optimizer,
-            "lr_scheduler": lr_scheduler_config,
-        }
+        optimizer = torch.optim.AdamW(
+            self.parameters(),
+            lr=self.learning_rate,  # To facilitate LR finder.
+            betas=self._plc.adamw.betas,
+            eps=self._plc.adamw.eps,
+            weight_decay=self._plc.adamw.weight_decay,
+        )
+        if self._plc.has_learning_rate_decay:
+            constantlr = ConstantLR(
+                optimizer,
+                factor=1.0,
+                total_iters=self._plc.before_lr_decay_warm_up_steps,
+            )
+            llr = StepLR(
+                optimizer,
+                gamma=self._plc.stepLR_gamma,
+                step_size=self._plc.stepLR_step_size,
+            )
+            return {
+                "optimizer": optimizer,
+                "lr_scheduler": {
+                    "scheduler": SequentialLR(
+                        optimizer,
+                        schedulers=[constantlr, llr],
+                        milestones=[self._plc.before_lr_decay_warm_up_steps],
+                    ),
+                    "interval": "step",
+                    "frequency": 1,
+                    "monitor": "train_loss",
+                },
+            }
+        return optimizer

@@ -1,17 +1,11 @@
 from dataclasses import dataclass
 from datasets import load_dataset, Dataset, IterableDataset, Split
-from functools import cache
 from lightning.pytorch.utilities.types import EVAL_DATALOADERS, TRAIN_DATALOADERS
-from pathlib import Path
 from torch.utils.data import DataLoader
 from typing import Optional, Union, List
 from lightning.pytorch.utilities.combined_loader import CombinedLoader
 from lightning.pytorch import LightningDataModule
-import importlib
-import sys
 
-#test
-import os
 
 @dataclass(frozen=True)
 class SplitConfig:
@@ -56,6 +50,13 @@ class DatasetConfig:
     loss_fn: str = "cross_entropy"
     """ Loss function as given in torch.nn.functional namespace. """
 
+    revision: str = None
+    """
+    Version of the dataset script to load.
+    As datasets have their own git repository on the Datasets Hub, the default version "main" corresponds to their "main" branch.
+    You can specify a different version than the default "main" by using a commit SHA or a git tag of the dataset repository.
+    """
+
     def __hash__(self) -> int:
         return hash((self.path or "") + (self.name or ""))
 
@@ -72,26 +73,6 @@ class DatasetConfig:
         return f"{split}{si.slicing}"
 
 
-@dataclass(frozen=True)
-class FMRIDatasetConfig(DatasetConfig):
-    """Load custom dataset from a local folder."""
-
-    sampling_method: str = "LAST"
-    """ Sampling method. """
-
-
-@dataclass(frozen=True)
-class HFDatasetConfig(DatasetConfig):
-    """Load a dataset from the Hugging Face Hub, or a local dataset."""
-
-    revision: str = None
-    """
-    Version of the dataset script to load.
-    As datasets have their own git repository on the Datasets Hub, the default version "main" corresponds to their "main" branch.
-    You can specify a different version than the default "main" by using a commit SHA or a git tag of the dataset repository.
-    """
-
-
 class BrainBiasDataModule(LightningDataModule):
     def __init__(self, ds_configs: List[DatasetConfig], tokenizer) -> None:
         super().__init__()
@@ -99,6 +80,13 @@ class BrainBiasDataModule(LightningDataModule):
         self.tokenizer = tokenizer
         self.dataloader_idx_to_config = []
         self._load_datasets()
+
+        self.batch_size = sum(
+            c.train.batch_size
+            for c in self._ds_configs
+            if c.train and c.train.batch_size
+        )
+        assert self.batch_size > 0
 
     def _load_datasets(self):
         """Load datasets splits into memory."""
@@ -108,44 +96,22 @@ class BrainBiasDataModule(LightningDataModule):
         for ds_config in self._ds_configs:
             self.ds_cfg_to_splits[ds_config] = {}
             split_spec = [
-                ds_config.get_split_spec(str(split)) for split in train_validation_test
+                s_spec
+                for split in train_validation_test
+                for s_spec in (ds_config.get_split_spec(str(split)),)
+                if s_spec
             ]
-            if isinstance(ds_config, FMRIDatasetConfig):
-                ds_config: FMRIDatasetConfig
-                module = self._import_module(ds_config)
-                ds_array: List[Union[IterableDataset, Dataset]] = module.load(
-                    name=ds_config.name,
-                    sampling_method=ds_config.sampling_method,
-                    split=split_spec,
-                )
-            elif isinstance(ds_config, HFDatasetConfig):
-                ds_config: HFDatasetConfig
-                ds_array: List[Union[IterableDataset, Dataset]] = load_dataset(
-                    path=ds_config.path,
-                    name=ds_config.name,
-                    revision=ds_config.revision,
-                    split=split_spec,
-                )
-            else:
-                raise NotImplemented()
+            ds_array: List[Union[IterableDataset, Dataset]] = load_dataset(
+                path=ds_config.path,
+                name=ds_config.name,
+                split=split_spec,
+                revision=ds_config.revision,
+            )
 
+            # Map dataset configs to splits.
             for idx, split in enumerate(train_validation_test):
                 if idx < len(ds_array):
                     self.ds_cfg_to_splits[ds_config][str(split)] = ds_array[idx]
-
-    @cache
-    def _import_module(self, dsconfig: FMRIDatasetConfig):
-        dsconfig: FMRIDatasetConfig
-        path = Path(dsconfig.path)
-        #test
-        print(os.getcwd())
-        assert path.exists() and path.is_dir()
-        path = path.resolve()
-        module = path.parts[-1]
-        if not path in sys.path:
-            sys.path.append(str(path.parent))
-        # module_name = path.parts[-1]
-        return importlib.import_module(f"{module}.{module}")
 
     def setup(self, stage):
         """Preprocess datasets splits before creating DataLoaders."""
@@ -178,6 +144,8 @@ class BrainBiasDataModule(LightningDataModule):
 
     def _create_dataloaders(self, split: Split):
         s = str(split)
+        # TODO: Try shuffle at Dataset level not Dataloader
+        # See https://huggingface.co/docs/datasets/about_mapstyle_vs_iterable#speed-differences
         res = {
             ds_cfg: DataLoader(
                 splits[s], batch_size=s_cfg.batch_size, shuffle=s_cfg.shuffle

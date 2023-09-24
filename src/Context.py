@@ -1,10 +1,5 @@
 from pl_model import PLModelConfig
-from utils.BrainBiasDataModule import (
-    DatasetConfig,
-    FMRIDatasetConfig,
-    HFDatasetConfig,
-    SplitConfig,
-)
+from utils.BrainBiasDataModule import DatasetConfig, SplitConfig
 
 
 from simple_parsing import Serializable, field
@@ -18,9 +13,10 @@ from typing import List, Optional, Union
 
 @dataclass
 class PLTrainerConfig:
-    max_epochs: Optional[int] = 1
+    max_epochs: Optional[int] = 10
     """
-    Stop training once this number of epochs is reached.  If both max_epochs and max_steps are not specified, defaults to ``max_epochs = 1000``.  To enable infinite training, set ``max_epochs = -1``.
+    Stop training once this number of epochs is reached.  If both max_epochs and max_steps are 
+    not specified, defaults to ``max_epochs = 1000``.  To enable infinite training, set ``max_epochs = -1``.
     """
 
     min_epochs: Optional[int] = None
@@ -39,20 +35,6 @@ class PLTrainerConfig:
     """ 
     Stop training after this amount of time has passed. Disabled by default (``None``).
         The time duration can be specified in the format DD:HH:MM:SS (days, hours, minutes seconds) 
-    """
-
-    limit_train_batches: Optional[Union[int, float]] = 15
-    """ How much of training dataset to check (float = fraction, int = num_batches).
-    """
-
-    limit_val_batches: Optional[Union[int, float]] = 1.0
-    """
-    How much of validation dataset to check (float = fraction, int = num_batches).
-    """
-
-    limit_test_batches: Optional[Union[int, float]] = 1.0
-    """
-    How much of test dataset to check (float = fraction, int = num_batches).
     """
 
     val_check_interval: Optional[Union[int, float]] = 1.0
@@ -84,16 +66,16 @@ class PLTrainerConfig:
     """How often to log within steps.  Default: ``50``.  """
 
     enable_checkpointing: Optional[bool] = False
-    """ If ``True``, enable checkpointing.
-        It will configure a default ModelCheckpoint callback if there is no user-defined ModelCheckpoint in :paramref:`~lightning.pytorch.trainer.trainer.Trainer.callbacks`.
+    """ 
+    If ``True``, enable checkpointing. It will configure a default ModelCheckpoint 
+    callback if there is no user-defined ModelCheckpoint in 
+    :paramref:`~lightning.pytorch.trainer.trainer.Trainer.callbacks`.
     """
-
-    overfit_batches: Union[int, float] = 0.0
-    """ Overfit a fraction of training/validation data (float) or a set number of batches (int). """
 
     precision: str = "32-true"
     """
-    Double precision (64, '64' or '64-true'), full precision (32, '32' or '32-true'), 16bit mixed precision (16, '16', '16-mixed') or bfloat16 mixed precision ('bf16', 'bf16-mixed').
+    Double precision (64, '64' or '64-true'), full precision (32, '32' or '32-true'), 
+    16bit mixed precision (16, '16', '16-mixed') or bfloat16 mixed precision ('bf16', 'bf16-mixed').
         Can be used on CPU, GPU, TPUs, HPUs or IPUs.
     """
 
@@ -112,6 +94,14 @@ class PLTrainerConfig:
         How much of test dataset to check (float = fraction, int = num_batches).
     """
 
+    overfit_batches: Union[int, float] = 0.0
+    """
+    Overfit a fraction of training/validation data (float) or a set number of batches (int).
+    """
+
+    accumulate_grad_batches: int = 1
+    """ Accumulates gradients over k batches before stepping the optimizer.  """
+
 
 @dataclass
 class Context(Serializable):
@@ -120,31 +110,23 @@ class Context(Serializable):
         See https://huggingface.co/docs/transformers/v4.32.1/en/model_doc/auto#transformers.AutoModel.from_pretrained
      """
 
-    finetuned_path: str = None
-    """
-    Filepath to finetuned model .ckpt file to run brain scores on.
-    """
-
-    ds1: HFDatasetConfig = HFDatasetConfig(
+    ds1: DatasetConfig = DatasetConfig(
         path="hendrycks/ethics",
         name="commonsense",
         revision="refs/pr/3",
-        train=SplitConfig(batch_size=50, shuffle=True, slicing="[:100]"),
-        validation=SplitConfig(batch_size=50, shuffle=False, slicing="[:100]"),
-        test=SplitConfig(batch_size=50, shuffle=False, slicing="[:100]"),
+        train=SplitConfig(batch_size=50, shuffle=True, slicing="[:1000]"),
+        validation=SplitConfig(batch_size=50, shuffle=False, slicing="[:1000]"),
+        test=SplitConfig(batch_size=50, shuffle=False, slicing="[:1000]"),
         loss_fn="cross_entropy",
     )
 
-    ds2: FMRIDatasetConfig = field(
-        default_factory=lambda: FMRIDatasetConfig(
-            path="../data/ds000212", #changed to run calc brain scores. keep in mind when making shell script
-            name="learning_from_brains",
-            sampling_method="LAST",
-            train=SplitConfig(batch_size=8, shuffle=False), #change batch size to eight
-            validation=None,
-            test=None,
-            loss_fn="mse_loss",
-        )
+    ds2: DatasetConfig = DatasetConfig(
+        path="data/ds000212/ds000212_lfb",
+        name="LFB-LAST",
+        train=SplitConfig(batch_size=2, shuffle=False),
+        validation=None,
+        test=None, # TODO: Try using test split.
+        loss_fn="mse_loss",
     )
 
     pltc: PLTrainerConfig = PLTrainerConfig()
@@ -167,6 +149,14 @@ class Context(Serializable):
     Monitor validation accuracy and stop when it reaches the
     threshold. If not set then no early stopping.
     """
+
+    profiler: Optional[str] = None
+    """ 
+    To profile individual steps during training and assist in identifying bottlenecks.
+    Options: simple, advanced
+    """
+
+    find_learning_rate: bool = False
 
     def get_ds_configs(self) -> List[DatasetConfig]:
         return [ds for ds in (self.ds1, self.ds2) if ds.enable]

@@ -1,20 +1,22 @@
-import lightning.pytorch as pl
-from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
-from lightning.pytorch.loggers import WandbLogger
+from Context import Context
 from datetime import datetime
 from json import loads as jsloads
+from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint, LearningRateMonitor
+from lightning.pytorch.loggers import WandbLogger
+from lightning.pytorch.profilers import PyTorchProfiler
+from lightning.pytorch.tuner import Tuner
+from pl_model import PLModel
 from pprint import pprint
 from simple_parsing import ArgumentParser
-import wandb
 from transformers import AutoModel, AutoTokenizer
-from Context import Context
-from Context import Context
-from pl_model import PLModel
 from utils.BrainBiasDataModule import BrainBiasDataModule
+import lightning.pytorch as pl
+import wandb
 
 
 def train(context: Context):
     pprint(context)
+    context.artifactspath.mkdir(parents=True, exist_ok=True)
 
     base_model = AutoModel.from_pretrained(context.model_path)
     tokenizer = AutoTokenizer.from_pretrained(context.model_path)
@@ -30,35 +32,52 @@ def train(context: Context):
 
     logger = WandbLogger(save_dir=context.artifactspath, project="AISC_BB")
     logger.log_hyperparams(jsloads(context.dumps_json()))
+    
 
     # train the model
     callbacks = []
     if context.early_stop_threshold is not None:
         # Stop when no val accuracy improvement after 100 epochs.
-        callbacks.append(EarlyStopping(
-            PLModel.VAL_ACC,
-            mode='max', 
-            stopping_threshold=context.early_stop_threshold
-        ))
+        callbacks.append(
+            EarlyStopping(
+                PLModel.VAL_ACC,
+                mode="max",
+                verbose=True,
+                stopping_threshold=context.early_stop_threshold,
+            )
+        )
     if context.pltc.enable_checkpointing:
-        callbacks.append(ModelCheckpoint(
-            monitor=PLModel.VAL_ACC,
-            dirpath=Context.artifactspath,
-            verbose=True,
-            mode="max",
-            auto_insert_metric_name=True,
-            every_n_epochs=3,
-            save_top_k=1
-        ))
+        fn = ((logger.experiment.name or '') + '{epoch}-{val_acc:.2f}-{train_loss:.2f}-{step}')
+        callbacks.append(
+            ModelCheckpoint(
+                monitor=PLModel.VAL_ACC,
+                dirpath=Context.artifactspath,
+                filename=fn,
+                verbose=True,
+                mode="max",
+                auto_insert_metric_name=True,
+                every_n_epochs=3,
+                save_top_k=1,
+            )
+        )
+    callbacks.append(LearningRateMonitor(logging_interval='step'))
+    profiler = PyTorchProfiler( filename='profiling-results', export_to_chrome=True)
     trainer = pl.Trainer(
-        accelerator="auto",
-        devices="auto",
-        strategy="auto",
         logger=logger,
         default_root_dir=context.artifactspath,
         callbacks=callbacks,
-        **vars(context.pltc),
+        profiler=context.profiler,
+        **vars(context.pltc)
     )
+    if context.find_learning_rate:
+        print("Finding learning rate...")
+        tuner = Tuner(trainer)
+        lr_finder = tuner.lr_find(model, data_module)
+        print(lr_finder.results)
+        suggested_lr = lr_finder.suggestion()
+        context.plc.adamw.lr = suggested_lr
+        model.learning_rate = suggested_lr
+
     print("Fitting...")
     trainer.fit(model, data_module)
 
@@ -75,7 +94,6 @@ def train(context: Context):
             context.artifactspath
             / f'model-{datetime.utcnow().isoformat(timespec="minutes").replace(":","")}.ckpt'
         )
-
 
 if __name__ == "__main__":
     parser = ArgumentParser()

@@ -18,6 +18,9 @@ script_dir="$(dirname "$script_path")"
 readonly script_dir
 base_dir=$( realpath "$script_dir" )
 
+if [[ ! -v num_cpus ]] ; then
+num_cpus=$( python -c 'import multiprocessing; print(max(1,  multiprocessing.cpu_count() - 2))' )
+fi 
 
 function ds000212_scenarios() {
     if [[ ! -e $base_dir/ds000212_scenarios.csv ]]; then
@@ -39,7 +42,7 @@ function ds000212_raw() {
     export SOURCE_DS_NAME=ds000212
     export IS_ROI_ARG=--no-roi
     echo Running make for $TARGET_DS_NAME
-    make -c $base_dir -f $base_dir/ds000212.mk all  --jobs $num_cpus --silent
+    make -C $base_dir -f $base_dir/ds000212.mk all  --jobs $num_cpus #--debug=a #--silent
 }
 
 function ds000212_roi() {
@@ -49,7 +52,7 @@ function ds000212_roi() {
     export SOURCE_DS_NAME=ds000212
     export IS_ROI_ARG=--roi
     echo Running make for $TARGET_DS_NAME
-    make -c $base_dir -f $base_dir/ds000212.mk all  --jobs $num_cpus  --silent
+    make -C $base_dir -f $base_dir/ds000212.mk all  --jobs $num_cpus  --silent
 }
 
 function ds000212_fmriprep() {

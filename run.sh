@@ -33,12 +33,14 @@ function train() {
 }
 
 function _mamba() {
-    if ! which mamba ; then
+    export MAMBA_SH="${HOME}/mambaforge/etc/profile.d/conda.sh"
+    if [[ ! -e $MAMBA_SH ]] ; then
+        echo 'Installing Mamba...'
         wget "https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-$(uname)-$(uname -m).sh"
         bash Mambaforge-$(uname)-$(uname -m).sh
         rm  Mambaforge-$(uname)-$(uname -m).sh
-        echo "Please re-enter into your shell to activate Mamba. Then run again ./run.sh vast"
     fi
+    source $MAMBA_SH 
 }
 
 function local() {
@@ -54,6 +56,10 @@ function vast() {
 
 function gcp() {
     source bin/_gcp.sh "$@"
+}
+
+function test() {
+    (cd data/ds000212/ds000212_lfb ; pytest )
 }
 
 ##########################################################################
