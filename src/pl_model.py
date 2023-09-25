@@ -97,6 +97,7 @@ class PLModel(pl.LightningModule):
     def _init_heads(self):
         self._heads = {}
         self._head_metrics = defaultdict(dict)
+        self.main_val_metric = None
 
         head_in_dim = self._base_model.config.hidden_size
         ds_cfg: DatasetConfig
@@ -261,7 +262,9 @@ class PLModel(pl.LightningModule):
 
     @property
     def main_val_metric_name(self):
-        # Take first Dataset:
+        # Take the first:
         ds_cfg: DatasetConfig = next(self.data_module._cfg_to_datasets)
-        name, _ = next(self.metrics[ds_cfg].values())
-        return name
+        collection : MetricCollection
+        _, collection = next(self._head_metrics[ds_cfg][PLModel._VALIDATION])
+        mname, _ = next(iter(collection.items()))
+        return mname
