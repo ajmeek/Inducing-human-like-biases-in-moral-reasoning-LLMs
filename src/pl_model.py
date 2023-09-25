@@ -100,6 +100,7 @@ class PLModel(pl.LightningModule):
 
         head_in_dim = self._base_model.config.hidden_size
         ds_cfg: DatasetConfig
+        # Warning. The order matters as the first one would be used for the early stopping.
         for ds_cfg, splits in self.data_module._cfg_to_datasets.items():
             ds: Union[IterableDataset, Dataset] = next(splits[s] for s in splits)
             label = ds.features[ds_cfg.label_col]
@@ -120,6 +121,7 @@ class PLModel(pl.LightningModule):
             self._init_metrics(ds_cfg, label)
 
     def _init_metrics(self, ds_cfg: DatasetConfig, label):
+        # Warning. The order matters as the first one would be used for the early stopping.
         for split in (PLModel._VALIDATION, PLModel._TEST):
             collection: MetricCollection = None
             prefix = f"{ds_cfg.name}-{split}-"
