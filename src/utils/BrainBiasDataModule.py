@@ -149,7 +149,8 @@ class BrainBiasDataModule(LightningDataModule):
             cfg: DataLoader(
                 dss[s],
                 batch_size=s_cfg.batch_size,
-                shuffle=s_cfg.shuffle,
+                # This avoids "num_samples should be a positive integer" error:
+                shuffle=(s_cfg.shuffle if len(dss[s]) > 0 else False),
                 num_workers=self._num_workers,
             )
             for cfg, dss in self._cfg_to_datasets.items()
