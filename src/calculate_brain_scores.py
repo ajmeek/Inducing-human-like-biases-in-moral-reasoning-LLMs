@@ -12,6 +12,7 @@ import torch.nn as nn
 import numpy as np
 from torch.utils.data import DataLoader
 from transformers import AutoModel, AutoTokenizer, AutoConfig, RobertaModel
+from torch.utils.data import TensorDataset, DataLoader
 
 from Context import Context
 from utils.BrainBiasDataModule import BrainBiasDataModule
@@ -276,7 +277,7 @@ if __name__ == '__main__':
 
     context = Context()
 
-    def wrapper(path_to_model, layer_list, date, finetuned):
+    def wrapper(path_to_model, tokenizer, layer_list, date, finetuned):
         """
         This wrapper abstracts the running of the code to loop over all possibilities.
 
@@ -331,25 +332,34 @@ if __name__ == '__main__':
         #     test_data = data[2]  # Shape (batch_size, num_features) (60, 1024) for a single participant.
         all_brain_scores = {'subjects': [], 'layer.module': [], 'brain_score': []}
         for subject in subjects:
-            ds000212 = DS000212_LFB_Dataset(context, tokenizer, subject=subject)
-            fmri_data = DataLoader(
-                ds000212,
-                batch_size=context['batch_size']
-            )
-            # correct_time_points = ds000212.sample_from_bold_sequence(fmri_data, Sampling.SENTENCES)
-            data = next(iter(fmri_data))  # Get the first batch of data which is one entire subject.
-            model_inputs = (data[0], data[1])
-            test_data = data[2]  # Shape (batch_size, num_features) (60, 1024) for a single participant.
+            # ds000212 = DS000212_LFB_Dataset(context, tokenizer, subject=subject)
+            # fmri_data = DataLoader(
+            #     ds000212,
+            #     batch_size=context['batch_size']
+            # )
+            # # correct_time_points = ds000212.sample_from_bold_sequence(fmri_data, Sampling.SENTENCES)
+            # data = next(iter(fmri_data))  # Get the first batch of data which is one entire subject.
+            # model_inputs = (data[0], data[1])
+            # test_data = data[2]  # Shape (batch_size, num_features) (60, 1024) for a single participant.
 
-            print("test_data.shape: ", test_data.shape)
-            print("test_data: ", test_data)
-            break
+            # TODO - How to get the attention mask for a given input?
+            # alright, I'll need to tokenize it myself now. I should pass the tokenizer in along with the model to do so
+
+            tokenized = tokenizer(inputs, padding='max_length', truncation=True)
+
+            # convert tokens, masks, and targets into tensors
+            tokens = torch.tensor(tokenized['input_ids'])
+            masks = torch.tensor(tokenized['attention_mask'])
+            model_inputs = TensorDataset(tokens, masks)
+
+            # print("test_data.shape: ", test_data.shape)
+            # print("test_data: ", test_data)
+            # break
             # correct_time_points = ds000212.sample_from_bold_sequence(test_data, Sampling.SENTENCES)
 
             # Calculate the brain scores
             layers = layer_list  # The layers to calculate the brain scores for.
-            modules = [
-                'output.dense']  # The layer and module will be combined to 'layer.module' to get the activations.
+            modules = ['output.dense']  # The layer and module will be combined to 'layer.module' to get the activations.
             max_fmri_features = None  # This is used to limit the size of the data so that everything can still fit in memory. If None, all features are used.
             score_per_feature = True  # If True, score per feature output. If False, not output but still calculated for Pearson's correlation coefficient.
             train_perc = 0.8  # The percentage of the data to use for training.
@@ -462,7 +472,7 @@ if __name__ == '__main__':
 
     ds = load_dataset('/home/austin/PycharmProjects/Inducing-human-like-biases-in-moral-reasoning-LLMs/data/ds000212/ds000212_lfb', name='LFB-LAST')
 
-    #print(list(ds.filter(lambda e: 'sub-07' in e['file'])['train']))
+    sub07_test_list = list(ds.filter(lambda e: 'sub-07' in e['file'])['train'])
 
     dataloader = DataLoader(ds['train'], batch_size=8)
     for batch in dataloader:
