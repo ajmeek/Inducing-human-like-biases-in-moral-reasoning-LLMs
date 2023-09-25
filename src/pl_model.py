@@ -18,7 +18,13 @@ import lightning.pytorch as pl
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torchmetrics import MetricCollection, Accuracy, MeanSquaredError
+from torchmetrics import MetricCollection
+from torchmetrics.regression import (
+    MeanSquaredError,
+    MeanAbsoluteError,
+    CosineSimilarity,
+)
+from torchmetrics.classification import MulticlassAUROC, MulticlassAccuracy
 
 
 @dataclass
@@ -116,16 +122,31 @@ class PLModel(pl.LightningModule):
     def _init_metrics(self, ds_cfg: DatasetConfig, label):
         for split in (PLModel._VALIDATION, PLModel._TEST):
             collection: MetricCollection = None
+            prefix = f"{ds_cfg.name}-{split}-"
             if isinstance(label, ClassLabel):
                 collection = MetricCollection(
-                    [Accuracy(task="multiclass", num_classes=label.num_classes)],
-                    prefix=f"{split}-",
+                    [
+                        MulticlassAccuracy(num_classes=label.num_classes),
+                        MulticlassAUROC(
+                            num_classes=label.num_classes,
+                            average="macro",
+                            thresholds=None,
+                        ),
+                    ],
+                    prefix=prefix,
                 )
             elif isinstance(label, Sequence):
-                collection = MetricCollection([MeanSquaredError()], prefix=f"{split}-")
+                collection = MetricCollection(
+                    [
+                        MeanSquaredError(),
+                        MeanAbsoluteError(),
+                        CosineSimilarity(reduction="mean"),
+                    ],
+                    prefix=prefix,
+                )
 
             if collection:
-                name = f"{ds_cfg.name}-{split}-metrics"
+                name = f"{prefix}metrics"
                 self.register_module(name, collection)
                 self._head_metrics[ds_cfg][split] = (name, collection)
 
@@ -195,14 +216,7 @@ class PLModel(pl.LightningModule):
         predictions = outputs[ds_cfg]
         targets = batch[ds_cfg.label_col]
         m_result = metric_col(predictions, targets)
-        self.log_dict(m_result)
-
-    def on_validation_epoch_end(self):
-        for ds_conf, splits_d in self._head_metrics.items():
-            for split, (m_name, metric_col) in splits_d.items():
-                output = metric_col.compute()
-                self.log_dict(output)
-                metric_col.reset()
+        self.log_dict(m_result, prog_bar=True, on_epoch=True)
 
     def configure_optimizers(self):
         if not self._plc.train_all:
