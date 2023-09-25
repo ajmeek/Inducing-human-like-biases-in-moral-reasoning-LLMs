@@ -95,7 +95,6 @@ class BrainBiasDataModule(LightningDataModule):
         """Load datasets splits into memory."""
 
         self._cfg_to_datasets = {}
-        self.ds_cfg_to_features = {}
         train_validation_test = (Split.TRAIN, Split.VALIDATION, Split.TEST)
         for cfg in self._ds_configs:
             # Load dataset splits and prepare for the following methods:
@@ -113,10 +112,7 @@ class BrainBiasDataModule(LightningDataModule):
                 revision=cfg.revision,
             )
             for idx, split in enumerate(split_spec.keys()):
-                ds: Union[Dataset, IterableDataset] = ds_array[idx]
-                if ds and ds.features and cfg not in self.ds_cfg_to_features:
-                    self.ds_cfg_to_features[cfg] = ds.features
-                self._cfg_to_datasets[cfg][str(split)] = ds
+                self._cfg_to_datasets[cfg][str(split)] = ds_array[idx]
 
     def setup(self, stage):
         """Preprocess datasets splits before creating DataLoaders."""
@@ -158,7 +154,10 @@ class BrainBiasDataModule(LightningDataModule):
             )
             for cfg, dss in self._cfg_to_datasets.items()
             for s_cfg in (vars(cfg)[s],)
-            if s in dss and dss[s]
+            # Warning. If len(dss[s])==0 still add this as dataloader_idx might be 
+            # equal to the one from other stage (from train in validation), so that
+            # wrong DatasetConfig taken.
+            if s in dss and dss[s] is not None
         }
         self.dataloader_idx_to_config = list(res.keys())
         return res
@@ -176,7 +175,3 @@ class BrainBiasDataModule(LightningDataModule):
 
     def test_dataloader(self) -> EVAL_DATALOADERS:
         return CombinedLoader(self._create_dataloaders(Split.TEST), mode="sequential")
-
-    def get_label_by(self, ds_cfg: DatasetConfig):
-        features = self.ds_cfg_to_features[ds_cfg]
-        return features[ds_cfg.label_col]

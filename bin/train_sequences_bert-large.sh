@@ -11,11 +11,11 @@ echo "First train only a head on Ethics"
     --ds1.validation.batch_size 5 \
     --ds1.validation.slicing '[:2000]' \
     --ds2.enable False \
-    --max_epochs 20 \
+    --max_epochs 30 \
     --model_path 'bert-large-cased' \
     --before_lr_decay_warm_up_steps 100 \
     --find_learning_rate 1 \
-    --accumulate_grad_batches 10 \
+    --accumulate_grad_batches 5 \
     --stepLR_gamma 0.99 \
     --stepLR_step_size 10 \
     --train_all False \
