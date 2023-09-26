@@ -108,7 +108,12 @@ class Context(Serializable):
     model_path: str = "bert-base-cased"
     """ Huggingface model path or name. 
         See https://huggingface.co/docs/transformers/v4.32.1/en/model_doc/auto#transformers.AutoModel.from_pretrained
-     """
+    """
+
+    finetuned_path: str = None
+    """
+    Filepath to finetuned model .ckpt file to run brain scores on.
+    """
 
     ds1: DatasetConfig = DatasetConfig(
         path="hendrycks/ethics",
