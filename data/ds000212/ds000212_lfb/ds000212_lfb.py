@@ -228,6 +228,9 @@ class DS000212(datasets.GeneratorBasedBuilder):
             return
         assert behavior_key and behavior_key.isdigit() and (0 <= int(behavior_key) <= BEHAVIOR_KEYS_NUM)
         behavior_key = int(behavior_key)
+        if behavior_key == 0:
+            # Silently skip as this. Assume broken data.
+            return
 
         if self.sampling_method == Sampling.SENTENCES:
             text = sentences

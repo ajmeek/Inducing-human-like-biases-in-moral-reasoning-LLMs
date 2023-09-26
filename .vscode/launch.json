@@ -11,6 +11,24 @@
             "program": "${workspaceRoot}/src/main.py",
             "args": [],
             "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "Launch-Checkpoint",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceRoot}/src/main.py",
+            "args": [
+                "--to_save_model",
+                "--max_epochs",
+                "1",
+                "--ds1.train.slicing",
+                "[:10]",
+                "--ds2.train.slicing",
+                "[:10]",
+                "--checkpoint_path",
+                "artifacts/model-2023-09-20T1649.ckpt"
+            ],
+            "cwd": "${workspaceFolder}"
         }
     ]
 }

@@ -7,7 +7,7 @@ if [[ "${VAST_CONTAINERLABEL:-}" != "" ]] ; then
     apt install -q nnn htop neovim 
 
     echo "Creating Python environment..."
-    mamba env create --force -n $PYTHON_ENV_NAME -f environment-cuda.yml
+    mamba env create -n $PYTHON_ENV_NAME --file environment-cuda.yml
     apt install -q netbase  # To enable /etc/protocols which is required by git-annex.
 
     echo "Activating Python environment..."
