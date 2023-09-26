@@ -37,7 +37,7 @@ def return_path_to_latest_checkpoint() -> Path:
     # technically, checkpoint names aren't fully accurate to your specific timezone necessarily. but they're consistent
     subdirectories_sorted = []
     for i in subdirectories:
-        if i != 'brain_scores':
+        if i != 'brain_scores' and i != 'wandb' and i != 'lightning_logs':
             converted = datetime.strptime(i, '%y%m%d-%H%M%S')
             subdirectories_sorted.append((converted, i))
 
