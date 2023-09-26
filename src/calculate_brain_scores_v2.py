@@ -256,12 +256,12 @@ if __name__ == '__main__':
 
 
     # finetuned model
-    finetuned_model = load_from_checkpoint(model, context)
-    data_module = BrainBiasDataModule(context.get_ds_configs(), tokenizer)
-    finetuned_model = PLModel(finetuned_model, context.plc, data_module)
+    # finetuned_model = load_from_checkpoint(model, context)
+    # data_module = BrainBiasDataModule(context.get_ds_configs(), tokenizer)
+    # finetuned_model = PLModel(finetuned_model, context.plc, data_module)
 
     # dataset
-    ds = load_dataset('/home/austin/PycharmProjects/Inducing-human-like-biases-in-moral-reasoning-LLMs/data/ds000212/ds000212_lfb', name='LFB-LAST')
+    ds = load_dataset('/Users/ajmeek/PycharmProjects/Inducing-human-like-biases-in-moral-reasoning-LLMs/data/ds000212/ds000212_lfb/ds000212_lfb.py', name='LFB-LAST')
 
     # for writing to file. Keep same data structure as before so Seong's notebooks don't break
     # actually Seong, it may be easiest for me to
@@ -269,14 +269,20 @@ if __name__ == '__main__':
     coeff_of_det_per_subject = {}
     ridge_regress_predict_per_subject = {}
 
-    for finetuned in [False, True]:
+    for finetuned in [False]:#, True]: # for now because my latest saved model doesn't match BertModel
+        # also TODO need to check through wandb directories for latest checkpoints
 
         path_to_brain_scores = os.path.join(os.getcwd(), 'artifacts', 'brain_scores',
                                             f'{date}_finetuned={finetuned}')  # change finetune for below loop
         if not os.path.exists(path_to_brain_scores):
             os.makedirs(path_to_brain_scores)
 
-        for subject in subjects:
+        for subject in ['sub-24']:#subjects: #debug subj 14 tokenization prob
+            # sub 14, 15 don't have any inputs nor fmri data. no such subjects in the train split? 40 has them though.
+
+
+            # TODO - couldn't find them because they're in the ASD list.
+            # dataset split. pull from all dataloaders, and if subject not in one check the rest
 
             # get data for each subject from the dataloader, from the train split
             subject_data = list(ds.filter(lambda e: subject in e['file'])['train'])
@@ -345,4 +351,4 @@ if __name__ == '__main__':
                         for i in yaml_contents.keys():
                             f.write(f"{i}: {yaml_contents[i]}\n")
 
-            break #just for one subj to test
+            #break #just for one subj to test
