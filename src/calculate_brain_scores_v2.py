@@ -95,11 +95,9 @@ def load_from_checkpoint(model, context):
 def calculate_brain_scores(model: nn.Module,
                            model_inputs: torch.tensor,
                            test_data: torch.tensor,
-                           layers: list,
+                           layer: list,
                            modules: list,
-                           max_fmri_features: Optional[int],
                            finetuned: bool,
-                           score_per_feature: bool = False,
                            train_perc: float = 1.0,
                            val_perc: float = 0.0,
                            ) -> dict:
@@ -113,8 +111,6 @@ def calculate_brain_scores(model: nn.Module,
     :param test_data: The fMRI data.
     :param layers: The layers for which the activations should be calculated.
     :param modules: The modules for which the activations should be calculated.
-    :param max_fmri_features: For memory reasons, the number of fMRI features can be limited.
-    :param score_per_feature: If true, the brain scores are calculated for each fMRI feature separately.
     :param train_perc: The percentage of the data to use for training.
     :param val_perc: The percentage of the data to use for validation.
     :param finetuned: Bool indicating whether or not the model is finetuned. For print out
@@ -122,9 +118,8 @@ def calculate_brain_scores(model: nn.Module,
     """
     activations = {}
     all_layer_names = []
-    for layer in layers:
-        for module in modules:
-            all_layer_names.append(f'{layer}.{module}')
+    for module in modules:
+        all_layer_names.append(f'{layer}.{module}')
 
     def get_activation(name):
         def hook(model, input, output):
@@ -152,8 +147,6 @@ def calculate_brain_scores(model: nn.Module,
     layer.module = The layer that the brain score is calculated on
     brain_score = The overall brain score. Pearson's correlation coefficient of ground truth fMRI ROI activations and
         the ridge regression model's predictions for each fMRI ROI
-    brain_score_positive = deprecated. Was a sum of only non-negative values from coeff_of_det
-    brain_score_per_feature = deprecated. Was score for each feature, dependent on choice of R^2 or pearson's r
     coeff_of_det = The coefficient of determination for each fMRI ROI. 
     ridge_regress_predict = The prediction of the ridge regression model for each fMRI ROI.
     """
@@ -176,24 +169,9 @@ def calculate_brain_scores(model: nn.Module,
         activations_last_token = torch.gather(activation, 1, index_tensor.expand(-1, -1, activation.shape[-1])).squeeze(
             1)  # Shape [batch_size, hidden_size] (60, 1024)
 
-        # Cut-off the maximum number of fmri features because of memory issues.
-        test_data = test_data.view(-1, test_data.shape[-1])
-        if max_fmri_features is not None:
-            test_data = test_data[:, :max_fmri_features]
-
         # Split the data into train, validation and test.
         num_train_samples = int(train_perc * activations_last_token.shape[0])
         num_val_samples = activations_last_token.shape[0] - num_train_samples
-
-        # TODO - should the validation activation data, used for ROI brain score, be a specific part of the scenario?
-        # scenarios are split into different sections. Perhaps some sections are more morally relevant than others?
-
-        # note, we could use all but one for pearson's but need at least 2 for coeff of det. Doing them together means to
-        # train two separate models (minor computational expense) if we want 1 extra data point in pearson's train set.
-        # With Artyom's new sampling method, this will likely not be an issue.
-        # if correlation == "pearson":
-        #     num_train_samples = 7
-        #     num_val_samples = 1
 
         activations_last_token_train = activations_last_token[:num_train_samples]
         test_data_train = test_data[:num_train_samples]
@@ -231,12 +209,6 @@ def calculate_brain_scores(model: nn.Module,
                                                             feature)
             prediction = clf.predict(activations_last_token_val)
 
-            # TODO - compare on finetuned on ethics v pretrained, and finetued on fMRI v pretrained (separate in train CLI command somehow)
-
-            # TODO - send the predictions above for ROI scores, along with R^2 scores
-
-            # TODO - integrate Artyom's new sampling, fit on more data. predict on maximally moral reasoning TR
-
             brain_scores['ridge_regress_predict'].append(prediction[0])
             predictions_list.append(prediction)
 
@@ -247,12 +219,6 @@ def calculate_brain_scores(model: nn.Module,
         brain_scores['layer.module'].append(layer_name)
         # brain_scores['brain_score'].append(sum(brain_score_list) / len(range(test_data.shape[1])))  # Average
         brain_scores['brain_score'].append(pearson_r[0])  # Pearson's r
-
-        # else:
-        #     clf = RidgeCV(alphas=[1e-3, 1e-2, 1e-1, 1]).fit(activations_last_token_train,
-        #                                                     test_data_train)
-        #     brain_scores['layer.module'].append(layer_name)
-        #     brain_scores['brain_score'].append(clf.score(activations_last_token_val, test_data_val))
 
     return brain_scores
 
@@ -297,11 +263,14 @@ if __name__ == '__main__':
         fmri_data = torch.tensor([e['label'] for e in subject_data])
         inputs = [e['input'] for e in subject_data]
         tokenized = tokenizer(inputs, padding='max_length', truncation=True)
-        tokens = tokenized['input_ids']
-        attention_mask = tokenized['attention_mask']
+        tokens = torch.tensor(tokenized['input_ids'])
+        attention_mask = torch.tensor(tokenized['attention_mask'])
         model_inputs = (tokens, attention_mask)
 
         for layer in layers:
+            modules = ['output.dense'] #combined with layer to get the activations
+            brain_scores_dict = calculate_brain_scores(base_model, model_inputs, fmri_data, layer, modules, finetuned=False)
+
             pass
 
 
