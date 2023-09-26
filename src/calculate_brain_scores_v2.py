@@ -277,7 +277,7 @@ if __name__ == '__main__':
         if not os.path.exists(path_to_brain_scores):
             os.makedirs(path_to_brain_scores)
 
-        for subject in ['sub-24']:#subjects: #debug subj 14 tokenization prob
+        for subject in ['sub-15']:#subjects: #debug subj 14 tokenization prob
             # sub 14, 15 don't have any inputs nor fmri data. no such subjects in the train split? 40 has them though.
 
 
@@ -286,6 +286,10 @@ if __name__ == '__main__':
 
             # get data for each subject from the dataloader, from the train split
             subject_data = list(ds.filter(lambda e: subject in e['file'])['train'])
+            if len(subject_data) == 0:
+                subject_data = list(ds.filter(lambda e: subject in e['file'])['test'])
+                if len(subject_data) == 0:
+                    subject_data = list(ds.filter(lambda e: subject in e['file'])['asd'])
 
             """
             Brain scores expects three main things:
