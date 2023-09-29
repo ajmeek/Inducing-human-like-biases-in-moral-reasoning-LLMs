@@ -81,13 +81,26 @@ def load_from_checkpoint(model, context):
     if context.finetuned_path is not None:
         path_to_model = Path(context.finetuned_path)
 
+        # had to change this since roberta.pt file stores things slightly differently than lightning .ckpt files
+        # state_dict = torch.load(path_to_model, map_location=torch.device('cpu'))
+        # state_dict = {k.replace('roberta.', ''): state_dict[k] for k in state_dict}
+        # state_dict.pop('classifier.dense.weight')
+        # state_dict.pop('classifier.dense.bias')
+        # state_dict.pop('classifier.out_proj.weight')
+        # state_dict.pop('classifier.out_proj.bias')
+        # model.load_state_dict(state_dict)
+
         state_dict = torch.load(path_to_model)
         state_dict_hf = state_dict['state_dict']
-        state_dict_hf = {k.replace('model.base.', ''): state_dict_hf[k] for k in state_dict_hf}
-        state_dict_hf.pop('model.heads.0.weight')
-        state_dict_hf.pop('model.heads.0.bias')
-        state_dict_hf.pop('model.heads.1.weight')
-        state_dict_hf.pop('model.heads.1.bias')
+        state_dict_hf = {k.replace('_base_model.', ''): state_dict_hf[k] for k in state_dict_hf}
+        # state_dict_hf.pop('model.heads.0.weight')
+        # state_dict_hf.pop('model.heads.0.bias')
+        # state_dict_hf.pop('model.heads.1.weight')
+        # state_dict_hf.pop('model.heads.1.bias')
+        # state_dict_hf.pop('commonsense.weight') #those finetuned on ethics. remove this head
+        # state_dict_hf.pop('commonsense.bias')
+        state_dict_hf.pop('LFB-SENTENCES.weight') # for fmri only model
+        state_dict_hf.pop('LFB-SENTENCES.bias') # for fmri only model
         model.load_state_dict(state_dict_hf)
     else:
         path_to_model = return_path_to_latest_checkpoint()
@@ -241,7 +254,7 @@ if __name__ == '__main__':
     context = Context()
 
     # rewriting and getting rid of the wrapper. change above brain score function to accept one layer at a time
-    layers = ['2', '3', '4', '5', '6', '7', '8', '9', '10', '11']
+    layers = ['2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24']
     subject_list = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 22, 23, 24, 27, 28, 29, 30, 31,
                     32, 33, 34, 35, 38, 39, 40, 41, 42, 44, 45, 46, 47]
     subjects = [f'sub-{i:02}' for i in subject_list]
@@ -249,6 +262,7 @@ if __name__ == '__main__':
     train_perc = 0.8 #for ridge regression model
 
     # base model - not finetuned
+    context.model_path = 'bert-large-cased'
     model = AutoModel.from_pretrained(context.model_path)
     tokenizer = AutoTokenizer.from_pretrained(context.model_path)
     data_module = BrainBiasDataModule(context.get_ds_configs(), tokenizer)
@@ -256,9 +270,10 @@ if __name__ == '__main__':
 
 
     # finetuned model
-    # finetuned_model = load_from_checkpoint(model, context)
-    # data_module = BrainBiasDataModule(context.get_ds_configs(), tokenizer)
-    # finetuned_model = PLModel(finetuned_model, context.plc, data_module)
+    context.finetuned_path = '/Users/ajmeek/PycharmProjects/Inducing-human-like-biases-in-moral-reasoning-LLMs/artifacts/seongs_models/bert large cased fmri only sept 28/bert_large_cased_fMRI.ckpt'
+    finetuned_model = load_from_checkpoint(model, context)
+    data_module = BrainBiasDataModule(context.get_ds_configs(), tokenizer)
+    finetuned_model = PLModel(finetuned_model, context.plc, data_module)
 
     # dataset
     ds = load_dataset('/Users/ajmeek/PycharmProjects/Inducing-human-like-biases-in-moral-reasoning-LLMs/data/ds000212/ds000212_lfb/ds000212_lfb.py', name='LFB-LAST')
@@ -269,7 +284,7 @@ if __name__ == '__main__':
     coeff_of_det_per_subject = {}
     ridge_regress_predict_per_subject = {}
 
-    for finetuned in [False]:#, True]: # for now because my latest saved model doesn't match BertModel
+    for finetuned in [True]:#, True]: # for now because my latest saved model doesn't match BertModel
         # also TODO need to check through wandb directories for latest checkpoints
 
         path_to_brain_scores = os.path.join(os.getcwd(), 'artifacts', 'brain_scores',
@@ -277,7 +292,7 @@ if __name__ == '__main__':
         if not os.path.exists(path_to_brain_scores):
             os.makedirs(path_to_brain_scores)
 
-        for subject in ['sub-15']:#subjects: #debug subj 14 tokenization prob
+        for subject in subjects:#subjects: #debug subj 14 tokenization prob
             # sub 14, 15 don't have any inputs nor fmri data. no such subjects in the train split? 40 has them though.
 
 
@@ -289,7 +304,7 @@ if __name__ == '__main__':
             if len(subject_data) == 0:
                 subject_data = list(ds.filter(lambda e: subject in e['file'])['test'])
                 if len(subject_data) == 0:
-                    subject_data = list(ds.filter(lambda e: subject in e['file'])['asd'])
+                    continue  #here have asd subjects later
 
             """
             Brain scores expects three main things:
@@ -342,17 +357,18 @@ if __name__ == '__main__':
                 f.write(f"Date: {date}\n")
                 f.write("\n Checkpoint metadata below (if finetuned): \n")
 
-                if finetuned:
-                    # load metadata from checkpoint as well - built off of lightning's checkpoint directory structure
-                    path_to_model = return_path_to_latest_checkpoint()
-                    parent_path = os.path.dirname(path_to_model)
-                    grandparent_path = os.path.dirname(parent_path)
-
-                    yaml_path = os.path.join(grandparent_path, 'hparams.yaml')
-                    with open(yaml_path, 'r') as file:
-                        yaml_contents = yaml.load(file, Loader=yaml.FullLoader)
-
-                        for i in yaml_contents.keys():
-                            f.write(f"{i}: {yaml_contents[i]}\n")
+                # model Seong sent me not auto generated. no yaml file to read from here.
+                # if finetuned:
+                #     # load metadata from checkpoint as well - built off of lightning's checkpoint directory structure
+                #     path_to_model = return_path_to_latest_checkpoint()
+                #     parent_path = os.path.dirname(path_to_model)
+                #     grandparent_path = os.path.dirname(parent_path)
+                #
+                #     yaml_path = os.path.join(grandparent_path, 'hparams.yaml')
+                #     with open(yaml_path, 'r') as file:
+                #         yaml_contents = yaml.load(file, Loader=yaml.FullLoader)
+                #
+                #         for i in yaml_contents.keys():
+                #             f.write(f"{i}: {yaml_contents[i]}\n")
 
             #break #just for one subj to test
