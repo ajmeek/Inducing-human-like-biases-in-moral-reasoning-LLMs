@@ -31,7 +31,7 @@ from torchmetrics.classification import MulticlassAUROC, MulticlassAccuracy
 class AdamWConfig:
     """See https://pytorch.org/docs/stable/generated/torch.optim.AdamW.html"""
 
-    lr: float = 5e-2
+    lr: float = 2e-5
     """ Learn rate. """
 
     betas: Tuple[float, float] = (0.9, 0.999)
@@ -153,12 +153,13 @@ class PLModel(pl.LightningModule):
                 self.register_module(name, collection)
                 self._head_metrics[ds_cfg][split] = (name, collection)
 
-    def forward(self, tokens, mask):
+    def forward(self, tokens, mask, token_type_ids):
         """Returns predictions per dataset per feature."""
-        base_out = self._base_model(tokens, mask)
-        base_out = base_out.last_hidden_state
-        base_out = base_out[:, self._plc.token_location, :]
-        return {ds_cfg: self._heads[ds_cfg](base_out) for ds_cfg in self._heads}
+        base_out = self._base_model(
+            input_ids=tokens, attention_mask=mask, token_type_ids=token_type_ids
+        )
+        logits = base_out.last_hidden_state[:, self._plc.token_location, :]
+        return {ds_cfg: self._heads[ds_cfg](logits) for ds_cfg in self._heads}
 
     def training_step(self, dl_batches, _):
         """
@@ -171,7 +172,9 @@ class PLModel(pl.LightningModule):
             ds_cfg: DatasetConfig
             if not batch:
                 continue
-            outputs = self.forward(batch["input_ids"], batch["attention_mask"])
+            outputs = self.forward(
+                batch["input_ids"], batch["attention_mask"], batch["token_type_ids"]
+            )
             predictions: torch.Tensor = outputs[ds_cfg]
             targets = batch[ds_cfg.label_col]
             loss_fn = vars(F)[ds_cfg.loss_fn]
@@ -215,7 +218,9 @@ class PLModel(pl.LightningModule):
             return
         ds_cfg = self.data_module.dataloader_idx_to_config[dataloader_idx]
         name, metric_col = self._head_metrics[ds_cfg][step_name]
-        outputs = self.forward(batch["input_ids"], batch["attention_mask"])
+        outputs = self.forward(
+            batch["input_ids"], batch["attention_mask"], batch["token_type_ids"]
+        )
         predictions = outputs[ds_cfg]
         targets = batch[ds_cfg.label_col]
         m_result = metric_col(predictions, targets)
@@ -264,7 +269,7 @@ class PLModel(pl.LightningModule):
     def main_val_metric_name(self):
         # Take the first:
         ds_cfg: DatasetConfig = next(self.data_module._cfg_to_datasets)
-        collection : MetricCollection
+        collection: MetricCollection
         _, collection = next(self._head_metrics[ds_cfg][PLModel._VALIDATION])
         mname, _ = next(iter(collection.items()))
         return mname
