@@ -7,7 +7,7 @@ from lightning.pytorch.utilities.combined_loader import CombinedLoader
 from lightning.pytorch import LightningDataModule
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=False)
 class SplitConfig:
     batch_size: Optional[int] = 1
     """ How many samples per batch to load.  """
@@ -21,7 +21,7 @@ class SplitConfig:
     """
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=False)
 class DatasetConfig:
     train: Optional[SplitConfig]
     """ Relates to Split.TRAIN """
@@ -74,6 +74,8 @@ class DatasetConfig:
 
 
 class BrainBiasDataModule(LightningDataModule):
+    TRAIN_VAL_TEST = (Split.TRAIN, Split.VALIDATION, Split.TEST)
+
     def __init__(
         self, ds_configs: List[DatasetConfig], tokenizer, num_workers: int = 0
     ) -> None:
@@ -83,25 +85,61 @@ class BrainBiasDataModule(LightningDataModule):
         self.tokenizer = tokenizer
         self.dataloader_idx_to_config = []
         self._load_datasets()
+        assert self.batch_size > 0
 
-        self.batch_size = sum(
+    @property
+    def batch_size(self):
+        return sum(
             c.train.batch_size
             for c in self._ds_configs
             if c.train and c.train.batch_size
         )
-        assert self.batch_size > 0
+
+    @batch_size.setter
+    def batch_size(self, val):
+        """
+        Overrides batch size in all DatasetConfigs for all splits.
+        The given value is broken evenly with the remaining left for the last.
+        """
+
+        assert val > 0
+        for split in BrainBiasDataModule.TRAIN_VAL_TEST:
+            split = str(split)
+            n = sum(
+                1
+                for c in self._ds_configs
+                if vars(c)[split] and vars(c)[split].batch_size > 0
+            )
+            assert (
+                val >= n
+            ), "Expect batch size to be greater than or equal to the number of datasets."
+            m = val // n
+            r = val % n
+            assert m > 0
+            for i, cfg in enumerate(self._ds_configs):
+                s_cfg = vars(cfg)[split]
+                if not s_cfg:
+                    continue
+                s_cfg.batch_size = m + (r if i + 1 == n else 0)
+            assert (
+                sum(
+                    vars(c)[split].batch_size
+                    for c in self._ds_configs
+                    if vars(c)[split] and vars(c)[split].batch_size > 0
+                )
+                == val
+            )
 
     def _load_datasets(self):
         """Load datasets splits into memory."""
 
         self._cfg_to_datasets = {}
-        train_validation_test = (Split.TRAIN, Split.VALIDATION, Split.TEST)
         for cfg in self._ds_configs:
             # Load dataset splits and prepare for the following methods:
             self._cfg_to_datasets[cfg] = {}
             split_spec = {
                 split: s_spec
-                for split in train_validation_test
+                for split in BrainBiasDataModule.TRAIN_VAL_TEST
                 for s_spec in (cfg.get_split_spec(str(split)),)
                 if s_spec
             }
@@ -155,7 +193,7 @@ class BrainBiasDataModule(LightningDataModule):
             )
             for cfg, dss in self._cfg_to_datasets.items()
             for s_cfg in (vars(cfg)[s],)
-            # Warning. If len(dss[s])==0 still add this as dataloader_idx might be 
+            # Warning. If len(dss[s])==0 still add this as dataloader_idx might be
             # equal to the one from other stage (from train in validation), so that
             # wrong DatasetConfig taken.
             if s in dss and dss[s] is not None

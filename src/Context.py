@@ -102,13 +102,28 @@ class PLTrainerConfig:
     accumulate_grad_batches: int = 1
     """ Accumulates gradients over k batches before stepping the optimizer.  """
 
+    strategy: str = "auto"
+    """ Supports different training strategies with aliases as well custom strategies.  """
+
+    precision: str = "32-true"
+    """
+    Double precision (64, '64' or '64-true'), full precision (32, '32' or '32-true'),
+    16bit mixed precision (16, '16', '16-mixed') or bfloat16 mixed precision ('bf16', 'bf16-mixed').
+    Can be used on CPU, GPU, TPUs, HPUs or IPUs.
+    """
+
 
 @dataclass
 class Context(Serializable):
     model_path: str = "bert-base-cased"
     """ Huggingface model path or name. 
         See https://huggingface.co/docs/transformers/v4.32.1/en/model_doc/auto#transformers.AutoModel.from_pretrained
-     """
+    """
+
+    finetuned_path: str = None
+    """
+    Filepath to finetuned model .ckpt file to run brain scores on.
+    """
 
     ds1: DatasetConfig = DatasetConfig(
         path="hendrycks/ethics",
@@ -141,12 +156,12 @@ class Context(Serializable):
     datapath: Path = Path(environ.get("AISCBB_DATA_DIR", "./data"))
     """ Path to the folder with datasets.  """
 
-    checkpoint_path: str = None
+    checkpoint_path: Path = None
     """
     Path to checkpoint which will be used to load initial weights from.
     """
 
-    last_checkpoint_path: str = None
+    last_checkpoint_path: Path = None
     """ 
     Whether to save the checkpoint of the model after the test stage to the path. 
     If no path provided it is not saved.
@@ -164,10 +179,16 @@ class Context(Serializable):
     Options: simple, advanced, pytorch
     """
 
-    find_learning_rate: bool = False
+    find_lr: bool = False
+    """ Find learning rate.  """
 
-    num_workers : int = 0
+    find_bs: bool = False
+    """ Find batch size.  """
+
+    num_workers: int = 0
     """ Number of workers for DataLoader. Specify 0 to disable. """
+
+
 
     def get_ds_configs(self) -> List[DatasetConfig]:
         return [ds for ds in (self.ds1, self.ds2) if ds.enable]

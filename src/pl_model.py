@@ -24,14 +24,16 @@ from torchmetrics.regression import (
     MeanAbsoluteError,
     CosineSimilarity,
 )
-from torchmetrics.classification import MulticlassAUROC, MulticlassAccuracy
+from torchmetrics.classification import MulticlassAUROC, MulticlassAccuracy, MulticlassF1Score
+
+STEPLR_STEPS_RATE = 0.02
 
 
 @dataclass
 class AdamWConfig:
     """See https://pytorch.org/docs/stable/generated/torch.optim.AdamW.html"""
 
-    lr: float = 5e-2
+    lr: float = 2e-5
     """ Learn rate. """
 
     betas: Tuple[float, float] = (0.9, 0.999)
@@ -52,8 +54,11 @@ class PLModelConfig:
     has_learning_rate_decay: bool = True
     """ If to use LR linear decay. """
 
-    before_lr_decay_warm_up_steps: Optional[int] = 10_000
-    """ Steps before running linear LR decay. """
+    lr_warm_up_steps: Optional[Union[int, float]] = 0.75
+    """ 
+    Steps before running linear LR decay. 
+    Or a fraction of total steps for warming up, i.e. a float. 
+    """
 
     regularize_from_init: Optional[bool] = False
     """Regularize from init (base) model."""
@@ -70,8 +75,17 @@ class PLModelConfig:
     stepLR_gamma: Optional[float] = 0.99
     """ Multiplicative factor of learning rate decay. """
 
-    stepLR_step_size: Optional[int] = 500
-    """ Period of learning rate decay."""
+    stepLR_step_size: Optional[int] = None
+    f""" 
+    Period of learning rate decay, in steps number. If not specified then it
+    decays after each {STEPLR_STEPS_RATE * 100}% of estimated total steps.
+    """
+
+    batch_size_all: Optional[int] = None
+    """ Batch size for all datasets broken evenly. """
+
+    lr_base_model_factor : float = 1.0
+    """ This factor multiplies the learning rate for the base model. """
 
 
 class PLModel(pl.LightningModule):
@@ -89,10 +103,20 @@ class PLModel(pl.LightningModule):
         self._plc = plc
         self.data_module = data_module
         self.learning_rate = plc.adamw.lr
-        self.batch_size = self.data_module.batch_size  # For LR Finder.
+        if plc.batch_size_all is not None:
+            self.data_module.batch_size = plc.batch_size_all
         if self._plc.regularize_from_init:
             self._init_params = copy.deepcopy([p for p in base_model.parameters()])
         self._init_heads()
+
+    @property
+    def batch_size(self):
+        """Expose batch size for Pytorch Lightning LR finder."""
+        return self.data_module.batch_size
+
+    @batch_size.setter
+    def batch_size(self, val):
+        self.data_module.batch_size = val
 
     def _init_heads(self):
         self._heads = {}
@@ -135,6 +159,7 @@ class PLModel(pl.LightningModule):
                             average="macro",
                             thresholds=None,
                         ),
+                        MulticlassF1Score(num_classes=label.num_classes)
                     ],
                     prefix=prefix,
                 )
@@ -155,10 +180,9 @@ class PLModel(pl.LightningModule):
 
     def forward(self, tokens, mask):
         """Returns predictions per dataset per feature."""
-        base_out = self._base_model(tokens, mask)
-        base_out = base_out.last_hidden_state
-        base_out = base_out[:, self._plc.token_location, :]
-        return {ds_cfg: self._heads[ds_cfg](base_out) for ds_cfg in self._heads}
+        base_out = self._base_model(input_ids=tokens, attention_mask=mask)
+        logits = base_out.last_hidden_state[:, self._plc.token_location, :]
+        return {ds_cfg: self._heads[ds_cfg](logits) for ds_cfg in self._heads}
 
     def training_step(self, dl_batches, _):
         """
@@ -219,31 +243,53 @@ class PLModel(pl.LightningModule):
         predictions = outputs[ds_cfg]
         targets = batch[ds_cfg.label_col]
         m_result = metric_col(predictions, targets)
-        self.log_dict(m_result, prog_bar=True, on_epoch=True)
+        self.log_dict(
+            m_result,
+            prog_bar=True,
+            on_epoch=True,
+            sync_dist=True,
+            add_dataloader_idx=False,
+            batch_size=self.batch_size,
+        )
 
     def configure_optimizers(self):
+        self.trainer.estimated_stepping_batches
         if not self._plc.train_all:
             for param in self._base_model.parameters():
                 param.requires_grad = False
         # TODO: Consider exclude Laynorm and other.
         # See BERT: https://github.com/google-research/bert/blob/master/optimization.py#L65
         optimizer = torch.optim.AdamW(
-            self.parameters(),
+            [{"params": self._base_model.parameters(), "lr": self.learning_rate * self._plc.lr_base_model_factor}]
+            + [{"params": h.parameters(), "lr": self.learning_rate} for h in self._heads.values()],
             lr=self.learning_rate,  # To facilitate LR finder.
             betas=self._plc.adamw.betas,
             eps=self._plc.adamw.eps,
             weight_decay=self._plc.adamw.weight_decay,
         )
+
         if self._plc.has_learning_rate_decay:
+            if isinstance(self._plc.lr_warm_up_steps, int):
+                warm_up_steps = self._plc.lr_warm_up_steps
+            elif isinstance(self._plc.lr_warm_up_steps, float):
+                warm_up_steps = int(
+                    self.trainer.estimated_stepping_batches * self._plc.lr_warm_up_steps
+                )
+            else:
+                warm_up_steps = self.trainer.estimated_stepping_batches
+
             constantlr = ConstantLR(
                 optimizer,
                 factor=1.0,
-                total_iters=self._plc.before_lr_decay_warm_up_steps,
+                total_iters=warm_up_steps,
+            )
+            step_size = self._plc.stepLR_step_size or int(
+                self.trainer.estimated_stepping_batches * STEPLR_STEPS_RATE
             )
             llr = StepLR(
                 optimizer,
                 gamma=self._plc.stepLR_gamma,
-                step_size=self._plc.stepLR_step_size,
+                step_size=step_size,
             )
             return {
                 "optimizer": optimizer,
@@ -251,7 +297,7 @@ class PLModel(pl.LightningModule):
                     "scheduler": SequentialLR(
                         optimizer,
                         schedulers=[constantlr, llr],
-                        milestones=[self._plc.before_lr_decay_warm_up_steps],
+                        milestones=[warm_up_steps],
                     ),
                     "interval": "step",
                     "frequency": 1,
@@ -264,7 +310,7 @@ class PLModel(pl.LightningModule):
     def main_val_metric_name(self):
         # Take the first:
         ds_cfg: DatasetConfig = next(self.data_module._cfg_to_datasets)
-        collection : MetricCollection
+        collection: MetricCollection
         _, collection = next(self._head_metrics[ds_cfg][PLModel._VALIDATION])
         mname, _ = next(iter(collection.items()))
         return mname

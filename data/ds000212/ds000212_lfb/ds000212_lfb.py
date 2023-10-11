@@ -142,6 +142,7 @@ class DS000212(datasets.GeneratorBasedBuilder):
                     id=None,
                 ),
                 "input": Value("string", id=None),
+                "file": Value("string", id=None),
                 "behavior": ClassLabel(
                     BEHAVIOR_KEYS_NUM + 1,
                     names=[
@@ -253,6 +254,7 @@ class DS000212(datasets.GeneratorBasedBuilder):
                     "label": target,
                     "input": text,
                     "behavior": behavior_key,
+                    "file": base_key
                 },
             )
         else:
@@ -267,6 +269,7 @@ class DS000212(datasets.GeneratorBasedBuilder):
                         "label": target[i],
                         "input": text[i],
                         "behavior": behavior_key,
+                        "file": base_key
                     },
                 )
 
