@@ -34,7 +34,7 @@ $(procesed_file) : $(target_files)
 	 > $(procesed_file)
 
 # Static pattern rule to run per each .nii.gz file to get .npz file.
-$(target_dir)%.npz : $(source_dir)%.nii.gz
+$(target_files) : $(target_dir)%.npz : $(source_dir)%.nii.gz
 	from_niigz=$<
 	from_tsv_file=$(subst _bold.nii.gz,_events.tsv,$<)
 	to_npz=$@
@@ -48,9 +48,9 @@ $(target_dir)%.npz : $(source_dir)%.nii.gz
 		$(IS_ROI_ARG)
 
 # Static pattern rule to run per each .npz file to get it normalized.
-$(target_dir)%-normalized : $(target_dir)%.npz 
+$(normalized_targets) : $(target_dir)%-normalized : $(target_dir)%.npz 
 	max_len=$$( cat $(procesed_file) )
 	python3 ./normalize.py $$max_len "$<" "$@"
 	
- $(source_dir)%.nii.gz :
+ $(source_files) :
 	datalad get "$@"
