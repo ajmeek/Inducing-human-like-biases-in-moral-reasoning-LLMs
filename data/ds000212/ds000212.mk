@@ -17,9 +17,12 @@ target_files = $(patsubst $(source_dir)%.nii.gz,$(target_dir)%.npz,$(source_file
 # Normilized targets to signal that a .npz file was normilized.
 normalized_targets = $(subst .npz,-normalized,$(target_files))
 procesed_file = $(target_dir)/processed
+tar_files = $((subst .npz,-normalized,$(target_files))
 
 # Default task. Finish when all .npz files are normilized.
-all : $(normalized_targets)
+all : $(normalized_targets) 
+	for f in $(source_dir)/sub-*/func/*tsv ; do cp "$$f" "$(target_dir)$${f#ds000212}" ; done
+	for f in $(target_dir)/sub-*/func/*npz ; do rm -f $${f%_*}.tar ;  tar --remove-files --append -f $${f%_*}.tar $${f%_*}* ;  done
 
 $(normalized_targets) : $(procesed_file) 
 
