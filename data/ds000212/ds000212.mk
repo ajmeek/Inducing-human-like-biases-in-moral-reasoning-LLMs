@@ -3,9 +3,13 @@
 
 .ONESHELL:
 
-niigz_script = ./ds000212_process_niigz.py
+TARGET_DS_NAME ?= ds000212_raw
 target_dir = $(TARGET_DS_NAME)
+SOURCE_DS_NAME ?= ds000212
 source_dir = $(SOURCE_DS_NAME)
+
+$(info target dir = $(target_dir))
+$(info source dir = $(source_dir))
 
 # Only for 'dis' files:
 source_files = $(wildcard $(source_dir)/sub-*/func/*dis_run*.nii.gz)
@@ -23,6 +27,10 @@ tar_files = $((subst .npz,-normalized,$(target_files))
 all : $(normalized_targets) 
 	for f in $(source_dir)/sub-*/func/*tsv ; do cp "$$f" "$(target_dir)$${f#ds000212}" ; done
 	for f in $(target_dir)/sub-*/func/*npz ; do rm -f $${f%_*}.tar ;  tar --remove-files --append -f $${f%_*}.tar $${f%_*}* ;  done
+
+clean : 
+	rm -f $(target_dir)/processed
+	rm -f $(target_dir)/sub-*/func/*
 
 $(normalized_targets) : $(procesed_file) 
 
@@ -43,7 +51,7 @@ $(target_files) : $(target_dir)%.npz : $(source_dir)%.nii.gz
 	to_npz=$@
 	mkdir -p $$( dirname $$to_npz )
 	d_file=$(subst .npz,-description.txt,$@)
-	python3 $(niigz_script) \
+	python3 ./ds000212_process_niigz.py \
 		"$$from_niigz" \
 		"$$from_tsv_file" \
 		"$$to_npz" \

@@ -21,8 +21,11 @@ from dataclasses import dataclass
 from datasets import Value, Sequence, ClassLabel
 from pathlib import Path
 from re import search
-from typing import Union, List
+from typing import Optional, Union, List
 import datasets
+from datasets.data_files import DataFilesDict
+from datasets.features import Features
+from datasets.info import DatasetInfo
 import numpy as np
 
 # TODO: Add BibTeX citation
