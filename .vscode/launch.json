@@ -11,16 +11,9 @@
             "request": "launch",
             "program": "${workspaceRoot}/src/main.py",
             "args": [
-        "--train_all", "1",
-        "--ds1.train.batch_size", "10",
-        "--ds2.train.batch_size", "10",
-        "--ds1.train.slicing", "[:100]",
-        "--ds2.train.slicing", "[:100]",
-        "--has_learning_rate_decay", "1",
-
-
             ],
-            "cwd": "${workspaceFolder}"
+            "cwd": "${workspaceFolder}",
+            "justMyCode": false
         },
 
         {

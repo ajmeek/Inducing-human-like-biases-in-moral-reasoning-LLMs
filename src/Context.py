@@ -132,7 +132,8 @@ class Context(Serializable):
         train=SplitConfig(batch_size=50, shuffle=True, slicing="[:1000]"),
         validation=SplitConfig(batch_size=50, shuffle=False, slicing="[:1000]"),
         test=SplitConfig(batch_size=50, shuffle=False, slicing="[:1000]"),
-        loss_fn="cross_entropy",
+        label_cols=["label"],
+        loss_fns=["cross_entropy"],
     )
 
     ds2: DatasetConfig = DatasetConfig(
@@ -141,7 +142,8 @@ class Context(Serializable):
         train=SplitConfig(batch_size=10, shuffle=True, slicing="[:1000]"),
         validation=None,
         test=SplitConfig(batch_size=10, shuffle=False, slicing="[:100]"),
-        loss_fn="mse_loss",
+        label_cols=["label", "behavior"],
+        loss_fns=["mse_loss", "cross_entropy"],
     )
 
     pltc: PLTrainerConfig = PLTrainerConfig()
@@ -187,8 +189,6 @@ class Context(Serializable):
 
     num_workers: int = 0
     """ Number of workers for DataLoader. Specify 0 to disable. """
-
-
 
     def get_ds_configs(self) -> List[DatasetConfig]:
         return [ds for ds in (self.ds1, self.ds2) if ds.enable]

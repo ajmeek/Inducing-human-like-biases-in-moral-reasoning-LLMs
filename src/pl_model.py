@@ -24,7 +24,11 @@ from torchmetrics.regression import (
     MeanAbsoluteError,
     CosineSimilarity,
 )
-from torchmetrics.classification import MulticlassAUROC, MulticlassAccuracy, MulticlassF1Score
+from torchmetrics.classification import (
+    MulticlassAUROC,
+    MulticlassAccuracy,
+    MulticlassF1Score,
+)
 
 STEPLR_STEPS_RATE = 0.02
 
@@ -78,13 +82,13 @@ class PLModelConfig:
     stepLR_step_size: Optional[int] = None
     f""" 
     Period of learning rate decay, in steps number. If not specified then it
-    decays after each {STEPLR_STEPS_RATE * 100}% of estimated total steps.
+    decays after each {STEPLR_STEPS_RATE * 100}%% of estimated total steps.
     """
 
     batch_size_all: Optional[int] = None
     """ Batch size for all datasets broken evenly. """
 
-    lr_base_model_factor : float = 1.0
+    lr_base_model_factor: float = 1.0
     """ This factor multiplies the learning rate for the base model. """
 
 
@@ -119,8 +123,10 @@ class PLModel(pl.LightningModule):
         self.data_module.batch_size = val
 
     def _init_heads(self):
-        self._heads = {}
-        self._head_metrics = defaultdict(dict)
+        def dd_factory():
+            return defaultdict(dd_factory)
+        self._heads = defaultdict(dd_factory)
+        self._head_metrics = defaultdict(dd_factory)
         self.main_val_metric = None
 
         head_in_dim = self._base_model.config.hidden_size
@@ -128,42 +134,43 @@ class PLModel(pl.LightningModule):
         # Warning. The order matters as the first one would be used for the early stopping.
         for ds_cfg, splits in self.data_module._cfg_to_datasets.items():
             ds: Union[IterableDataset, Dataset] = next(splits[s] for s in splits)
-            label = ds.features[ds_cfg.label_col]
-            if isinstance(label, ClassLabel):
-                head = nn.Linear(head_in_dim, label.num_classes)
-            elif isinstance(label, Sequence):
-                assert (
-                    label.length > 0
-                ), f"Expected positive length of label but {label.length=}"
-                head = nn.Linear(head_in_dim, label.length)
-            elif isinstance(label, Value):
-                head = nn.Linear(head_in_dim, 1)
-            else:
-                raise NotImplemented()
+            for label_col_n in ds_cfg.label_cols:
+                label_f = ds.features[label_col_n]
+                if isinstance(label_f, ClassLabel):
+                    head = nn.Linear(head_in_dim, label_f.num_classes)
+                elif isinstance(label_f, Sequence):
+                    assert (
+                        label_f.length > 0
+                    ), f"Expected positive length of label but {label_f.length=}"
+                    head = nn.Linear(head_in_dim, label_f.length)
+                elif isinstance(label_f, Value):
+                    head = nn.Linear(head_in_dim, 1)
+                else:
+                    raise NotImplemented()
 
-            self._heads[ds_cfg] = head
-            self.register_module(ds_cfg.name, head)
-            self._init_metrics(ds_cfg, label)
+                self._heads[ds_cfg][label_col_n] = head
+                self.register_module(f"{ds_cfg.name}-{label_col_n}", head)
+                self._init_metrics(ds_cfg, label_f, label_col_n)
 
-    def _init_metrics(self, ds_cfg: DatasetConfig, label):
+    def _init_metrics(self, ds_cfg: DatasetConfig, label_f, label_col_n):
         # Warning. The order matters as the first one would be used for the early stopping.
         for split in (PLModel._VALIDATION, PLModel._TEST):
             collection: MetricCollection = None
-            prefix = f"{ds_cfg.name}-{split}-"
-            if isinstance(label, ClassLabel):
+            prefix = f"{ds_cfg.name}-{split}-{label_col_n}-"
+            if isinstance(label_f, ClassLabel):
                 collection = MetricCollection(
                     [
-                        MulticlassAccuracy(num_classes=label.num_classes),
+                        MulticlassAccuracy(num_classes=label_f.num_classes),
                         MulticlassAUROC(
-                            num_classes=label.num_classes,
+                            num_classes=label_f.num_classes,
                             average="macro",
                             thresholds=None,
                         ),
-                        MulticlassF1Score(num_classes=label.num_classes)
+                        MulticlassF1Score(num_classes=label_f.num_classes),
                     ],
                     prefix=prefix,
                 )
-            elif isinstance(label, Sequence):
+            elif isinstance(label_f, Sequence):
                 collection = MetricCollection(
                     [
                         MeanSquaredError(),
@@ -176,13 +183,17 @@ class PLModel(pl.LightningModule):
             if collection:
                 name = f"{prefix}metrics"
                 self.register_module(name, collection)
-                self._head_metrics[ds_cfg][split] = (name, collection)
+                self._head_metrics[ds_cfg][split][label_col_n] = (name, collection)
 
     def forward(self, tokens, mask):
         """Returns predictions per dataset per feature."""
         base_out = self._base_model(input_ids=tokens, attention_mask=mask)
         logits = base_out.last_hidden_state[:, self._plc.token_location, :]
-        return {ds_cfg: self._heads[ds_cfg](logits) for ds_cfg in self._heads}
+        res = defaultdict(defaultdict)
+        for ds_cfg in self._heads:
+            for label_col_n in self._heads[ds_cfg]:
+                res[ds_cfg][label_col_n] = self._heads[ds_cfg][label_col_n](logits)
+        return res
 
     def training_step(self, dl_batches, _):
         """
@@ -196,11 +207,13 @@ class PLModel(pl.LightningModule):
             if not batch:
                 continue
             outputs = self.forward(batch["input_ids"], batch["attention_mask"])
-            predictions: torch.Tensor = outputs[ds_cfg]
-            targets = batch[ds_cfg.label_col]
-            loss_fn = vars(F)[ds_cfg.loss_fn]
-            loss += loss_fn(predictions, targets)
-            total_batch_size += ds_cfg.train.batch_size
+            for label_col_i, label_col_n in enumerate(ds_cfg.label_cols):
+                predictions: torch.Tensor = outputs[ds_cfg][label_col_n]
+                targets = batch[label_col_n]
+                loss_fn_n = ds_cfg.loss_fns[label_col_i]
+                loss_fn = vars(F)[loss_fn_n]
+                loss += loss_fn(predictions, targets)
+                total_batch_size += ds_cfg.train.batch_size
 
         if self._plc.regularize_from_init:
             reg_loss = 0
@@ -238,19 +251,20 @@ class PLModel(pl.LightningModule):
         if not batch:
             return
         ds_cfg = self.data_module.dataloader_idx_to_config[dataloader_idx]
-        name, metric_col = self._head_metrics[ds_cfg][step_name]
-        outputs = self.forward(batch["input_ids"], batch["attention_mask"])
-        predictions = outputs[ds_cfg]
-        targets = batch[ds_cfg.label_col]
-        m_result = metric_col(predictions, targets)
-        self.log_dict(
-            m_result,
-            prog_bar=True,
-            on_epoch=True,
-            sync_dist=True,
-            add_dataloader_idx=False,
-            batch_size=self.batch_size,
-        )
+        for label_col_n in ds_cfg.label_cols:
+            name, metric_col = self._head_metrics[ds_cfg][step_name][label_col_n]
+            outputs = self.forward(batch["input_ids"], batch["attention_mask"])
+            predictions = outputs[ds_cfg][label_col_n]
+            targets = batch[label_col_n]
+            m_result = metric_col(predictions, targets)
+            self.log_dict(
+                m_result,
+                prog_bar=True,
+                on_epoch=True,
+                sync_dist=True,
+                add_dataloader_idx=False,
+                batch_size=self.batch_size,
+            )
 
     def configure_optimizers(self):
         self.trainer.estimated_stepping_batches
@@ -260,8 +274,17 @@ class PLModel(pl.LightningModule):
         # TODO: Consider exclude Laynorm and other.
         # See BERT: https://github.com/google-research/bert/blob/master/optimization.py#L65
         optimizer = torch.optim.AdamW(
-            [{"params": self._base_model.parameters(), "lr": self.learning_rate * self._plc.lr_base_model_factor}]
-            + [{"params": h.parameters(), "lr": self.learning_rate} for h in self._heads.values()],
+            [
+                {
+                    "params": self._base_model.parameters(),
+                    "lr": self.learning_rate * self._plc.lr_base_model_factor,
+                }
+            ]
+            + [
+                {"params": h.parameters(), "lr": self.learning_rate}
+                for l in self._heads.values()
+                for h in l.values()
+            ],
             lr=self.learning_rate,  # To facilitate LR finder.
             betas=self._plc.adamw.betas,
             eps=self._plc.adamw.eps,
@@ -269,23 +292,32 @@ class PLModel(pl.LightningModule):
         )
 
         if self._plc.has_learning_rate_decay:
+            warm_up_steps = None
             if isinstance(self._plc.lr_warm_up_steps, int):
                 warm_up_steps = self._plc.lr_warm_up_steps
             elif isinstance(self._plc.lr_warm_up_steps, float):
-                warm_up_steps = int(
-                    self.trainer.estimated_stepping_batches * self._plc.lr_warm_up_steps
-                )
-            else:
-                warm_up_steps = self.trainer.estimated_stepping_batches
+                steps_n = self.trainer.estimated_stepping_batches * self._plc.lr_warm_up_steps
+                if abs(steps_n) != float('inf'):
+                    warm_up_steps = int(
+                        self.trainer.estimated_stepping_batches * self._plc.lr_warm_up_steps
+                    )
+
+            DEFAULT_WARMUP_STEPS = 100
+            warm_up_steps = warm_up_steps or DEFAULT_WARMUP_STEPS
 
             constantlr = ConstantLR(
                 optimizer,
                 factor=1.0,
                 total_iters=warm_up_steps,
             )
-            step_size = self._plc.stepLR_step_size or int(
-                self.trainer.estimated_stepping_batches * STEPLR_STEPS_RATE
-            )
+            step_size = self._plc.stepLR_step_size
+            if not step_size and abs(self.trainer.estimated_stepping_batches) != float('inf'):
+                step_size = self.trainer.estimated_stepping_batches * STEPLR_STEPS_RATE
+            else:
+                DEFAULT_STEP_SIZE= 10
+                step_size = DEFAULT_STEP_SIZE
+
+
             llr = StepLR(
                 optimizer,
                 gamma=self._plc.stepLR_gamma,

@@ -27,6 +27,7 @@ dependencies:
   - setuptools
   - simple-parsing
   - tqdm
+  - rich
   - wandb
   - webdataset
   - wheel
