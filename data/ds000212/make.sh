@@ -42,7 +42,7 @@ function ds000212_raw() {
     export SOURCE_DS_NAME=ds000212
     export IS_ROI_ARG=--no-roi
     echo Running make for $TARGET_DS_NAME
-    make -C $base_dir -f $base_dir/ds000212.mk all  --jobs $num_cpus #--debug=a #--silent
+    (cd $base_dir ; make -f $base_dir/ds000212.mk all --jobs $num_cpus --silent )
 }
 
 function ds000212_roi() {
@@ -52,7 +52,7 @@ function ds000212_roi() {
     export SOURCE_DS_NAME=ds000212
     export IS_ROI_ARG=--roi
     echo Running make for $TARGET_DS_NAME
-    make -C $base_dir -f $base_dir/ds000212.mk all  --jobs $num_cpus  --silent
+    (cd $base_dir ; make -f $base_dir/ds000212.mk all  --jobs $num_cpus  --silent )
 }
 
 function ds000212_fmriprep() {
@@ -60,12 +60,12 @@ function ds000212_fmriprep() {
     ds000212_scenarios
     export TARGET_DS_NAME=ds000212_fmriprep
     export SOURCE_DS_NAME=ds000212/derivatives/ds000212-fmriprep
-    if [[ ! -e $AISCBB_DATA_DIR/$SOURCE_DS_NAME ]] ; then
-        echo Downloading $AISCBB_DATA_DIR/$SOURCE_DS_NAME...
-        datalad install -s https://github.com/OpenNeuroDerivatives/ds000212-fmriprep.git "$AISCBB_DATA_DIR/$SOURCE_DS_NAME"
+    if [[ ! -e $base_dir/$SOURCE_DS_NAME ]] ; then
+        echo Downloading $base_dir/$SOURCE_DS_NAME...
+        datalad install -s https://github.com/OpenNeuroDerivatives/ds000212-fmriprep.git "$base_dir/$SOURCE_DS_NAME"
     fi
     echo Running make for $TARGET_DS_NAME
-    make -c $base_dir -f $base_dir/ds000212prep.mk all  --jobs 1 
+    (cd $base_dir ; make -f $base_dir/ds000212prep.mk all  --jobs 1 )
 }
 
 
