@@ -20,12 +20,8 @@ from csv import DictReader
 from dataclasses import dataclass
 from datasets import Value, Sequence, ClassLabel
 from pathlib import Path
-from re import search
-from typing import Optional, Union, List
+from typing import Union, List
 import datasets
-from datasets.data_files import DataFilesDict
-from datasets.features import Features
-from datasets.info import DatasetInfo
 import numpy as np
 
 # TODO: Add BibTeX citation
@@ -83,34 +79,8 @@ _LICENSE = ""
 _VERSION = datasets.Version("0.9.0")
 
 
-@dataclass(frozen=True)
-class FMRI:
-    HEMODYNAMIC_LAG = 6
-    TR = 2.0
-
-
 TRAIN_SPLIT_FACTOR = 0.8
 BEHAVIOR_KEYS_NUM = 4
-
-
-@dataclass(frozen=True)
-class Periods:
-    BACKGROUND = 6
-    ACTION = 4
-    OUTCOME = 4
-    INTENT = 4
-    JUDGMENT = 4
-    ENDS = [BACKGROUND, ACTION, OUTCOME, INTENT, JUDGMENT]
-
-
-@dataclass(frozen=True)
-class Sampling:
-    LAST = "LAST"
-    AVG = "AVG"
-    MIDDLE = "MIDDLE"
-    SENTENCES = "SENTENCES"
-    ONE_POINT_METHODS = [LAST, AVG, MIDDLE]
-    ALL = [LAST, AVG, MIDDLE, SENTENCES]
 
 
 # TODO: Name of the dataset usually matches the script name with CamelCase instead of snake_case
@@ -204,7 +174,6 @@ class DS000212(datasets.GeneratorBasedBuilder):
             npz_f = next(archive.glob("**/*.npz"))
             np_file = np.load(npz_f, allow_pickle=True)
             labels = np_file["labels"]
-            tr = FMRI.TR
             data_items = np_file["data_items"]
 
             for idx, (target, label) in enumerate(zip(data_items, labels)):
