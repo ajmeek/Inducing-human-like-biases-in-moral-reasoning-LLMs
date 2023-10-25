@@ -27,6 +27,7 @@ dependencies:
   - setuptools
   - simple-parsing
   - tqdm
+  - rich
   - wandb
   - wheel
   - python=3.10

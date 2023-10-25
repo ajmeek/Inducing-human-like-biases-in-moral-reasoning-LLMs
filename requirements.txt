@@ -21,6 +21,7 @@ torchvision
 torchmetrics
 tokenizers>=0.13.3
 tqdm
+rich
 transformers == 4.31.*
 wandb
 webdataset

@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datasets import load_dataset, Dataset, IterableDataset, Split
 from lightning.pytorch.utilities.types import EVAL_DATALOADERS, TRAIN_DATALOADERS
 from torch.utils.data import DataLoader
@@ -41,20 +41,23 @@ class DatasetConfig:
     name: str = None
     """ Configuration of dataset. """
 
-    label_col: str = "label"
-    """ Name of the target column. """
+    label_cols: List[str] = field(default_factory=lambda: ["label"])
+    """ Name of the target columns. Should be the same number as 
+    the number of loss functions."""
 
     input_col: str = "input"
     """ Name of the input column. """
 
-    loss_fn: str = "cross_entropy"
-    """ Loss function as given in torch.nn.functional namespace. """
+    loss_fns: List[str] = field(default_factory=lambda: ["cross_entropy"])
+    """ Loss functions for label cols as given in torch.nn.functional
+      namespace. """
 
     revision: str = None
     """
-    Version of the dataset script to load.
-    As datasets have their own git repository on the Datasets Hub, the default version "main" corresponds to their "main" branch.
-    You can specify a different version than the default "main" by using a commit SHA or a git tag of the dataset repository.
+    Version of the dataset script to load.  As datasets have their own git 
+    repository on the Datasets Hub, the default version "main" corresponds 
+    to their "main" branch.  You can specify a different version than the 
+    default "main" by using a commit SHA or a git tag of the dataset repository.
     """
 
     def get_split_spec(self, split: str) -> str:
@@ -71,6 +74,9 @@ class DatasetConfig:
 
     def __hash__(self) -> int:
         return hash((self.path or "") + (self.name or ""))
+
+    def __post_init__(self):
+        assert len(self.label_cols) == len(self.loss_fns)
 
 
 class BrainBiasDataModule(LightningDataModule):

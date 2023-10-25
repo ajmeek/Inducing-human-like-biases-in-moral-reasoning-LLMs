@@ -5,6 +5,7 @@ from lightning.pytorch.callbacks import (
     EarlyStopping,
     ModelCheckpoint,
     LearningRateMonitor,
+    RichProgressBar,
 )
 from lightning.pytorch.loggers import WandbLogger
 from lightning.pytorch.profilers import PyTorchProfiler
@@ -17,7 +18,8 @@ from utils.BrainBiasDataModule import BrainBiasDataModule
 import lightning.pytorch as pl
 import wandb
 import torch
-#from calculate_brain_scores_v2 import calculate_brain_scores
+
+# from calculate_brain_scores_v2 import calculate_brain_scores
 from datasets import load_dataset, Split
 
 
@@ -74,6 +76,7 @@ def train(context: Context):
             )
         )
     callbacks.append(LearningRateMonitor(logging_interval="step"))
+    callbacks.append(RichProgressBar())
     profiler = (
         PyTorchProfiler(filename="profiling-results", export_to_chrome=True)
         if context.profiler == "pytorch"
@@ -121,10 +124,10 @@ def train(context: Context):
     )
     test_trainer.test(model, data_module)
 
-    #base_model_cfg = AutoConfig.from_pretrained(context.model_path)
-    #try:
+    # base_model_cfg = AutoConfig.from_pretrained(context.model_path)
+    # try:
     #    calculate_brainscores_adapter(base_model, tokenizer, logger, base_model_cfg)
-    #except Exception as e:
+    # except Exception as e:
     #    print(f"Failed to calc brain scores: {e}")
 
     logger.save()
@@ -148,7 +151,7 @@ def train(context: Context):
 #         .map(lambda e: tokenizer(e["input"], padding="max_length", truncation=True))
 #         .with_format("torch", device="cpu")
 #     )
-# 
+#
 #     model_inputs = (torch.tensor(ds["input_ids"]), torch.tensor(ds["attention_mask"]))
 #     layers = [str(l) for l in range(1, model_config.num_hidden_layers + 1)[1:-1]]
 #     res = calculate_brain_scores(
