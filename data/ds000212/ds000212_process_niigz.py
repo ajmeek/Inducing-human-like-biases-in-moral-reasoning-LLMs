@@ -1,7 +1,7 @@
-DESCRIPTION = '''
+DESCRIPTION = """
 This script converts .nii.gz and .tsv files into .npy files
 suitable for fine tuning a language model.
-'''
+"""
 from re import search
 import argparse
 import nibabel as nib
@@ -23,7 +23,7 @@ def main():
     if not args.from_tsv.exists():
         print(f"File {args.from_tsv} not found.")
         exit(1)
-    if 'dis_run' not in str(args.from_niigz):
+    if "dis_run" not in str(args.from_niigz):
         print(f"File {args.from_niigz} ignored: not 'dis'.")
         exit(0)
     process(
@@ -31,7 +31,8 @@ def main():
         args.from_tsv,
         args.to_npz,
         args.to_npz_description,
-        is_roi=args.roi)
+        is_roi=args.roi,
+    )
 
 
 def process(
@@ -39,21 +40,21 @@ def process(
     from_tsv: Path,
     to_npz: Path,
     to_npz_description: Path,
-    is_roi: bool = False
+    is_roi: bool = False,
 ):
     fmri_data = extract_fmri_data(from_niigz, is_roi)
     # Read the from_tsv tsv file with columns: onset, duration, condition, item, key, RT:
     scenarios = []
-    with open(from_tsv, newline='') as csvfile:
-        scenarios = list(DictReader(csvfile, delimiter='\t', quotechar='"'))
+    with open(from_tsv, newline="") as csvfile:
+        scenarios = list(DictReader(csvfile, delimiter="\t", quotechar='"'))
     TR = 2
     data_items = []
     labels = []
     for s in scenarios:
-        onset = s['onset']
+        onset = s["onset"]
         try:
-            if '[' in onset and ']' in onset:
-                m = search('\d+', onset)
+            if "[" in onset and "]" in onset:
+                m = search("\d+", onset)
                 assert m
                 onset = int(m.group(0))
             else:
@@ -61,13 +62,12 @@ def process(
         except Exception as e:
             print(f'Failed to parse "onset" for {from_tsv}: {e}')
             continue
-        duration = int(s['duration'])
+        duration = int(s["duration"])
         onset //= TR
         duration //= TR
-        hemodynamic_lag = 8 // TR
-        data = np.average(
-            fmri_data[onset+hemodynamic_lag:onset+duration+hemodynamic_lag], axis=0)
-        label = [s[k] for k in ('condition', 'item', 'key')]
+        # SAMPLING.AVG:
+        data = np.average(fmri_data[onset : onset + duration], axis=0)
+        label = [s[k] for k in ("condition", "item", "key", "RT")]
         data_items.append(data)
         labels.append(label)
     data_items = np.array(data_items)
@@ -79,11 +79,13 @@ def process(
         data_items=data_items,
         labels=labels,
     )
-    to_npz_description.write_text(f"""
+    to_npz_description.write_text(
+        f"""
 data shape: {data_items.shape}
 labels shape: {labels.shape}
 processed at {datetime.now()}
-    """)
+    """
+    )
 
 
 _difumo_masker = None
@@ -95,7 +97,8 @@ def _get_difumo_masker():
         # for generating ROI analysis
         difumo_atlas = nilearn.datasets.fetch_atlas_difumo(dimension=64)
         _difumo_masker = nilearn.maskers.NiftiMapsMasker(
-            difumo_atlas['maps'], resampling_target='data', detrend=True).fit()
+            difumo_atlas["maps"], resampling_target="data", detrend=True
+        ).fit()
     return _difumo_masker
 
 
@@ -112,33 +115,21 @@ def extract_fmri_data(bold_f, is_roi) -> np.ndarray:
 def get_args() -> argparse.ArgumentParser:
     """Get command line arguments"""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser.add_argument("from_niigz", type=Path, help="File .nii.gz with fMRI data.")
     parser.add_argument(
-        'from_niigz',
-        type=Path,
-        help='File .nii.gz with fMRI data.'
+        "from_tsv", type=Path, help="File .tsv with description of fMRI data."
     )
     parser.add_argument(
-        'from_tsv',
-        type=Path,
-        help='File .tsv with description of fMRI data.'
+        "to_npz", type=Path, help="File .npz, the target where to put parsed data."
     )
     parser.add_argument(
-        'to_npz',
-        type=Path,
-        help='File .npz, the target where to put parsed data.'
+        "to_npz_description", type=Path, help="File with description of .npz file"
     )
     parser.add_argument(
-        'to_npz_description',
-        type=Path,
-        help='File with description of .npz file'
-    )
-    parser.add_argument(
-        '--roi',
-        help='If to make ROI.',
-        action=argparse.BooleanOptionalAction
+        "--roi", help="If to make ROI.", action=argparse.BooleanOptionalAction
     )
     return parser
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

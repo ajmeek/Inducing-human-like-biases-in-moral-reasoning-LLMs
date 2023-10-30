@@ -1,3 +1,4 @@
+cpuonly
 datasets
 datalad
 einops
@@ -13,11 +14,14 @@ scikit-learn
 sentencepiece
 setuptools
 simple-parsing
-torch == 2.0.*
+pytorch == 2.0.*
+python == 3.10
 torchaudio
 torchvision
+torchmetrics
 tokenizers>=0.13.3
 tqdm
+rich
 transformers == 4.31.*
 wandb
 webdataset

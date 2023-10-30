@@ -14,7 +14,7 @@ all : $(target_files)
 	echo target_files: $(target_files)
 
 
-$(target_dir)%.npz : $(source_dir)%.nii.gz
+$(target_files) : $(target_dir)%.npz : $(source_dir)%.nii.gz
 	brain_niigz=$<
 	brain_json=$(subst .nii.gz,.json,$<)
 	mask_niigz=$(subst preproc_bold,brain_mask,$<)

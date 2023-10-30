@@ -102,6 +102,16 @@ class PLTrainerConfig:
     accumulate_grad_batches: int = 1
     """ Accumulates gradients over k batches before stepping the optimizer.  """
 
+    strategy: str = "auto"
+    """ Supports different training strategies with aliases as well custom strategies.  """
+
+    precision: str = "32-true"
+    """
+    Double precision (64, '64' or '64-true'), full precision (32, '32' or '32-true'),
+    16bit mixed precision (16, '16', '16-mixed') or bfloat16 mixed precision ('bf16', 'bf16-mixed').
+    Can be used on CPU, GPU, TPUs, HPUs or IPUs.
+    """
+
 
 @dataclass
 class Context(Serializable):
@@ -122,16 +132,18 @@ class Context(Serializable):
         train=SplitConfig(batch_size=50, shuffle=True, slicing="[:1000]"),
         validation=SplitConfig(batch_size=50, shuffle=False, slicing="[:1000]"),
         test=SplitConfig(batch_size=50, shuffle=False, slicing="[:1000]"),
-        loss_fn="cross_entropy",
+        label_cols=["label"],
+        loss_fns=["cross_entropy"],
     )
 
     ds2: DatasetConfig = DatasetConfig(
         path="data/ds000212/ds000212_lfb",
         name="LFB-LAST",
-        train=SplitConfig(batch_size=2, shuffle=False),
+        train=SplitConfig(batch_size=10, shuffle=True, slicing="[:1000]"),
         validation=None,
-        test=None, # TODO: Try using test split.
-        loss_fn="mse_loss",
+        test=SplitConfig(batch_size=10, shuffle=False, slicing="[:100]"),
+        label_cols=["label", "behavior"],
+        loss_fns=["mse_loss", "cross_entropy"],
     )
 
     pltc: PLTrainerConfig = PLTrainerConfig()
@@ -146,8 +158,16 @@ class Context(Serializable):
     datapath: Path = Path(environ.get("AISCBB_DATA_DIR", "./data"))
     """ Path to the folder with datasets.  """
 
-    to_save_model: bool = False
-    """ Whether to save checkpoint of the model after the test. """
+    checkpoint_path: Path = None
+    """
+    Path to checkpoint which will be used to load initial weights from.
+    """
+
+    last_checkpoint_path: Path = None
+    """ 
+    Whether to save the checkpoint of the model after the test stage to the path. 
+    If no path provided it is not saved.
+    """
 
     early_stop_threshold: Optional[float] = None
     """ 
@@ -158,10 +178,17 @@ class Context(Serializable):
     profiler: Optional[str] = None
     """ 
     To profile individual steps during training and assist in identifying bottlenecks.
-    Options: simple, advanced
+    Options: simple, advanced, pytorch
     """
 
-    find_learning_rate: bool = False
+    find_lr: bool = False
+    """ Find learning rate.  """
+
+    find_bs: bool = False
+    """ Find batch size.  """
+
+    num_workers: int = 0
+    """ Number of workers for DataLoader. Specify 0 to disable. """
 
     def get_ds_configs(self) -> List[DatasetConfig]:
         return [ds for ds in (self.ds1, self.ds2) if ds.enable]

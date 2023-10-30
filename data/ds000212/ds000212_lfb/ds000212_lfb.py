@@ -91,7 +91,16 @@ class FMRI:
     HEMODYNAMIC_LAG = 6
     TR = 2.0
 
-BEHAVIOR_KEYS_NUM = 4
+
+INTENTIONAL_NAMES = ["NA", "intentional", "accidental"]
+BEHAVIOR_NAMES = [
+    "NA",
+    "not at all morally wrong",
+    "not morally wrong",
+    "morally wrong",
+    "very morally wrong",
+]
+
 
 @dataclass(frozen=True)
 class Periods:
@@ -144,14 +153,11 @@ class DS000212(datasets.GeneratorBasedBuilder):
                 "input": Value("string", id=None),
                 "file": Value("string", id=None),
                 "behavior": ClassLabel(
-                    BEHAVIOR_KEYS_NUM + 1,
-                    names=[
-                        "NA",
-                        "not at all morally wrong",
-                        "not morally wrong",
-                        "morally wrong",
-                        "very morally wrong",
-                    ],
+                    len(BEHAVIOR_NAMES),
+                    names=BEHAVIOR_NAMES,
+                ),
+                "intentional": ClassLabel(
+                    len(INTENTIONAL_NAMES), names=INTENTIONAL_NAMES
                 ),
             }
         )
@@ -223,12 +229,20 @@ class DS000212(datasets.GeneratorBasedBuilder):
     def _generate_from_scenario(self, base_key, s_bold, tr: int, label):
         condition, item, behavior_key = label
 
-        sentences = self.scenarios.parse_label(condition, item)
-        if not sentences:
+        parse_label_res = self.scenarios.parse_label(condition, item)
+        if not parse_label_res:
             # Silently skip as this might relate to 'fb' (false beliefs)
             return
-        assert behavior_key and behavior_key.isdigit() and (0 <= int(behavior_key) <= BEHAVIOR_KEYS_NUM)
+        sentences, intentional = parse_label_res
+        assert (
+            behavior_key
+            and behavior_key.isdigit()
+            and (0 <= int(behavior_key) <= len(BEHAVIOR_NAMES))
+        )
         behavior_key = int(behavior_key)
+        if behavior_key == 0:
+            # Silently skip as this. Assume broken data.
+            return
 
         if self.sampling_method == Sampling.SENTENCES:
             text = sentences
@@ -251,7 +265,8 @@ class DS000212(datasets.GeneratorBasedBuilder):
                     "label": target,
                     "input": text,
                     "behavior": behavior_key,
-                    "file": base_key
+                    "file": base_key,
+                    "intentional": intentional,
                 },
             )
         else:
@@ -266,15 +281,16 @@ class DS000212(datasets.GeneratorBasedBuilder):
                         "label": target[i],
                         "input": text[i],
                         "behavior": behavior_key,
-                        "file": base_key
+                        "file": base_key,
+                        "intentional": intentional,
                     },
                 )
 
     def _sample_from_bold_sequence(
         self, sequence: np.array, method: Sampling, tr: int
     ) -> np.array:
-        # TODO: To check with sources. There might be a bug with subtracting 
-        # the hemodynamic lag because those 'onset' and 'duration' fields add 
+        # TODO: To check with sources. There might be a bug with subtracting
+        # the hemodynamic lag because those 'onset' and 'duration' fields add
         # up with 161 as the last point. And there are total 166 points in bold sequence.
         # Meaning onset+duration points to correct point? Or onset + duration + h. lag?
         if method == Sampling.LAST:
@@ -345,8 +361,12 @@ class DS000212Scenarios(object):
     def parse_label(self, condition: str, item: int) -> List[str]:
         if condition not in DS000212Scenarios.event_to_scenario:
             return None
-        a_or_i, stype = DS000212Scenarios.event_to_scenario[condition]
-        assert a_or_i in ("accidental", "intentional")
+        intentional_raw, stype = DS000212Scenarios.event_to_scenario[condition]
+        intentional = (
+            0
+            if intentional_raw not in INTENTIONAL_NAMES
+            else INTENTIONAL_NAMES.index(intentional_raw)
+        )
         found = next((s for s in self._scenarios if s["item"] == str(item)), None)
         if not found:
             return None
@@ -354,5 +374,5 @@ class DS000212Scenarios(object):
             found["type"] == stype
         ), f"Scenario with {item} item does not match the '{stype}' expected type. Scenario: {found}."
 
-        part_names = ["background", "action", "outcome", a_or_i]
-        return [found[p] for p in part_names]
+        part_names = ["background", "action", "outcome", intentional_raw]
+        return [found[p] for p in part_names], intentional

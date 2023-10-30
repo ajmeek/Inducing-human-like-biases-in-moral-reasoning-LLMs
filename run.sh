@@ -33,6 +33,7 @@ function train() {
 }
 
 function _mamba() {
+    ( type mamba > /dev/null ) && return
     export MAMBA_SH="${HOME}/mambaforge/etc/profile.d/conda.sh"
     if [[ ! -e $MAMBA_SH ]] ; then
         echo 'Installing Mamba...'
@@ -45,7 +46,7 @@ function _mamba() {
 
 function local() {
     _mamba
-    mamba env create --force -n $PYTHON_ENV_NAME -f environment-cpu.yml
+    mamba env create -n $PYTHON_ENV_NAME --file environment-cpu.yml
     mamba activate $PYTHON_ENV_NAME
     echo Done
 }

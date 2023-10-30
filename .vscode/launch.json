@@ -4,12 +4,65 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+
         {
             "name": "Launch",
             "type": "python",
             "request": "launch",
             "program": "${workspaceRoot}/src/main.py",
-            "args": [],
+            "args": [
+            ],
+            "cwd": "${workspaceFolder}",
+            "justMyCode": false
+        },
+
+        {
+            "name": "Launch-complex",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceRoot}/src/main.py",
+            "args": [
+        "--num_workers", "0",
+        "--accumulate_grad_batches", "1",
+        "--batch_size_all", "40",
+        "--lr_warm_up_steps", "0.3",
+        "--check_val_every_n_epoch", "1",
+        "--ds1.name", "commonsense",
+        "--ds1.test.slicing", "[:1000]",
+        "--ds1.train.slicing", "[:50%]",
+        "--ds1.validation.shuffle", "0",
+        "--ds1.validation.slicing", "[:1500]",
+        "--ds2.enable", "0",
+        "--ds2.name", "LFB-AVG",
+        "--ds2.test.slicing", "[:50%]",
+        "--ds2.train.shuffle", "1",
+        "--ds2.train.slicing", "[:50%]",
+        "--max_epochs", "10",
+        "--model_path", "bert-base-cased",
+        "--stepLR_gamma", "0.99",
+        "--train_all", "1",
+        "--strategy", "auto",
+        "--profiler", "simple",
+
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "Launch-Checkpoint",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceRoot}/src/main.py",
+            "args": [
+                "--to_save_model",
+                "--max_epochs",
+                "1",
+                "--ds1.train.slicing",
+                "[:10]",
+                "--ds2.train.slicing",
+                "[:10]",
+                "--checkpoint_path",
+                "artifacts/model-2023-09-20T1649.ckpt"
+            ],
             "cwd": "${workspaceFolder}"
         }
     ]
