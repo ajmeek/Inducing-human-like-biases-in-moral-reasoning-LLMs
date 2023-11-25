@@ -53,10 +53,22 @@ function experiment() {
 
 
 #########################################
-# (fmri and Ethics)-HM
+WANDB_NAME="$MODEL_PATH, no f.t. $(date date +%y-%m-%d\ %H:%M)"
+echo $WANDB_NAME
+CKPT_FILE=
+DS1_TRAIN_SLICE="[:80%]"
+DS2_TRAIN_SLICE="[:80%]"
+LAST_CKPT=
+MAX_EPOCHS=0
+TRAIN_ALL=0
+ds2enable=0
+experiment
 
-echo On fMRI and Ethics 
-LAST_CKPT=artifacts/ethics-and-fmri.ckpt
+
+#########################################
+WANDB_NAME="$MODEL_PATH, (fmri and Ethics)-HM $(date date +%y-%m-%d\ %H:%M)"
+echo $WANDB_NAME
+
 CKPT_FILE=
 DS1_TRAIN_SLICE="[:80%]"
 DS2_TRAIN_SLICE="[:80%]"
@@ -67,14 +79,95 @@ TRAIN_ALL=1
 ds2enable=0
 experiment
 
-exit 0
 
 WARM_UP=0.5
-TRANSFER_CKPT=artifacts/RoBERTa-Ethics-fmri.ckpt
+TRANSFER_CKPT=artifacts/RoBERTa-transfer.ckpt
+
+#########################################
+WANDB_NAME="$MODEL_PATH, fmri-HM then Ethics-HM $(date date +%y-%m-%d\ %H:%M)"
+echo $WANDB_NAME
+
+#echo First all on fMRI:
+CKPT_FILE=
+DS1_TRAIN_SLICE="[:0]"
+DS2_TRAIN_SLICE="[:1000]"
+LAST_CKPT=$TRANSFER_CKPT
+MAX_EPOCHS=$FMRI_EPOCHS
+SAMPLING=AVG
+TRAIN_ALL=1
+ds2enable=1
+experiment
+
+#echo Second, train on ETHICS only:
+WANDB_NAME="$MODEL_PATH, fmri-HM then Ethics-HM $(date date +%y-%m-%d\ %H:%M)"
+CKPT_FILE=$TRANSFER_CKPT
+DS1_TRAIN_SLICE="[:80%]"
+DS2_TRAIN_SLICE="[:0]"
+LAST_CKPT=
+MAX_EPOCHS=20
+TRAIN_ALL=1
+ds2enable=0
+experiment
 
 
 #########################################
-# fmri-HM then Ethics-HM
+# Ethics-HM then fmri-HM
+
+WANDB_NAME="$MODEL_PATH, Ethics-HM then fmri-HM  $(date date +%y-%m-%d\ %H:%M)"
+echo $WANDB_NAME
+
+#echo First all on Ethics
+CKPT_FILE=
+DS1_TRAIN_SLICE="[:80%]"
+LAST_CKPT=$TRANSFER_CKPT
+MAX_EPOCHS=$ETHICS_EPOCHS
+TRAIN_ALL=1
+ds2enable=0
+experiment
+
+echo Second, train on fMRI only, while testing on Ethics:
+CKPT_FILE=$TRANSFER_CKPT
+DS1_TRAIN_SLICE="[:0]"
+LAST_CKPT=
+MAX_EPOCHS=$FMRI_EPOCHS
+SAMPLING=LAST
+TRAIN_ALL=1
+ds2enable=1
+experiment
+
+
+#########################################
+# Ethics-H then fmri-HM  -- TODO: this is not working because no head training happens
+# WANDB_NAME="$MODEL_PATH, Ethics-H then fmri-HM  $(date date +%y-%m-%d\ %H:%M)"
+# echo $WANDB_NAME
+# 
+# echo First a head on Ethics
+# CKPT_FILE=
+# DS1_TRAIN_SLICE="[:80%]"
+# LAST_CKPT=$TRANSFER_CKPT
+# MAX_EPOCHS=$ETHICS_EPOCHS
+# FLR=1
+# TRAIN_ALL=0
+# ds2enable=0
+# experiment
+# 
+# FLR=0
+# LR=1e-5
+# 
+# echo Second, train on fMRI only, while testing on Ethics:
+# WANDB_NAME="$MODEL_PATH, Ethics-H then fmri-HM  $(date date +%y-%m-%d\ %H:%M)"
+# CKPT_FILE=$TRANSFER_CKPT
+# DS1_TRAIN_SLICE="[:0]"
+# LAST_CKPT=
+# MAX_EPOCHS=$FMRI_EPOCHS
+# SAMPLING=LAST
+# TRAIN_ALL=1
+# ds2enable=1
+# experiment
+# 
+
+#########################################
+# fmri-HM then Ethics-H
 
 #echo First all on fMRI:
 #CKPT_FILE=
@@ -86,100 +179,13 @@ TRANSFER_CKPT=artifacts/RoBERTa-Ethics-fmri.ckpt
 #TRAIN_ALL=1
 #ds2enable=1
 #experiment
-
+#
 #echo Second, train on ETHICS only:
 #CKPT_FILE=$TRANSFER_CKPT
-#LAST_CKPT=artifacts/fmri_then_ethics.ckpt
 #DS1_TRAIN_SLICE="[:80%]"
 #DS2_TRAIN_SLICE="[:0]"
 #LAST_CKPT=
-#MAX_EPOCHS=20
-#TRAIN_ALL=1
-#ds2enable=0
-#experiment
-
-
-#########################################
-# Ethics-H then fmri-HM
-
-echo First a head on Ethics
-CKPT_FILE=
-DS1_TRAIN_SLICE="[:80%]"
-LAST_CKPT=$TRANSFER_CKPT
-MAX_EPOCHS=$ETHICS_EPOCHS
-FLR=1
-TRAIN_ALL=0
-ds2enable=0
-experiment
-
-FLR=0
-LR=1e-5
-
-echo Second, train on fMRI only, while testing on Ethics:
-CKPT_FILE=$TRANSFER_CKPT
-DS1_TRAIN_SLICE="[:0]"
-LAST_CKPT=
-MAX_EPOCHS=$FMRI_EPOCHS
-SAMPLING=LAST
-TRAIN_ALL=1
-ds2enable=1
-experiment
-
-echo  train on fMRI only, while testing on Ethics:
-CKPT_FILE=$TRANSFER_CKPT
-DS1_TRAIN_SLICE="[:0]"
-LAST_CKPT=
-MAX_EPOCHS=$FMRI_EPOCHS
-SAMPLING=AVG
-TRAIN_ALL=1
-ds2enable=1
-experiment
-
-exit 0
-
-#########################################
-# Ethics-HM then fmri-HM
-
-#echo First all on Ethics
-#CKPT_FILE=
-#DS1_TRAIN_SLICE="[:80%]"
-#LAST_CKPT=$TRANSFER_CKPT
 #MAX_EPOCHS=$ETHICS_EPOCHS
 #TRAIN_ALL=1
 #ds2enable=0
 #experiment
-
-echo Second, train on fMRI only, while testing on Ethics:
-CKPT_FILE=./artifacts/RoBERTa_3hours_on_ethics_only.ckpt
-DS1_TRAIN_SLICE="[:0]"
-LAST_CKPT=
-MAX_EPOCHS=$FMRI_EPOCHS
-SAMPLING=LAST
-TRAIN_ALL=1
-ds2enable=1
-experiment
-
-
-#########################################
-# fmri-HM then Ethics-H
-
-echo First all on fMRI:
-CKPT_FILE=
-DS1_TRAIN_SLICE="[:0]"
-DS2_TRAIN_SLICE="[:1000]"
-LAST_CKPT=$TRANSFER_CKPT
-MAX_EPOCHS=$FMRI_EPOCHS
-SAMPLING=AVG
-TRAIN_ALL=1
-ds2enable=1
-experiment
-
-echo Second, train on ETHICS only:
-CKPT_FILE=$TRANSFER_CKPT
-DS1_TRAIN_SLICE="[:80%]"
-DS2_TRAIN_SLICE="[:0]"
-LAST_CKPT=
-MAX_EPOCHS=$ETHICS_EPOCHS
-TRAIN_ALL=1
-ds2enable=0
-experiment
