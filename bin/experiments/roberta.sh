@@ -53,7 +53,7 @@ function experiment() {
 
 
 #########################################
-WANDB_NAME="$MODEL_PATH, no f.t. $(date date +%y-%m-%d\ %H:%M)"
+export WANDB_NAME="$MODEL_PATH, no f.t. $(date +%y-%m-%d\ %H:%M)"
 echo $WANDB_NAME
 CKPT_FILE=
 DS1_TRAIN_SLICE="[:80%]"
@@ -66,7 +66,7 @@ experiment
 
 
 #########################################
-WANDB_NAME="$MODEL_PATH, (fmri and Ethics)-HM $(date date +%y-%m-%d\ %H:%M)"
+export WANDB_NAME="$MODEL_PATH, (fmri and Ethics)-HM $(date +%y-%m-%d\ %H:%M)"
 echo $WANDB_NAME
 
 CKPT_FILE=
@@ -84,7 +84,7 @@ WARM_UP=0.5
 TRANSFER_CKPT=artifacts/RoBERTa-transfer.ckpt
 
 #########################################
-WANDB_NAME="$MODEL_PATH, fmri-HM then Ethics-HM $(date date +%y-%m-%d\ %H:%M)"
+export WANDB_NAME="$MODEL_PATH, fmri-HM then Ethics-HM $(date +%y-%m-%d\ %H:%M)"
 echo $WANDB_NAME
 
 #echo First all on fMRI:
@@ -99,7 +99,7 @@ ds2enable=1
 experiment
 
 #echo Second, train on ETHICS only:
-WANDB_NAME="$MODEL_PATH, fmri-HM then Ethics-HM $(date date +%y-%m-%d\ %H:%M)"
+export WANDB_NAME="$MODEL_PATH, fmri-HM then Ethics-HM $(date +%y-%m-%d\ %H:%M)"
 CKPT_FILE=$TRANSFER_CKPT
 DS1_TRAIN_SLICE="[:80%]"
 DS2_TRAIN_SLICE="[:0]"
@@ -113,7 +113,7 @@ experiment
 #########################################
 # Ethics-HM then fmri-HM
 
-WANDB_NAME="$MODEL_PATH, Ethics-HM then fmri-HM  $(date date +%y-%m-%d\ %H:%M)"
+export WANDB_NAME="$MODEL_PATH, Ethics-HM then fmri-HM  $(date +%y-%m-%d\ %H:%M)"
 echo $WANDB_NAME
 
 #echo First all on Ethics
@@ -138,7 +138,7 @@ experiment
 
 #########################################
 # Ethics-H then fmri-HM  -- TODO: this is not working because no head training happens
-# WANDB_NAME="$MODEL_PATH, Ethics-H then fmri-HM  $(date date +%y-%m-%d\ %H:%M)"
+# export WANDB_NAME="$MODEL_PATH, Ethics-H then fmri-HM  $(date +%y-%m-%d\ %H:%M)"
 # echo $WANDB_NAME
 # 
 # echo First a head on Ethics
@@ -155,7 +155,7 @@ experiment
 # LR=1e-5
 # 
 # echo Second, train on fMRI only, while testing on Ethics:
-# WANDB_NAME="$MODEL_PATH, Ethics-H then fmri-HM  $(date date +%y-%m-%d\ %H:%M)"
+# export WANDB_NAME="$MODEL_PATH, Ethics-H then fmri-HM  $(date +%y-%m-%d\ %H:%M)"
 # CKPT_FILE=$TRANSFER_CKPT
 # DS1_TRAIN_SLICE="[:0]"
 # LAST_CKPT=
