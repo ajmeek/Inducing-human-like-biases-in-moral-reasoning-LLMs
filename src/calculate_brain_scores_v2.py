@@ -119,9 +119,6 @@ def load_from_checkpoint(model, context):
 def calculate_brain_scores(model: nn.Module,
                            model_inputs: torch.tensor,
                            test_data: torch.tensor,
-                           layer: list,
-                           modules: list,
-                           finetuned: bool,
                            train_perc: float = 1.0,
                            ) -> dict:
     """
@@ -132,29 +129,11 @@ def calculate_brain_scores(model: nn.Module,
     :param model: The model that does the forward pass
     :param model_inputs: The scenario data and input to the model.
     :param test_data: The fMRI data.
-    :param layers: The layers for which the activations should be calculated.
-    :param modules: The modules for which the activations should be calculated.
     :param train_perc: The percentage of the data to use for training.
     :param val_perc: The percentage of the data to use for validation.
-    :param finetuned: Bool indicating whether or not the model is finetuned. For print out
     :return: A dictionary containing the brain scores for each layer and module.
     """
     activations = {}
-    all_layer_names = []
-    for module in modules:
-        all_layer_names.append(f'{layer}.{module}')
-
-    def get_activation(name):
-        def hook(model, input, output):
-            if any(x in name for x in all_layer_names):
-                activations[name] = output.detach()
-
-        return hook
-
-    # Attach the hook to every layer
-    for name, layer in model.named_modules():
-        layer.register_forward_hook(get_activation(name))
-
     # Run the model
     model.eval()
     with torch.no_grad():
@@ -163,7 +142,8 @@ def calculate_brain_scores(model: nn.Module,
         # Flatten first two dimensions
         tokens = tokens.view(-1, tokens.shape[-1])
         attention_mask = attention_mask.view(-1, attention_mask.shape[-1])
-        model(tokens, attention_mask)
+        output = model(tokens, attention_mask, output_hidden_states=True)
+        activations = {f'hs_{i}': a for i, a in enumerate(output.hidden_states)}
 
     # Calculate the brain scores
     """
@@ -177,8 +157,7 @@ def calculate_brain_scores(model: nn.Module,
                     'coeff_of_det': [], 'ridge_regress_predict': []}
     for layer_name, activation in activations.items():
         print('Calculating brain score for layer:', layer_name,
-              ' activation dims: ', activation.shape,
-              ' finetuned: ', finetuned)
+              ' activation dims: ', activation.shape)
 
         # activations_flattened = activation.reshape(activation.shape[0], -1)
         activations_indices_last_token = torch.sum(attention_mask, dim=1) - 1  # Shape [batch_size]
@@ -208,16 +187,13 @@ def calculate_brain_scores(model: nn.Module,
             activations_last_token_val = activations_last_token[num_train_samples:num_train_samples + num_val_samples]
             test_data_val = test_data[num_train_samples:num_train_samples + num_val_samples]
 
-        brain_score_list = []
-
         # Coefficient of determination
         for index in range(test_data.shape[1]):
             feature = test_data_train[:, index]
             clf = RidgeCV(alphas=[1e-3, 1e-2, 1e-1, 1]).fit(activations_last_token_train,
                                                             feature)
             feature_val = test_data_val[:, index]
-            brain_score_list.append(clf.score(activations_last_token_val, feature_val))
-            brain_scores['coeff_of_det'].append(brain_score_list[-1])
+            brain_scores['coeff_of_det'].append(clf.score(activations_last_token_val, feature_val))
 
         # Pearson's correlation coefficient and ridge regression .predict() for each ROI
         activations_last_token_train = activations_last_token[:-1]
@@ -240,135 +216,134 @@ def calculate_brain_scores(model: nn.Module,
         pearson_r = r_regression(predictions_list, test_data_val)
 
         brain_scores['layer.module'].append(layer_name)
-        # brain_scores['brain_score'].append(sum(brain_score_list) / len(range(test_data.shape[1])))  # Average
         brain_scores['brain_score'].append(pearson_r[0])  # Pearson's r
 
     return brain_scores
 
 
-if __name__ == '__main__':
-    # Note, this is expected to be run from the root of the project. (not src).
-    # In Pycharm, can click top-right left of the run button, expand dropdown menu, click on three dots next to calculate_brain_scores, click Edit
-    # and set the working directory to the root of the project.
-
-    context = Context()
-
-    # rewriting and getting rid of the wrapper. change above brain score function to accept one layer at a time
-    layers = ['2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24']
-    subject_list = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 22, 23, 24, 27, 28, 29, 30, 31,
-                    32, 33, 34, 35, 38, 39, 40, 41, 42, 44, 45, 46, 47]
-    subjects = [f'sub-{i:02}' for i in subject_list]
-    date = datetime.now().strftime("%Y-%m-%d_%H-%M-%S") #for naming
-    train_perc = 0.8 #for ridge regression model
-
-    # base model - not finetuned
-    context.model_path = 'bert-large-cased'
-    model = AutoModel.from_pretrained(context.model_path)
-    tokenizer = AutoTokenizer.from_pretrained(context.model_path)
-    data_module = BrainBiasDataModule(context.get_ds_configs(), tokenizer)
-    base_model = PLModel(model, context.plc, data_module)
-
-
-    # finetuned model
-    context.finetuned_path = '/Users/ajmeek/PycharmProjects/Inducing-human-like-biases-in-moral-reasoning-LLMs/artifacts/seongs_models/bert large cased fmri only sept 28/bert_large_cased_fMRI.ckpt'
-    finetuned_model = load_from_checkpoint(model, context)
-    data_module = BrainBiasDataModule(context.get_ds_configs(), tokenizer)
-    finetuned_model = PLModel(finetuned_model, context.plc, data_module)
-
-    # dataset
-    ds = load_dataset('/Users/ajmeek/PycharmProjects/Inducing-human-like-biases-in-moral-reasoning-LLMs/data/ds000212/ds000212_lfb/ds000212_lfb.py', name='LFB-LAST')
-
-    # for writing to file. Keep same data structure as before so Seong's notebooks don't break
-    # actually Seong, it may be easiest for me to
-    all_brain_scores = {'subjects': [], 'layer.module': [], 'brain_score': []}
-    coeff_of_det_per_subject = {}
-    ridge_regress_predict_per_subject = {}
-
-    for finetuned in [True]:#, True]: # for now because my latest saved model doesn't match BertModel
-        # also TODO need to check through wandb directories for latest checkpoints
-
-        path_to_brain_scores = os.path.join(os.getcwd(), 'artifacts', 'brain_scores',
-                                            f'{date}_finetuned={finetuned}')  # change finetune for below loop
-        if not os.path.exists(path_to_brain_scores):
-            os.makedirs(path_to_brain_scores)
-
-        for subject in subjects:#subjects: #debug subj 14 tokenization prob
-            # sub 14, 15 don't have any inputs nor fmri data. no such subjects in the train split? 40 has them though.
-
-
-            # TODO - couldn't find them because they're in the ASD list.
-            # dataset split. pull from all dataloaders, and if subject not in one check the rest
-
-            # get data for each subject from the dataloader, from the train split
-            subject_data = list(ds.filter(lambda e: subject in e['file'])['train'])
-            if len(subject_data) == 0:
-                subject_data = list(ds.filter(lambda e: subject in e['file'])['test'])
-                if len(subject_data) == 0:
-                    continue  #here have asd subjects later
-
-            """
-            Brain scores expects three main things:
-                - fmri data - in shape [batch_size, length=1024]
-                - tokens - tokens from input, in shape [batch_size, sequence length]
-                - attention mask - similarly to the above. This and the above are passed as the tuple model_inputs.
-    
-            Since I now have the above way to load in per-subject data instead of using the dataloader with set batch size,
-            pass as big of a batch as possible so the ridge regression can better fit to the model.
-            """
-
-            fmri_data = torch.tensor([e['label'] for e in subject_data])
-            inputs = [e['input'] for e in subject_data]
-            tokenized = tokenizer(inputs, padding='max_length', truncation=True)
-            tokens = torch.tensor(tokenized['input_ids'])
-            attention_mask = torch.tensor(tokenized['attention_mask'])
-            model_inputs = (tokens, attention_mask)
-
-            path_to_brain_scores_subj = os.path.join(path_to_brain_scores, subject)
-            if not os.path.exists(path_to_brain_scores_subj):
-                os.makedirs(path_to_brain_scores_subj)
-
-            for layer in layers:
-                modules = ['output.dense'] #combined with layer to get the activations
-
-                if finetuned:
-                    brain_scores = calculate_brain_scores(finetuned_model, model_inputs, fmri_data, layer, modules, train_perc=train_perc, finetuned=finetuned)
-                elif not finetuned:
-                    brain_scores = calculate_brain_scores(base_model, model_inputs, fmri_data, layer, modules, train_perc=train_perc, finetuned=finetuned)
-
-                # Add the brain scores to the all_brain_scores dict.
-                all_brain_scores['subjects'].append(subject)
-                all_brain_scores['layer.module'].extend(brain_scores['layer.module'])
-                all_brain_scores['brain_score'].extend(brain_scores['brain_score'])
-                coeff_of_det_per_subject[subject] = brain_scores['coeff_of_det']
-                ridge_regress_predict_per_subject[subject] = brain_scores['ridge_regress_predict']
-
-                df = pd.DataFrame((brain_scores['coeff_of_det'], brain_scores['ridge_regress_predict'])).to_csv(
-                    os.path.join(path_to_brain_scores_subj, f'layer_{layer}_brain_scores_per_feature.csv'),
-                    index=False, sep=',')
-
-
-            # Create a text file and save it to path_to_brain_scores with metadata
-            path_to_metadata_file = path_to_brain_scores_subj + '/metadata.txt'
-            with open(path_to_metadata_file, 'w') as f:
-                f.write(f"Model: {context.model_path}\n") #remember, user should confirm that finetuned model same as base model
-                f.write(f"Layers: {layers}\n")
-                f.write(f"Finetuned: False\n")
-                f.write(f"Train percentage: {train_perc}\n")
-                f.write(f"Date: {date}\n")
-                f.write("\n Checkpoint metadata below (if finetuned): \n")
-
-                # model Seong sent me not auto generated. no yaml file to read from here.
-                # if finetuned:
-                #     # load metadata from checkpoint as well - built off of lightning's checkpoint directory structure
-                #     path_to_model = return_path_to_latest_checkpoint()
-                #     parent_path = os.path.dirname(path_to_model)
-                #     grandparent_path = os.path.dirname(parent_path)
-                #
-                #     yaml_path = os.path.join(grandparent_path, 'hparams.yaml')
-                #     with open(yaml_path, 'r') as file:
-                #         yaml_contents = yaml.load(file, Loader=yaml.FullLoader)
-                #
-                #         for i in yaml_contents.keys():
-                #             f.write(f"{i}: {yaml_contents[i]}\n")
-
-            #break #just for one subj to test
+# if __name__ == '__main__':
+#     # Note, this is expected to be run from the root of the project. (not src).
+#     # In Pycharm, can click top-right left of the run button, expand dropdown menu, click on three dots next to calculate_brain_scores, click Edit
+#     # and set the working directory to the root of the project.
+# 
+#     context = Context()
+# 
+#     # rewriting and getting rid of the wrapper. change above brain score function to accept one layer at a time
+#     layers = ['2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24']
+#     subject_list = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 22, 23, 24, 27, 28, 29, 30, 31,
+#                     32, 33, 34, 35, 38, 39, 40, 41, 42, 44, 45, 46, 47]
+#     subjects = [f'sub-{i:02}' for i in subject_list]
+#     date = datetime.now().strftime("%Y-%m-%d_%H-%M-%S") #for naming
+#     train_perc = 0.8 #for ridge regression model
+# 
+#     # base model - not finetuned
+#     context.model_path = 'bert-large-cased'
+#     model = AutoModel.from_pretrained(context.model_path)
+#     tokenizer = AutoTokenizer.from_pretrained(context.model_path)
+#     data_module = BrainBiasDataModule(context.get_ds_configs(), tokenizer)
+#     base_model = PLModel(model, context.plc, data_module)
+# 
+# 
+#     # finetuned model
+#     context.finetuned_path = '/Users/ajmeek/PycharmProjects/Inducing-human-like-biases-in-moral-reasoning-LLMs/artifacts/seongs_models/bert large cased fmri only sept 28/bert_large_cased_fMRI.ckpt'
+#     finetuned_model = load_from_checkpoint(model, context)
+#     data_module = BrainBiasDataModule(context.get_ds_configs(), tokenizer)
+#     finetuned_model = PLModel(finetuned_model, context.plc, data_module)
+# 
+#     # dataset
+#     ds = load_dataset('/Users/ajmeek/PycharmProjects/Inducing-human-like-biases-in-moral-reasoning-LLMs/data/ds000212/ds000212_lfb/ds000212_lfb.py', name='LFB-LAST')
+# 
+#     # for writing to file. Keep same data structure as before so Seong's notebooks don't break
+#     # actually Seong, it may be easiest for me to
+#     all_brain_scores = {'subjects': [], 'layer.module': [], 'brain_score': []}
+#     coeff_of_det_per_subject = {}
+#     ridge_regress_predict_per_subject = {}
+# 
+#     for finetuned in [True]:#, True]: # for now because my latest saved model doesn't match BertModel
+#         # also TODO need to check through wandb directories for latest checkpoints
+# 
+#         path_to_brain_scores = os.path.join(os.getcwd(), 'artifacts', 'brain_scores',
+#                                             f'{date}_finetuned={finetuned}')  # change finetune for below loop
+#         if not os.path.exists(path_to_brain_scores):
+#             os.makedirs(path_to_brain_scores)
+# 
+#         for subject in subjects:#subjects: #debug subj 14 tokenization prob
+#             # sub 14, 15 don't have any inputs nor fmri data. no such subjects in the train split? 40 has them though.
+# 
+# 
+#             # TODO - couldn't find them because they're in the ASD list.
+#             # dataset split. pull from all dataloaders, and if subject not in one check the rest
+# 
+#             # get data for each subject from the dataloader, from the train split
+#             subject_data = list(ds.filter(lambda e: subject in e['file'])['train'])
+#             if len(subject_data) == 0:
+#                 subject_data = list(ds.filter(lambda e: subject in e['file'])['test'])
+#                 if len(subject_data) == 0:
+#                     continue  #here have asd subjects later
+# 
+#             """
+#             Brain scores expects three main things:
+#                 - fmri data - in shape [batch_size, length=1024]
+#                 - tokens - tokens from input, in shape [batch_size, sequence length]
+#                 - attention mask - similarly to the above. This and the above are passed as the tuple model_inputs.
+#     
+#             Since I now have the above way to load in per-subject data instead of using the dataloader with set batch size,
+#             pass as big of a batch as possible so the ridge regression can better fit to the model.
+#             """
+# 
+#             fmri_data = torch.tensor([e['label'] for e in subject_data])
+#             inputs = [e['input'] for e in subject_data]
+#             tokenized = tokenizer(inputs, padding='max_length', truncation=True)
+#             tokens = torch.tensor(tokenized['input_ids'])
+#             attention_mask = torch.tensor(tokenized['attention_mask'])
+#             model_inputs = (tokens, attention_mask)
+# 
+#             path_to_brain_scores_subj = os.path.join(path_to_brain_scores, subject)
+#             if not os.path.exists(path_to_brain_scores_subj):
+#                 os.makedirs(path_to_brain_scores_subj)
+# 
+#             for layer in layers:
+#                 modules = ['output.dense'] #combined with layer to get the activations
+# 
+#                 if finetuned:
+#                     brain_scores = calculate_brain_scores(finetuned_model, model_inputs, fmri_data, layer, modules, train_perc=train_perc)
+#                 elif not finetuned:
+#                     brain_scores = calculate_brain_scores(base_model, model_inputs, fmri_data, layer, modules, train_perc=train_perc)
+# 
+#                 # Add the brain scores to the all_brain_scores dict.
+#                 all_brain_scores['subjects'].append(subject)
+#                 all_brain_scores['layer.module'].extend(brain_scores['layer.module'])
+#                 all_brain_scores['brain_score'].extend(brain_scores['brain_score'])
+#                 coeff_of_det_per_subject[subject] = brain_scores['coeff_of_det']
+#                 ridge_regress_predict_per_subject[subject] = brain_scores['ridge_regress_predict']
+# 
+#                 df = pd.DataFrame((brain_scores['coeff_of_det'], brain_scores['ridge_regress_predict'])).to_csv(
+#                     os.path.join(path_to_brain_scores_subj, f'layer_{layer}_brain_scores_per_feature.csv'),
+#                     index=False, sep=',')
+# 
+# 
+#             # Create a text file and save it to path_to_brain_scores with metadata
+#             path_to_metadata_file = path_to_brain_scores_subj + '/metadata.txt'
+#             with open(path_to_metadata_file, 'w') as f:
+#                 f.write(f"Model: {context.model_path}\n") #remember, user should confirm that finetuned model same as base model
+#                 f.write(f"Layers: {layers}\n")
+#                 f.write(f"Finetuned: False\n")
+#                 f.write(f"Train percentage: {train_perc}\n")
+#                 f.write(f"Date: {date}\n")
+#                 f.write("\n Checkpoint metadata below (if finetuned): \n")
+# 
+#                 # model Seong sent me not auto generated. no yaml file to read from here.
+#                 # if finetuned:
+#                 #     # load metadata from checkpoint as well - built off of lightning's checkpoint directory structure
+#                 #     path_to_model = return_path_to_latest_checkpoint()
+#                 #     parent_path = os.path.dirname(path_to_model)
+#                 #     grandparent_path = os.path.dirname(parent_path)
+#                 #
+#                 #     yaml_path = os.path.join(grandparent_path, 'hparams.yaml')
+#                 #     with open(yaml_path, 'r') as file:
+#                 #         yaml_contents = yaml.load(file, Loader=yaml.FullLoader)
+#                 #
+#                 #         for i in yaml_contents.keys():
+#                 #             f.write(f"{i}: {yaml_contents[i]}\n")
+# 
+#             #break #just for one subj to test
