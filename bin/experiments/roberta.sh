@@ -53,61 +53,61 @@ function experiment() {
 
 
 #########################################
-export WANDB_NAME="$MODEL_PATH, no f.t. $(date +%y-%m-%d\ %H:%M)"
-echo $WANDB_NAME
-CKPT_FILE=
-DS1_TRAIN_SLICE="[:80%]"
-DS2_TRAIN_SLICE="[:80%]"
-LAST_CKPT=
-MAX_EPOCHS=0
-TRAIN_ALL=0
-ds2enable=0
-experiment
-
-
-#########################################
-export WANDB_NAME="$MODEL_PATH, (fmri and Ethics)-HM $(date +%y-%m-%d\ %H:%M)"
-echo $WANDB_NAME
-
-CKPT_FILE=
-DS1_TRAIN_SLICE="[:80%]"
-DS2_TRAIN_SLICE="[:80%]"
-LAST_CKPT=
-MAX_EPOCHS=7
-WARM_UP=1.0
-TRAIN_ALL=1
-ds2enable=0
-experiment
+# export WANDB_NAME="$MODEL_PATH, no f.t. $(date +%y-%m-%d\ %H:%M)"
+# echo $WANDB_NAME
+# CKPT_FILE=
+# DS1_TRAIN_SLICE="[:80%]"
+# DS2_TRAIN_SLICE="[:80%]"
+# LAST_CKPT=
+# MAX_EPOCHS=0
+# TRAIN_ALL=0
+# ds2enable=0
+# experiment
+# 
+# 
+# #########################################
+# export WANDB_NAME="$MODEL_PATH, (fmri and Ethics)-HM $(date +%y-%m-%d\ %H:%M)"
+# echo $WANDB_NAME
+# 
+# CKPT_FILE=
+# DS1_TRAIN_SLICE="[:80%]"
+# DS2_TRAIN_SLICE="[:80%]"
+# LAST_CKPT=
+# MAX_EPOCHS=7
+# WARM_UP=1.0
+# TRAIN_ALL=1
+# ds2enable=0
+# experiment
 
 
 WARM_UP=0.5
 TRANSFER_CKPT=artifacts/RoBERTa-transfer.ckpt
 
 #########################################
-export WANDB_NAME="$MODEL_PATH, fmri-HM then Ethics-HM $(date +%y-%m-%d\ %H:%M)"
-echo $WANDB_NAME
-
-#echo First all on fMRI:
-CKPT_FILE=
-DS1_TRAIN_SLICE="[:0]"
-DS2_TRAIN_SLICE="[:1000]"
-LAST_CKPT=$TRANSFER_CKPT
-MAX_EPOCHS=$FMRI_EPOCHS
-SAMPLING=AVG
-TRAIN_ALL=1
-ds2enable=1
-experiment
-
-#echo Second, train on ETHICS only:
-export WANDB_NAME="$MODEL_PATH, fmri-HM then Ethics-HM $(date +%y-%m-%d\ %H:%M)"
-CKPT_FILE=$TRANSFER_CKPT
-DS1_TRAIN_SLICE="[:80%]"
-DS2_TRAIN_SLICE="[:0]"
-LAST_CKPT=
-MAX_EPOCHS=20
-TRAIN_ALL=1
-ds2enable=0
-experiment
+# export WANDB_NAME="$MODEL_PATH, fmri-HM then Ethics-HM $(date +%y-%m-%d\ %H:%M)"
+# echo $WANDB_NAME
+# 
+# #echo First all on fMRI:
+# CKPT_FILE=
+# DS1_TRAIN_SLICE="[:0]"
+# DS2_TRAIN_SLICE="[:1000]"
+# LAST_CKPT=$TRANSFER_CKPT
+# MAX_EPOCHS=$FMRI_EPOCHS
+# SAMPLING=AVG
+# TRAIN_ALL=1
+# ds2enable=1
+# experiment
+# 
+# #echo Second, train on ETHICS only:
+# export WANDB_NAME="$MODEL_PATH, fmri-HM then Ethics-HM $(date +%y-%m-%d\ %H:%M)"
+# CKPT_FILE=$TRANSFER_CKPT
+# DS1_TRAIN_SLICE="[:80%]"
+# DS2_TRAIN_SLICE="[:0]"
+# LAST_CKPT=
+# MAX_EPOCHS=20
+# TRAIN_ALL=1
+# ds2enable=0
+# experiment
 
 
 #########################################
