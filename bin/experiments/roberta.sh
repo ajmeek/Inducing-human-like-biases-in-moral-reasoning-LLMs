@@ -25,7 +25,7 @@ function experiment() {
         --accumulate_grad_batches 10 \
         --batch_size_all 8 \
         --check_val_every_n_epoch 2 \
-        --checkpoint_path "$CKPT_FILE" \
+        --checkpoint_path="'${CKPT_FILE}'" \
         --ds1.name commonsense \
         --ds1.test.slicing '[:1000]' \
         --ds1.train.shuffle 1 \
