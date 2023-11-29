@@ -5,11 +5,11 @@
 
 # Default experiment parameters:
 DS2_TRAIN_SLICE='[:1000]'
-ETHICS_EPOCHS=15
-FMRI_EPOCHS=55
+ETHICS_EPOCHS=10
+FMRI_EPOCHS=15
 MODEL_PATH=roberta-large
-WARM_UP=0.5
-SAMPLING=LAST
+WARM_UP=0.8
+SAMPLING=AVG
 ENAME=UNKNOWN
 
 function experiment() {
@@ -57,24 +57,24 @@ function experiment() {
 #########################################
 # No fine tuning
 
-ENAME="no_F_T"
-CKPT_FILE=
-DS1_TRAIN_SLICE="[:80%]"
-DS2_TRAIN_SLICE="[:80%]"
-MAX_EPOCHS=0
-TRAIN_ALL=0
-ds2enable=0
-experiment
-
-
-#########################################
-# fMRI and ETHICS 
+# ENAME="no_F_T"
+# CKPT_FILE=
+# DS1_TRAIN_SLICE="[:80%]"
+# DS2_TRAIN_SLICE="[:80%]"
+# MAX_EPOCHS=0
+# TRAIN_ALL=0
+# ds2enable=0
+# experiment
+# 
+# 
+# #########################################
+# # fMRI and ETHICS 
 
 ENAME="fmri_and_ethics_hm"
 CKPT_FILE=
 DS1_TRAIN_SLICE="[:80%]"
 DS2_TRAIN_SLICE="[:80%]"
-MAX_EPOCHS=7
+MAX_EPOCHS=15
 TRAIN_ALL=1
 ds2enable=1
 OLD_WARM_UP=$WARM_UP
@@ -82,7 +82,7 @@ WARM_UP=1.0
 experiment
 
 WARM_UP=$OLD_WARM_UP
-
+ 
 #########################################
 # Ethics-HM then fmri-HM
 
