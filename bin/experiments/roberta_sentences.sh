@@ -9,7 +9,7 @@ ETHICS_EPOCHS=10
 FMRI_EPOCHS=15
 MODEL_PATH=roberta-large
 WARM_UP=0.8
-SAMPLING=AVG
+SAMPLING=SENTENCES
 ENAME=UNKNOWN
 
 function experiment() {
@@ -57,63 +57,69 @@ function experiment() {
 #########################################
 # No fine tuning
 
-# ENAME="no_F_T"
-# CKPT_FILE=
-# DS1_TRAIN_SLICE="[:80%]"
-# DS2_TRAIN_SLICE="[:80%]"
-# MAX_EPOCHS=0
-# TRAIN_ALL=0
-# ds2enable=0
-# experiment
-# 
-# 
-# #########################################
-# # fMRI and ETHICS 
+rm artifacts/*.ckpt
 
-# ENAME="fmri_and_ethics_hm"
-# CKPT_FILE=
-# DS1_TRAIN_SLICE="[:80%]"
-# DS2_TRAIN_SLICE="[:80%]"
-# MAX_EPOCHS=15
-# TRAIN_ALL=1
-# ds2enable=1
-# OLD_WARM_UP=$WARM_UP
-# WARM_UP=1.0
-# experiment
-# 
-# WARM_UP=$OLD_WARM_UP
+ENAME="no_F_T"
+CKPT_FILE=
+DS1_TRAIN_SLICE="[:80%]"
+DS2_TRAIN_SLICE="[:80%]"
+MAX_EPOCHS=0
+TRAIN_ALL=0
+ds2enable=0
+experiment
+
+
+#########################################
+# fMRI and ETHICS 
+
+rm artifacts/*.ckpt
+
+ENAME="fmri_and_ethics_hm"
+CKPT_FILE=
+DS1_TRAIN_SLICE="[:80%]"
+DS2_TRAIN_SLICE="[:80%]"
+MAX_EPOCHS=15
+TRAIN_ALL=1
+ds2enable=1
+OLD_WARM_UP=$WARM_UP
+WARM_UP=1.0
+experiment
+
+WARM_UP=$OLD_WARM_UP
  
 #########################################
 # Ethics-HM then fmri-HM
+rm artifacts/*.ckpt
 
-# ENAME="Ethics-HM_then_fmri-HM"
-# CKPT_FILE=
-# DS1_TRAIN_SLICE="[:80%]"
-# MAX_EPOCHS=$ETHICS_EPOCHS
-# TRAIN_ALL=1
-# ds2enable=0
-# experiment
-# 
-# CKPT_FILE="$LAST_CKPT"
-# DS1_TRAIN_SLICE="[:0]"
-# MAX_EPOCHS=$FMRI_EPOCHS
-# TRAIN_ALL=1
-# ds2enable=1
-# experiment
+ENAME="Ethics-HM_then_fmri-HM"
+CKPT_FILE=
+DS1_TRAIN_SLICE="[:80%]"
+MAX_EPOCHS=$ETHICS_EPOCHS
+TRAIN_ALL=1
+ds2enable=0
+experiment
+
+CKPT_FILE="$LAST_CKPT"
+DS1_TRAIN_SLICE="[:0]"
+MAX_EPOCHS=$FMRI_EPOCHS
+TRAIN_ALL=1
+ds2enable=1
+experiment
 
 #########################################
 # fMRI then ETHICS
+rm artifacts/*.ckpt
 
 ENAME="fmri-hm_then_ethics-hm"
-# CKPT_FILE=
-# DS1_TRAIN_SLICE="[:0]"
-# DS2_TRAIN_SLICE="[:1000]"
-# MAX_EPOCHS=$FMRI_EPOCHS
-# TRAIN_ALL=1
-# ds2enable=1
-# experiment
+CKPT_FILE=
+DS1_TRAIN_SLICE="[:0]"
+DS2_TRAIN_SLICE="[:1000]"
+MAX_EPOCHS=$FMRI_EPOCHS
+TRAIN_ALL=1
+ds2enable=1
+experiment
 
-CKPT_FILE=roberta-large_fmri-hm_then_ethics-hm_23-11-30_0803.ckpt # "$LAST_CKPT"
+CKPT_FILE="$LAST_CKPT"
 DS1_TRAIN_SLICE="[:80%]"
 DS2_TRAIN_SLICE="[:0]"
 LAST_CKPT=
