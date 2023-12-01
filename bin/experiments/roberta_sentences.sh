@@ -23,7 +23,7 @@ function experiment() {
     LAST_CKPT="artifacts/${WANDB_NAME}.ckpt"
     ./run.sh train \
         --accumulate_grad_batches 10 \
-        --batch_size_all 16 \
+        --batch_size_all 8 \
         --check_val_every_n_epoch 2 \
         --checkpoint_path="'${CKPT_FILE}'" \
         --ds1.name commonsense \
@@ -57,54 +57,54 @@ function experiment() {
 #########################################
 # No fine tuning
 
-rm artifacts/*.ckpt
-
-ENAME="no_F_T"
-CKPT_FILE=
-DS1_TRAIN_SLICE="[:80%]"
-DS2_TRAIN_SLICE="[:80%]"
-MAX_EPOCHS=0
-TRAIN_ALL=0
-ds2enable=0
-experiment
-
-
-#########################################
-# fMRI and ETHICS 
-
-rm artifacts/*.ckpt
-
-ENAME="fmri_and_ethics_hm"
-CKPT_FILE=
-DS1_TRAIN_SLICE="[:80%]"
-DS2_TRAIN_SLICE="[:80%]"
-MAX_EPOCHS=15
-TRAIN_ALL=1
-ds2enable=1
-OLD_WARM_UP=$WARM_UP
-WARM_UP=1.0
-experiment
-
-WARM_UP=$OLD_WARM_UP
- 
-#########################################
-# Ethics-HM then fmri-HM
-rm artifacts/*.ckpt
-
-ENAME="Ethics-HM_then_fmri-HM"
-CKPT_FILE=
-DS1_TRAIN_SLICE="[:80%]"
-MAX_EPOCHS=$ETHICS_EPOCHS
-TRAIN_ALL=1
-ds2enable=0
-experiment
-
-CKPT_FILE="$LAST_CKPT"
-DS1_TRAIN_SLICE="[:0]"
-MAX_EPOCHS=$FMRI_EPOCHS
-TRAIN_ALL=1
-ds2enable=1
-experiment
+# rm artifacts/*.ckpt
+# 
+# ENAME="no_F_T"
+# CKPT_FILE=
+# DS1_TRAIN_SLICE="[:80%]"
+# DS2_TRAIN_SLICE="[:80%]"
+# MAX_EPOCHS=0
+# TRAIN_ALL=0
+# ds2enable=0
+# experiment
+# 
+# 
+# #########################################
+# # fMRI and ETHICS 
+# 
+# rm artifacts/*.ckpt
+# 
+# ENAME="fmri_and_ethics_hm"
+# CKPT_FILE=
+# DS1_TRAIN_SLICE="[:80%]"
+# DS2_TRAIN_SLICE="[:80%]"
+# MAX_EPOCHS=15
+# TRAIN_ALL=1
+# ds2enable=1
+# OLD_WARM_UP=$WARM_UP
+# WARM_UP=1.0
+# experiment
+# 
+# WARM_UP=$OLD_WARM_UP
+#  
+# #########################################
+# # Ethics-HM then fmri-HM
+# rm artifacts/*.ckpt
+# 
+# ENAME="Ethics-HM_then_fmri-HM"
+# CKPT_FILE=
+# DS1_TRAIN_SLICE="[:80%]"
+# MAX_EPOCHS=$ETHICS_EPOCHS
+# TRAIN_ALL=1
+# ds2enable=0
+# experiment
+# 
+# CKPT_FILE="$LAST_CKPT"
+# DS1_TRAIN_SLICE="[:0]"
+# MAX_EPOCHS=$FMRI_EPOCHS
+# TRAIN_ALL=1
+# ds2enable=1
+# experiment
 
 #########################################
 # fMRI then ETHICS
