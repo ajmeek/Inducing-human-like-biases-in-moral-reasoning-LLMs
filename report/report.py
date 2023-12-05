@@ -76,7 +76,7 @@ runs_df["model_path"] = runs_df["model_path"].fillna(runs_df["checkpoint"])
 
 # %%
 # To csv:
-runs_df.to_csv("project.csv")
+runs_df.to_csv("report/project.csv")
 
 # %%
 runs_df = pd.load_csv("project.csv")
@@ -105,8 +105,11 @@ def check_if_trained_on(ds_col):
         ds = row[ds_col]
         if not isinstance(ds, dict):
             return None
-        train_slicing = ds.get("train", {}).get("slicing", '')
-        enable = ds.get("enable", False)
+
+        train_slicing = ds.get("train", {}).get("slicing", None)
+        enable = ds.get("enable", None)
+        if train_slicing is None or enable is None:
+            return None
         return train_slicing != "[:0]" and enable
     return check
 def get_ds_name(ds_col):
@@ -117,10 +120,40 @@ def get_ds_name(ds_col):
         return ''
     return g
 
-for ds in ["ds1", "ds2"]:
+for i, ds in enumerate(["ds1", "ds2"]):
     myview[ds] = runs_df.apply(get_ds_name(ds), axis=1)
     myview[f"{ds}_training"] = runs_df.apply(check_if_trained_on(ds), axis=1)
+    myview[ds] = myview[ds].fillna(runs_df['train_datasets'].apply(lambda x: x[i] if isinstance(x, list) and i < len(x) else None))
+
+myview['sampling_method'] = runs_df['sampling_method']
+myview['sampling_method'] = myview['sampling_method'].fillna(runs_df['ds2'].apply(
+    lambda x: 
+        x['sampling_method'] if isinstance(x, dict) and 'sampling_method' in x 
+        else (
+            x['name'].split('-')[1] if isinstance(x, dict) and 'name' in x and x['name'].startswith('LFB-')
+            else None
+        )))
+# Remove 'Sampling.' prefix in 'sampfling_method' column:
+myview['sampling_method'] = myview['sampling_method'].str.replace('Sampling.', '')
 
 myview
+# %%
+myview.to_csv("report/project_view.csv")
 
+# %%
+by_model_path = myview[
+    (myview['ds1_training'] is None or myview['ds1_training'] == True)
+    and (myview['ds2_training'] is None or myview['ds2_training'] == True)
+][[
+    'model_path', '_runtime', 'cs_hard_set_acc', 'cs_test_set_acc', 'bs_median', 'bs_std', 'cod_median', 'cod_std', 'steps', 'sampling_method'
+]].groupby(["model_path", 'sampling_method']).agg({
+    '_runtime': ['sum'],
+    'cs_hard_set_acc': ['mean', 'std'],
+    'cs_test_set_acc': ['mean', 'std'],
+    'bs_median': ['mean', 'std'],
+    'bs_std': ['mean', 'std'],
+    'cod_median': ['mean', 'std'],
+    'cod_std': ['mean', 'std'],
+    'steps': ['sum'],
+}).reset_index()
 # %%
