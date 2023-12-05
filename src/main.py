@@ -140,9 +140,6 @@ def train(context: Context):
 def calculate_brainscores_adapter(
     model: torch.nn.Module, tokenizer, logger: WandbLogger, model_config
 ):
-
-    # TODO - make this dependent on Context struct as train() is, and add num_hidden_layers to Context in Context.py
-
     print("Calculating brainscores...")
     model = model.to("cpu")
     ds = load_dataset(
