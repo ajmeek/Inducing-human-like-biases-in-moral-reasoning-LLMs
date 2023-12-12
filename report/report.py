@@ -49,6 +49,18 @@ runs_df.to_csv("report/project_original.csv")
 # %%
 runs_df = pd.load_csv("project_original.csv")
 
+
+# %%
+# Clear extra quotes in 'checkpoint_path' and 'last_checkpoint_path' columns:
+def clear_quotes(s):
+    if s is None or not isinstance(s, str):
+        return None
+    return s.strip("\"'")
+
+
+runs_df["checkpoint_path"] = runs_df["checkpoint_path"].apply(clear_quotes)
+runs_df["last_checkpoint_path"] = runs_df["last_checkpoint_path"].apply(clear_quotes)
+
 # %%
 # Merge results for Commonsense Hard Test set:
 runs_df["cs_hard_set_acc"] = np.nan
@@ -91,9 +103,17 @@ runs_df = pd.load_csv("project.csv")
 # %%
 # Create view:
 
-# Filter out runs with with 
+# Filter out runs with with
 myview = runs_df[
-    ["model_path", "_runtime", "cs_hard_set_acc", "cs_test_set_acc"]
+    [
+        "model_path",
+        "_runtime",
+        "cs_hard_set_acc",
+        "cs_test_set_acc",
+        "last_checkpoint_path",
+        "checkpoint_path",
+        "_step",
+    ]
 ]
 
 myview["timestamp"] = runs_df["_timestamp"].apply(
@@ -159,10 +179,21 @@ myview["sampling_method"] = myview["sampling_method"].fillna(
 # Remove 'Sampling.' prefix in 'sampfling_method' column:
 myview["sampling_method"] = myview["sampling_method"].str.replace("Sampling.", "")
 
-# Filter out dirty runs:
-myview = runs_df[runs_df["_runtime"] > 300.0][
 
-myview
+# Find previous run ds1_training, ds2_training columns using its 'last_checkpoint_path' column that should match current row 'checkpoint_path' column:
+
+def find_prev_run_id(row):
+    prev_rows = myview[myview.index > row.name][
+        myview["last_checkpoint_path"] == row["checkpoint_path"] 
+    ]
+    if len(prev_rows) > 0:
+        # Return last row id in prev_rows:
+        return int(prev_rows.index.min())
+    return None
+
+myview['prev_run_id'] = myview.apply(find_prev_run_id, axis=1)
+display(myview[['prev_run_id', 'checkpoint_path', 'last_checkpoint_path']])
+
 
 # %%
 by_model_path = (
@@ -189,10 +220,10 @@ by_model_path = (
             "_runtime": ["sum"],
             "cs_hard_set_acc": ["mean", "std", "max"],
             "cs_test_set_acc": ["mean", "std", "max"],
-            #"bs_median": ["mean", "std"],
-            #"bs_std": ["mean", "std"],
-            #"cod_median": ["mean", "std"],
-            #"cod_std": ["mean", "std"],
+            # "bs_median": ["mean", "std"],
+            # "bs_std": ["mean", "std"],
+            # "cod_median": ["mean", "std"],
+            # "cod_std": ["mean", "std"],
             "steps": ["sum"],
         }
     )
@@ -213,3 +244,5 @@ display(by_model_path)
 
 # %%
 myview.to_csv("report/project_view.csv")
+
+# %%
