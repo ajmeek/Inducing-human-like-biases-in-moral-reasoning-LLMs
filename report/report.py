@@ -192,42 +192,23 @@ def find_prev_run_id(row):
     return None
 
 myview['prev_run_id'] = myview.apply(find_prev_run_id, axis=1)
-display(myview[['prev_run_id', 'checkpoint_path', 'last_checkpoint_path']])
 
+def is_ds_sequence(first, second):
+    def check(row):
+        if row['prev_run_id'].is_integer():
+            prev_run = myview.loc[int(row['prev_run_id']), f'{first}_training']
+            if prev_run is not None and prev_run:
+                return row[f'{second}_training']
+        return None
+    return check
+
+myview['Ethics then fMRI'] = myview.apply(is_ds_sequence('ds1', 'ds2'), axis=1)
+myview['fMRI then Ethics'] = myview.apply(is_ds_sequence('ds2', 'ds1'), axis=1)
+
+myview
 
 # %%
 by_model_path = (
-    myview[
-        (myview["ds1_training"].isnull() | myview["ds1_training"])
-        & (myview["ds2_training"].isnull() | myview["ds2_training"])
-    ][
-        [
-            "model_path",
-            "_runtime",
-            "cs_hard_set_acc",
-            "cs_test_set_acc",
-            "bs_median",
-            "bs_std",
-            "cod_median",
-            "cod_std",
-            "steps",
-            "sampling_method",
-        ]
-    ]
-    .groupby(["model_path", "sampling_method"])
-    .agg(
-        {
-            "_runtime": ["sum"],
-            "cs_hard_set_acc": ["mean", "std", "max"],
-            "cs_test_set_acc": ["mean", "std", "max"],
-            # "bs_median": ["mean", "std"],
-            # "bs_std": ["mean", "std"],
-            # "cod_median": ["mean", "std"],
-            # "cod_std": ["mean", "std"],
-            "steps": ["sum"],
-        }
-    )
-    .reset_index()
 )
 
 by_model_path["num_runs"] = (
