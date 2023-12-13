@@ -47,7 +47,8 @@ runs_df = runs_df.reindex(sorted(runs_df.columns), axis=1)
 runs_df.to_csv("report/project_original.csv")
 
 # %%
-runs_df = pd.load_csv("report/project_original.csv")
+# Load from csv:
+runs_df = pd.read_csv("report/project_original.csv")
 
 # %%
 # Include only those after 1 Sep 2023:
@@ -101,7 +102,7 @@ runs_df["model_path"] = runs_df["model_path"].fillna(runs_df["checkpoint"])
 runs_df.to_csv("report/project.csv")
 
 # %%
-runs_df = pd.load_csv("project.csv")
+runs_df = pd.read_csv("project.csv")
 
 # %%
 # Create a view
@@ -152,7 +153,10 @@ def get_ds_name(ds_col):
     def g(row):
         ds = row[ds_col]
         if isinstance(ds, dict):
-            return ds.get("name", "")
+            name = ds.get("name", "")
+            if 'LFB' in name:
+                return name.split('-')[0]
+            return name
         return ""
 
     return g
@@ -196,37 +200,38 @@ def find_prev_run_id(row):
 
 myview['prev_run_id'] = myview.apply(find_prev_run_id, axis=1)
 
-def is_ds_sequence(first, second):
-    def check(row):
-        if row['prev_run_id'].is_integer():
-            prev_run = myview.loc[int(row['prev_run_id']), f'{first}_training']
-            if prev_run is not None and prev_run:
-                return row[f'{second}_training']
-        return None
-    return check
+def get_sequence(row):
+    if row['prev_run_id'].is_integer():
+        prev_run = myview.loc[int(row['prev_run_id'])]
+        if prev_run.any():
+            if (prev_run['ds1_training'] == True and row['ds2_training'] == True):
+                return f"{prev_run['ds1']} then {prev_run['ds2']}"
+            if (prev_run['ds2_training'] == True and row['ds1_training'] == True):
+                return f"{prev_run['ds2']} then {prev_run['ds1']}"
+    return "-"
 
-myview['Ethics then fMRI'] = myview.apply(is_ds_sequence('ds1', 'ds2'), axis=1)
-myview['fMRI then Ethics'] = myview.apply(is_ds_sequence('ds2', 'ds1'), axis=1)
+myview['seq_train'] = myview.apply(get_sequence, axis=1)
 
 myview
 
 # %%
-by_model_path = (
-)
-
-by_model_path["num_runs"] = (
-    myview.groupby(["model_path", "sampling_method"])
-    .size()
-    .reset_index(name="num_runs")["num_runs"]
-)
-# Move 'num_runs' column to the beginning:
-cols = list(by_model_path.columns)
-cols = [cols[-1]] + cols[:-1]
-by_model_path = by_model_path[cols]
-display(by_model_path)
-# %%
-
-# %%
 myview.to_csv("report/project_view.csv")
+
+# %%
+# Group by model_path, sampling_method, seq_train
+by_model_sampling_seq = myview.groupby(["model_path", "sampling_method", "seq_train"]).agg(
+    {
+        "timestamp": ["count"],
+        "cs_hard_set_acc": ["mean", "std", "max"],
+        "cs_test_set_acc": ["mean", "std", "max"],
+        "bs_median": ["mean", "max"],
+    }
+)
+
+display(by_model_sampling_seq)
+# %%
+by_model_sampling_seq["cs_hard_set_acc"]["mean"].unstack().plot(kind="bar")
+# %%
+by_model_sampling_seq["cs_test_set_acc"]["mean"].unstack().plot(kind="bar")
 
 # %%
