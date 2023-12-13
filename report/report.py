@@ -4,6 +4,8 @@ from pandas import json_normalize
 from pprint import pp
 from time import strftime, gmtime, localtime
 from datetime import datetime
+from transformers import AutoConfig
+from plotly import express as px
 import numpy as np
 import pandas as pd
 import wandb
@@ -94,6 +96,10 @@ runs_df["cs_test_set_acc"] = np.nan
 for column in columns_to_merge:
     runs_df["cs_test_set_acc"] = runs_df["cs_test_set_acc"].fillna(runs_df[column])
 
+# %% 
+# Remove rows with wrong accuracy not in [0, 1] for cs_hard_set_acc and cs_test_set_acc:
+runs_df = runs_df[runs_df["cs_hard_set_acc"].between(0, 1)]
+runs_df = runs_df[runs_df["cs_test_set_acc"].between(0, 1)]
 # %%
 runs_df["model_path"] = runs_df["model_path"].fillna(runs_df["checkpoint"])
 
@@ -212,14 +218,27 @@ def get_sequence(row):
 
 myview['seq_train'] = myview.apply(get_sequence, axis=1)
 
-myview
+# Get number of parameters for a HuggingFace model using 'model_path' field into 'parameters_num':
+model_size_mln = {
+    'bert-large-cased': 333,
+    'bert-base-cased': 108,
+    'roberta-large': 355,
+    'microsoft/deberta-v2-xlarge': 884,
+
+}
+myview["model_size_mln"] = myview["model_path"].apply(
+    lambda x: model_size_mln.get(x, None)
+)
+
+# sort by model_size_mln:
+myview = myview.sort_values(by=["model_size_mln"])
 
 # %%
 myview.to_csv("report/project_view.csv")
 
 # %%
 # Group by model_path, sampling_method, seq_train
-by_model_sampling_seq = myview.groupby(["model_path", "sampling_method", "seq_train"]).agg(
+by_model_sampling_seq = myview.groupby(["model_path", "model_size_mln", "sampling_method", "seq_train"]).agg(
     {
         "timestamp": ["count"],
         "cs_hard_set_acc": ["mean", "std", "max"],
@@ -227,11 +246,49 @@ by_model_sampling_seq = myview.groupby(["model_path", "sampling_method", "seq_tr
         "bs_median": ["mean", "max"],
     }
 )
+# sort by model_size_mln:
+by_model_sampling_seq =by_model_sampling_seq.sort_values(by=["model_size_mln"])
 
-display(by_model_sampling_seq)
-# %%
-by_model_sampling_seq["cs_hard_set_acc"]["mean"].unstack().plot(kind="bar")
-# %%
-by_model_sampling_seq["cs_test_set_acc"]["mean"].unstack().plot(kind="bar")
+by_model_sampling_seq
 
+# %%
+by_model_sampling_seq.to_excel("report/by_model_sampling_seq.xlsx")
+
+# %%
+by_model.plot.bar(
+    y=[("cs_hard_set_acc", "mean")],
+    yerr=[("cs_hard_set_acc", "std")],
+    title="cs_hard_set_acc, cs_test_set_acc",
+    # Make it wide:
+    figsize=(10, 7),
+)
+# %%
+by_model = myview.groupby(["model_path", "model_size_mln"]).agg(
+    {
+        "timestamp": ["count"],
+        "cs_hard_set_acc": ["mean", "std", "max"],
+        "cs_test_set_acc": ["mean", "std", "max"],
+        "bs_median": ["mean", "max"],
+    }
+)
+display(by_model)
+by_model.to_excel("report/by_model.xlsx")
+
+# Plot cs_test_set_acc mean as line and std as error for each model with x axis as model_size_mln:
+px.bar(
+    x=by_model.index.get_level_values("model_size_mln"),
+    y=by_model["cs_test_set_acc"]["mean"],
+    error_y=by_model["cs_test_set_acc"]["std"],
+    title="Commomnsense Test Set Accuracy",
+    labels={"x": "Model Size (mln)", "y": "Accuracy"},
+)
+
+# %%
+px.bar(
+    x=by_model.index.get_level_values("model_size_mln"),
+    y=by_model["cs_hard_set_acc"]["mean"],
+    error_y=by_model["cs_hard_set_acc"]["std"],
+    title="Commonsense Hard Test Set Accuracy",
+    labels={"x": "Model Size (mln)", "y": "Accuracy"},
+)
 # %%
