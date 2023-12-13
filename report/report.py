@@ -1,12 +1,12 @@
 # %%
-import pandas as pd
 from pandas import Series
-import numpy as np
 from pandas import json_normalize
-import wandb
-import json
 from pprint import pp
 from time import strftime, gmtime, localtime
+from datetime import datetime
+import numpy as np
+import pandas as pd
+import wandb
 
 api = wandb.Api()
 
@@ -47,8 +47,11 @@ runs_df = runs_df.reindex(sorted(runs_df.columns), axis=1)
 runs_df.to_csv("report/project_original.csv")
 
 # %%
-runs_df = pd.load_csv("project_original.csv")
+runs_df = pd.load_csv("report/project_original.csv")
 
+# %%
+# Include only those after 1 Sep 2023:
+run_df = runs_df[runs_df["_timestamp"] >= datetime(2023, 9, 1).timestamp()]
 
 # %%
 # Clear extra quotes in 'checkpoint_path' and 'last_checkpoint_path' columns:
@@ -122,9 +125,9 @@ myview["timestamp"] = runs_df["_timestamp"].apply(
 bs_columns = [col for col in runs_df.columns if col.startswith("bs_")]
 myview["bs_median"] = runs_df[bs_columns].median(axis=1)
 myview["bs_std"] = runs_df[bs_columns].std(axis=1)
-cod_columns = [col for col in runs_df.columns if col.startswith("cod_")]
-myview["cod_median"] = runs_df[cod_columns].median(axis=1)
-myview["cod_std"] = runs_df[cod_columns].std(axis=1)
+#cod_columns = [col for col in runs_df.columns if col.startswith("cod_")]
+#myview["cod_median"] = runs_df[cod_columns].median(axis=1)
+#myview["cod_std"] = runs_df[cod_columns].std(axis=1)
 myview["checkpoint_path"] = runs_df["checkpoint_path"]
 myview["steps"] = runs_df["_step"]
 
