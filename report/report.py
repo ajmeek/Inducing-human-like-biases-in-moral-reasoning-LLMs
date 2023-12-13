@@ -101,7 +101,7 @@ runs_df.to_csv("report/project.csv")
 runs_df = pd.load_csv("project.csv")
 
 # %%
-# Create view:
+# Create a view
 
 # Filter out runs with with
 myview = runs_df[
