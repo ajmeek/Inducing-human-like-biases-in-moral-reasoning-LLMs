@@ -130,7 +130,7 @@ myview["timestamp"] = runs_df["_timestamp"].apply(
     lambda x: strftime("%Y-%m-%d %H:%M:%S %Z", gmtime(x))
 )
 bs_columns = [col for col in runs_df.columns if col.startswith("bs_")]
-myview["bs_median"] = runs_df[bs_columns].median(axis=1)
+myview["bs_max"] = runs_df[bs_columns].max(axis=1)
 myview["bs_std"] = runs_df[bs_columns].std(axis=1)
 #cod_columns = [col for col in runs_df.columns if col.startswith("cod_")]
 #myview["cod_median"] = runs_df[cod_columns].median(axis=1)
