@@ -26,7 +26,7 @@ function experiment() {
         --accumulate_grad_batches 10 \
         --batch_size_all 4 \
         --check_val_every_n_epoch 2 \
-        --checkpoint_path "$CKPT_FILE" \
+        --checkpoint_path $CKPT_FILE \
         --ds1.name commonsense \
         --ds1.test.slicing '[:1000]' \
         --ds1.train.shuffle 1 \
@@ -40,7 +40,7 @@ function experiment() {
         --ds2.train.slicing "$DS2_TRAIN_SLICE" \
         --find_bs 0 \
         --find_lr 0 \
-        --last_checkpoint_path "$LAST_CKPT" \
+        --last_checkpoint_path $LAST_CKPT \
         --lr 1e-5 \
         --lr_base_model_factor 1.0 \
         --lr_warm_up_steps $WARM_UP \
