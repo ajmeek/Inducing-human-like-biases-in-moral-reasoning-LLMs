@@ -38,7 +38,7 @@ for run in runs:
 
     s = run.summary._json_dict
     c = {k: v for k, v in run.config.items() if not k.startswith("_")}
-    data_list.append(s | c | {"name": run.name})
+    data_list.append(s | c | {"name": run.name} | {'tags': run.tags})
 
 runs_df = pd.DataFrame(data_list)
 
@@ -54,8 +54,10 @@ runs_df = pd.read_csv("report/project_original.csv")
 
 # %%
 # Include only those after 1 Sep 2023:
-run_df = runs_df[runs_df["_timestamp"] >= datetime(2023, 9, 1).timestamp()]
-
+runs_df = runs_df[runs_df["_timestamp"] >= datetime(2023, 9, 1).timestamp()]
+# %% 
+# Remove those with bad hyperparameters:
+runs_df = runs_df[runs_df["tags"].str.contains("bad-hyperparams") == False]
 # %%
 # Clear extra quotes in 'checkpoint_path' and 'last_checkpoint_path' columns:
 def clear_quotes(s):
@@ -108,7 +110,7 @@ runs_df["model_path"] = runs_df["model_path"].fillna(runs_df["checkpoint"])
 runs_df.to_csv("report/project.csv")
 
 # %%
-runs_df = pd.read_csv("project.csv")
+runs_df = pd.read_csv("report/project.csv")
 
 # %%
 # Create a view
@@ -236,18 +238,19 @@ myview = myview.sort_values(by=["model_size_mln"])
 # %%
 myview.to_csv("report/project_view.csv")
 
+
 # %%
 # Group by model_path, sampling_method, seq_train
 by_model_sampling_seq = myview.groupby(["model_path", "model_size_mln", "sampling_method", "seq_train"]).agg(
     {
         "timestamp": ["count"],
-        "cs_hard_set_acc": ["mean", "std", "max"],
-        "cs_test_set_acc": ["mean", "std", "max"],
-        "bs_median": ["mean", "max"],
+        #"cs_hard_set_acc": ["mean", "std", "max"],
+        #"cs_test_set_acc": ["mean", "std", "max"],
+        #"bs_max": ["median", "max"],
     }
 )
 # sort by model_size_mln:
-by_model_sampling_seq =by_model_sampling_seq.sort_values(by=["model_size_mln"])
+by_model_sampling_seq = by_model_sampling_seq.sort_values(by=["model_size_mln"])
 
 by_model_sampling_seq
 
@@ -268,7 +271,7 @@ by_model = myview.groupby(["model_path", "model_size_mln"]).agg(
         "timestamp": ["count"],
         "cs_hard_set_acc": ["mean", "std", "max"],
         "cs_test_set_acc": ["mean", "std", "max"],
-        "bs_median": ["mean", "max"],
+        "bs_max": ["median", "max"],
     }
 )
 display(by_model)
