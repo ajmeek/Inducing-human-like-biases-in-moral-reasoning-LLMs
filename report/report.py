@@ -50,7 +50,7 @@ rdf.to_csv("report/project_original.csv")
 
 # %%
 # Load from csv:
-rdf = pd.read_csv("report/project_original.csv")
+#rdf = pd.read_csv("report/project_original.csv")
 
 # %%
 # Include only those after 1 Sep 2023:
@@ -63,7 +63,7 @@ rdf = rdf[rdf['tags'].apply(lambda x: 'bad-hyperparams' not in x)]
 # Clear extra quotes in 'checkpoint_path' and 'last_checkpoint_path' columns:
 def clear_quotes(s):
     if s is None or not isinstance(s, str):
-        return None
+        return s
     return s.strip("\"'")
 
 
@@ -101,7 +101,7 @@ for column in columns_to_merge:
 
 # %% 
 # Remove rows with wrong accuracy, not in [0, 1] for cs_hard_set_acc and cs_test_set_acc:
-rdf = rdf[rdf["cs_hard_set_acc"].between(0, 1)]
+#rdf = rdf[rdf["cs_hard_set_acc"].between(0, 1)]
 rdf = rdf[rdf["cs_test_set_acc"].between(0, 1)]
 # %%
 rdf["model_path"] = rdf["model_path"].fillna(rdf["checkpoint"])
@@ -166,13 +166,17 @@ def get_sampling_method(x):
     else:
         return None
 
+rdf["sampling_method"] = None
 rdf["sampling_method"] = rdf["sampling_method"].fillna(rdf["ds2"].apply(get_sampling_method))
+rdf["sampling_method"] = rdf["sampling_method"].fillna(rdf["ds2/sampling_method"])
 # Remove 'Sampling.' prefix in 'sampfling_method' column:
 rdf["sampling_method"] = rdf["sampling_method"].str.replace("Sampling.", "")
+# Fill sampling_method col with None for NaN and empty string values:
+rdf["sampling_method"] = rdf["sampling_method"].fillna('')
+
 
 # %% 
-# Find previous run ds1_training, ds2_training columns using its 'last_checkpoint_path' column that should match current row 'checkpoint_path' column:
-
+# Find previous runs for each run:
 def find_prev_run_id(row):
     prev_rows = rdf[rdf.index > row.name][
         rdf["last_checkpoint_path"] == row["checkpoint_path"] 
@@ -181,97 +185,116 @@ def find_prev_run_id(row):
         # Return last row id in prev_rows:
         return int(prev_rows.index.min())
     return None
-
 rdf['prev_run_id'] = rdf.apply(find_prev_run_id, axis=1)
 
+# %% 
+# Set seq_train column (what datasets were used):
 def get_sequence(row):
     if row['prev_run_id'].is_integer():
         prev_run = rdf.loc[int(row['prev_run_id'])]
         if prev_run.any():
-            if (prev_run['ds1_training'] == True and row['ds2_training'] == True):
-                return f"{prev_run['ds1']} then {prev_run['ds2']}"
-            if (prev_run['ds2_training'] == True and row['ds1_training'] == True):
-                return f"{prev_run['ds2']} then {prev_run['ds1']}"
-    return "-"
+            def append(ds, r):
+                if r[f"{ds}_training"] == True:
+                    return r[f"{ds}_name"]
+                return None
 
+            def row_seq(r):
+                return [append('ds1', r), append('ds2', r)]
+            
+            seq = ' and '.join(e for e in row_seq(prev_run) if e is not None)
+            seq += ' then '
+            seq += ' and '.join(e for e in row_seq(row) if e is not None)
+            return seq
+    return ""
 rdf['seq_train'] = rdf.apply(get_sequence, axis=1)
 
+# %%
 # Get number of parameters for a HuggingFace model using 'model_path' field into 'parameters_num':
 model_size_mln = {
     'bert-large-cased': 333,
     'bert-base-cased': 108,
     'roberta-large': 355,
     'microsoft/deberta-v2-xlarge': 884,
-
 }
+
 rdf["model_size_mln"] = rdf["model_path"].apply(
     lambda x: model_size_mln.get(x, None)
 )
+
+# %% 
+rdf['only_on_ethics'] = rdf['ds1_training'].fillna(False) & ~rdf['ds2_training'].fillna(False) & ~rdf['seq_train'].apply(lambda x: 'LFB' in x if isinstance(x, str) else False)
 
 # %%
 # To csv:
 rdf.to_csv("report/project.csv")
 
 # %%
-rdf = pd.read_csv("report/project.csv")
+# rdf = pd.read_csv("report/project.csv")
 
 # %%
 # Create a view
 
 # Filter out runs with with
-myview = rdf[
-    [
-        "model_path",
-        "timestamp",
-        "_runtime",
-        "cs_hard_set_acc",
-        "cs_test_set_acc",
-        "last_checkpoint_path",
-        "checkpoint_path",
-        "_step",
-    ]
-]
+a_view = rdf[[
+    "model_path",
+    "timestamp",
+    "_runtime",
+    "cs_hard_set_acc",
+    "cs_test_set_acc",
+    "last_checkpoint_path",
+    "checkpoint_path",
+    "_step",
+    "model_size_mln",
+    "seq_train",
+    "sampling_method",
+    'only_on_ethics',
+]]
+# Drop rows without cs_hard_set_acc:
+a_view = a_view.dropna(subset=["cs_hard_set_acc"])
+# Drop rows without cs_test_set_acc:
+a_view = a_view.dropna(subset=["cs_test_set_acc"])
 bs_columns = [col for col in rdf.columns if col.startswith("bs_")]
-myview["bs_max"] = rdf[bs_columns].max(axis=1)
-myview["bs_std"] = rdf[bs_columns].std(axis=1)
+a_view["bs_max"] = rdf[bs_columns].max(axis=1)
+a_view["bs_std"] = rdf[bs_columns].std(axis=1)
 #cod_columns = [col for col in runs_df.columns if col.startswith("cod_")]
 #myview["cod_median"] = runs_df[cod_columns].median(axis=1)
 #myview["cod_std"] = runs_df[cod_columns].std(axis=1)
-myview["steps"] = rdf["_step"]
-myview = myview.sort_values(by=["model_size_mln"])
-myview
+a_view["steps"] = rdf["_step"]
+a_view = a_view.sort_values(by=["model_size_mln"])
+a_view
 # %%
-myview.to_csv("report/project_view.csv")
+a_view.to_csv("report/project_view.csv")
 
 
 # %%
 # Group by model_path, sampling_method, seq_train
-by_model_sampling_seq = myview.groupby(["model_path", "model_size_mln", "sampling_method", "seq_train"]).agg(
-    {
+by_model_by_ethics = a_view.groupby(
+    ["model_path", "model_size_mln", 'only_on_ethics']
+).agg({
         "timestamp": ["count"],
         "cs_hard_set_acc": ["mean", "std", "max"],
         "cs_test_set_acc": ["mean", "std", "max"],
-        "bs_max": ["median", "max"],
-    }
-)
+        #"bs_max": ["median", "max"],
+})
 # sort by model_size_mln:
-by_model_sampling_seq = by_model_sampling_seq.sort_values(by=["model_size_mln"])
+by_model_by_ethics = by_model_by_ethics.sort_values(by=["model_size_mln"])
 
-by_model_sampling_seq
-
-# %%
-by_model_sampling_seq.to_excel("report/by_model_sampling_seq.xlsx")
+by_model_by_ethics
 
 # %%
-by_model_sampling_seq.plot.bar(
-    y=[("cs_hard_set_acc", "mean")],
-    yerr=[("cs_hard_set_acc", "std")],
-    title="cs_hard_set_acc, cs_test_set_acc",
-    # Make it wide:
-    figsize=(10, 7),
+by_model_by_ethics.to_excel("report/by_model_by_ethics.xlsx")
+
+# %%
+by_model_by_ethics.plot.bar(
+    y=("cs_test_set_acc", "max"),
+    yerr=("cs_test_set_acc", "std"),
+    title="Commomnsense Test Set Accuracy",
+    ylabel="Accuracy",
+    xlabel="Model Size (mln)",
+    figsize=(20, 10),
 )
 # %%
-by_model = myview.groupby(["model_path", "model_size_mln"]).agg(
+by_model = a_view.groupby(["model_path", "model_size_mln"]).agg(
     {
         "timestamp": ["count"],
         "cs_hard_set_acc": ["mean", "std", "max"],
