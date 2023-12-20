@@ -155,9 +155,9 @@ for i, ds in enumerate(["ds1", "ds2"]):
 
 
 def get_sampling_method(row):
-    sm = ''
+    sm = ""
     name = get_ds_name(row, ds_col="ds2", remove_sampling=False)
-    if '-' in name:
+    if "-" in name:
         sm = name.split("-")[1] if "-" in name else None
     elif "sampling_method" in row and row["sampling_method"]:
         sm = row["sampling_method"]
@@ -168,8 +168,8 @@ def get_sampling_method(row):
     return sm
 
 
-rdf["ds2/sampling_method"] = rdf['ds2/sampling_method'].fillna('')
-rdf["sampling_method"] = rdf['sampling_method'].fillna('')
+rdf["ds2/sampling_method"] = rdf["ds2/sampling_method"].fillna("")
+rdf["sampling_method"] = rdf["sampling_method"].fillna("")
 rdf["sampling_method"] = rdf.apply(get_sampling_method, axis=1)
 
 
@@ -228,22 +228,26 @@ rdf["model_size_mln"] = rdf["model_path"].apply(lambda x: model_size_mln.get(x, 
 # Assume ds1 is ethics and ds2 is brain data.
 
 rdf["only_on_ethics"] = (
-    (rdf['ds1_training'] == True)
-    & (rdf['ds1_name'] == 'commonsense')
-    & (rdf['ds2_training'] == False)
-    & (rdf['ds2_name'] != 'commonsense')
+    (rdf["ds1_training"] == True)
+    & (rdf["ds1_name"] == "commonsense")
+    & (rdf["ds2_training"] == False)
+    & (rdf["ds2_name"] != "commonsense")
     # Previous not trained on LFB:
     & ~(rdf["seq_train"].apply(lambda x: "LFB" in x if isinstance(x, str) else False))
 )
 
 # %%
 rdf["only_on_lfb"] = (
-    (rdf['ds1_training'] == False)
-    & (rdf['ds1_name'] == 'commonsense')
-    & (rdf['ds2_training'] == True)
-    & (rdf['ds2_name'] != 'commonsense')
+    (rdf["ds1_training"] == False)
+    & (rdf["ds1_name"] == "commonsense")
+    & (rdf["ds2_training"] == True)
+    & (rdf["ds2_name"] != "commonsense")
     # Previous not trained on LFB:
-    & ~(rdf["seq_train"].apply(lambda x: "commonsense" in x if isinstance(x, str) else False))
+    & ~(
+        rdf["seq_train"].apply(
+            lambda x: "commonsense" in x if isinstance(x, str) else False
+        )
+    )
 )
 
 # %%
@@ -294,29 +298,30 @@ a_view.to_csv("report/project_view.csv")
 
 # %%
 # Group by model_path, sampling_method, seq_train
-by_model_by_ethics = a_view[~a_view['only_on_lfb']].groupby(
-    ["model_path", "model_size_mln", "only_on_ethics"]
-).agg(
-    {
-        "timestamp": ["count"],
-        "cs_hard_set_acc": ["mean", "std", "max"],
-        "cs_test_set_acc": ["mean", "std", "max"],
-        # "bs_max": ["median", "max"],
-    }
+by_model_by_ethics = (
+    a_view[~a_view["only_on_lfb"]]
+    .groupby(['model_path', "model_size_mln", "only_on_ethics"])
+    .agg(
+        {
+            "timestamp": ["count"],
+            "cs_hard_set_acc": ["mean", "std", "max"],
+            "cs_test_set_acc": ["mean", "std", "max"],
+            # "bs_max": ["median", "max"],
+        }
+    )
 )
 # sort by model_size_mln:
 by_model_by_ethics = by_model_by_ethics.sort_values(by=["model_size_mln"])
-by_model_by_ethics.rename(
-    columns={
-        "model_path": "Model",
-        "cs_hard_set_acc": "Commonsense Hard",
-        "cs_test_set_acc": "Commonsense Test",
-        "model_size_mln": "Size (mln params)",
-        "timestamp": "Runs",
-        
-    },
-    inplace=True,
-)
+#by_model_by_ethics.rename(
+#    columns={
+#        "model_path": "Model",
+#        "cs_hard_set_acc": "Commonsense Hard",
+#        "cs_test_set_acc": "Commonsense Test",
+#        "model_size_mln": "Size (mln params)",
+#        "timestamp": "Runs",
+#    },
+#    inplace=True,
+#)
 # TODO: show std as "1.23±0.12"
 by_model_by_ethics
 
@@ -324,11 +329,33 @@ by_model_by_ethics
 by_model_by_ethics.to_excel("report/by_model_by_ethics.xlsx")
 
 # %%
-# TODO: make graphs
-by_model_by_ethics.unstack().plot.bar(
-    y=("cs_hard_set_acc", "mean"),
-    yerr=("cs_hard_set_acc", "std"),
+# Ungroup by_model_by_ethics into a flat table:
+by_model_by_ethics = by_model_by_ethics.reset_index()
+# %%
+# Convert multiindex to columns:
+by_model_by_ethics.columns = [
+    "_".join(col).strip() for col in by_model_by_ethics.columns.values
+]
+
+# %%
+# Using plotly, plot bar chart with x axis as model_size_mln and y axis as cs_test_set_acc mean and std,
+# with same model_size_mln placed near each other:
+
+fig = px.bar(
+    x=by_model_by_ethics["model_size_mln_"],
+    y=by_model_by_ethics["cs_test_set_acc_mean"],
+    error_y=by_model_by_ethics["cs_test_set_acc_std"],
+    color=by_model_by_ethics["only_on_ethics_"],
+    title="Commomnsense Test Set Accuracy",
+    labels={"x": "Model Size (mln)", "y": "Accuracy"},
+    barmode="group",
+    text=by_model_by_ethics["timestamp_count"],
+    text_auto=True,
 )
+fig.update_traces(texttemplate="%{text:.2s}", textposition="outside", cliponaxis=True)
+fig.show()
+
+
 # %%
 by_model_by_ethics.plot.bar(
     y=("cs_test_set_acc", "max"),
