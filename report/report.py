@@ -298,9 +298,9 @@ a_view.to_csv("report/project_view.csv")
 
 # %%
 # Group by model_path, sampling_method, seq_train
-by_model_by_ethics = (
+by_m_e = (
     a_view[~a_view["only_on_lfb"]]
-    .groupby(['model_path', "model_size_mln", "only_on_ethics"])
+    .groupby(["model_path", "model_size_mln", "only_on_ethics"])
     .agg(
         {
             "timestamp": ["count"],
@@ -311,87 +311,133 @@ by_model_by_ethics = (
     )
 )
 # sort by model_size_mln:
-by_model_by_ethics = by_model_by_ethics.sort_values(by=["model_size_mln"])
-#by_model_by_ethics.rename(
-#    columns={
-#        "model_path": "Model",
-#        "cs_hard_set_acc": "Commonsense Hard",
-#        "cs_test_set_acc": "Commonsense Test",
-#        "model_size_mln": "Size (mln params)",
-#        "timestamp": "Runs",
-#    },
-#    inplace=True,
-#)
-# TODO: show std as "1.23±0.12"
-by_model_by_ethics
-
-# %%
-by_model_by_ethics.to_excel("report/by_model_by_ethics.xlsx")
+by_m_e = by_m_e.sort_values(by=["model_size_mln"])
 
 # %%
 # Ungroup by_model_by_ethics into a flat table:
-by_model_by_ethics = by_model_by_ethics.reset_index()
-# %%
-# Convert multiindex to columns:
-by_model_by_ethics.columns = [
-    "_".join(col).strip() for col in by_model_by_ethics.columns.values
+by_m_e_flat = by_m_e.reset_index()
+by_m_e_flat.columns = [
+    "model_path",
+    "model_size_mln",
+    "only_on_ethics",
+    "runs",
+    "cs_hard_set_acc",
+    "cs_hard_set_acc_std",
+    "cs_hard_set_acc_max",
+    "cs_test_set_acc",
+    "cs_test_set_acc_std",
+    "cs_test_set_acc_max",
 ]
+by_m_e_flat["only_on_ethics"] = by_m_e_flat["only_on_ethics"].apply(
+    lambda x: "Only Ethics" if x else "On LFB"
+)
 
 # %%
-# Using plotly, plot bar chart with x axis as model_size_mln and y axis as cs_test_set_acc mean and std,
-# with same model_size_mln placed near each other:
-
+# Create bar for Commonsense Test set accuracy for each model_path:
 fig = px.bar(
-    x=by_model_by_ethics["model_size_mln_"],
-    y=by_model_by_ethics["cs_test_set_acc_mean"],
-    error_y=by_model_by_ethics["cs_test_set_acc_std"],
-    color=by_model_by_ethics["only_on_ethics_"],
-    title="Commomnsense Test Set Accuracy",
-    labels={"x": "Model Size (mln)", "y": "Accuracy"},
+    by_m_e_flat,
+    x="model_path",
+    y="cs_test_set_acc",
+    error_y="cs_test_set_acc_std",
+    color="only_on_ethics",
+    title="Commomnsense Accuracy (Test Set)",
+    labels={
+        "x": "Model Size (mln params)",
+        "y": "Accuracy",
+        "only_on_ethics": "Training",
+        "cs_test_set_acc": "Accuracy",
+        "model_path": "Model",
+    },
     barmode="group",
-    text=by_model_by_ethics["timestamp_count"],
     text_auto=True,
 )
-fig.update_traces(texttemplate="%{text:.2s}", textposition="outside", cliponaxis=True)
+fig.update_layout(yaxis_tickformat=".2%")
 fig.show()
 
+# %%
+# Create bar for Commonsense Hard set accuracy for each model_path:
+fig = px.bar(
+    by_m_e_flat,
+    x="model_path",
+    y="cs_hard_set_acc",
+    error_y="cs_hard_set_acc_std",
+    color="only_on_ethics",
+    title="Commomnsense Accuracy (Hard Set)",
+    labels={
+        "x": "Model Size (mln params)",
+        "y": "Accuracy",
+        "only_on_ethics": "Training",
+        "cs_hard_set_acc": "Accuracy",
+        "model_path": "Model",
+    },
+    barmode="group",
+    text_auto=True,
+)
+fig.update_layout(yaxis_tickformat=".2%")
+fig.show()
 
 # %%
-by_model_by_ethics.plot.bar(
-    y=("cs_test_set_acc", "max"),
-    yerr=("cs_test_set_acc", "std"),
-    title="Commomnsense Test Set Accuracy",
-    ylabel="Accuracy",
-    xlabel="Model Size (mln)",
-    figsize=(20, 10),
-)
-# %%
-by_model = a_view.groupby(["model_path", "model_size_mln"]).agg(
-    {
-        "timestamp": ["count"],
-        "cs_hard_set_acc": ["mean", "std", "max"],
-        "cs_test_set_acc": ["mean", "std", "max"],
-        "bs_max": ["median", "max"],
-    }
-)
-display(by_model)
-by_model.to_excel("report/by_model.xlsx")
+# Create table for the report:
+by_m_e = by_m_e.reset_index()
+# %% 
+# Join mean and std columns and convert to percentage:
+def format_acc(row, col_name):
+    return f"{row[col_name, 'mean']:.1%} ± {row[col_name, 'std']:.1%}"
 
-# Plot cs_test_set_acc mean as line and std as error for each model with x axis as model_size_mln:
-px.bar(
-    x=by_model.index.get_level_values("model_size_mln"),
-    y=by_model["cs_test_set_acc"]["mean"],
-    error_y=by_model["cs_test_set_acc"]["std"],
-    title="Commomnsense Test Set Accuracy",
-    labels={"x": "Model Size (mln)", "y": "Accuracy"},
-)
+for cn in ["cs_hard_set_acc", "cs_test_set_acc"]:
+    by_m_e[(cn, 'mean')] = by_m_e.apply(partial(format_acc, col_name=cn), axis=1)
+    by_m_e[(cn, 'max')] = by_m_e.apply(lambda row: f"{row[cn, 'max']:.1%}", axis=1)
+
 
 # %%
-px.bar(
-    x=by_model.index.get_level_values("model_size_mln"),
-    y=by_model["cs_hard_set_acc"]["mean"],
-    error_y=by_model["cs_hard_set_acc"]["std"],
-    title="Commonsense Hard Test Set Accuracy",
-    labels={"x": "Model Size (mln)", "y": "Accuracy"},
+# Rename columsn, format values:
+# Delete (cs_hard_set_acc,std) and (cs_test_set_acc,std) columns:
+del by_m_e["cs_hard_set_acc", "std"]
+del by_m_e["cs_test_set_acc", "std"]
+
+by_m_e["only_on_ethics"] = by_m_e["only_on_ethics"].apply(lambda x: "✓" if x else "")
+by_m_e.rename(
+    columns={
+        "timestamp": "Runs",
+        "model_path": "Model",
+        "model_size_mln": "Params, mln",
+        "only_on_ethics": "On Ethics only",
+        "cs_hard_set_acc": "Commonsense Hard Set",
+        "cs_test_set_acc": "Commonsense Test Set",
+    },
+    inplace=True,
 )
+
+# %% 
+# Sort columns:
+by_m_e = by_m_e[
+    [
+        "Model",
+        "Params, mln",
+        "On Ethics only",
+        "Runs",
+        "Commonsense Hard Set",
+        "Commonsense Test Set",
+    ]
+]
+by_m_e
+
+# %%
+by_m_e.to_excel("report/by_model_ethics.xlsx")
+# %%
+# Group by model_path, sampling_method, take trained on LFB
+by_m_sm = (
+    a_view[~a_view["only_on_ethics"]]
+    .groupby(["model_path", "model_size_mln", "sampling_method"])
+    .agg(
+        {
+            "timestamp": ["count"],
+            "cs_hard_set_acc": ["mean", "std", "max"],
+            "cs_test_set_acc": ["mean", "std", "max"],
+        }
+    )
+)
+# sort by model_size_mln:
+by_m_sm = by_m_sm.sort_values(by=["model_size_mln"])
+by_m_sm
 # %%
