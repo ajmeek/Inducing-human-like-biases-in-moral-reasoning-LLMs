@@ -424,6 +424,7 @@ by_m_e
 
 # %%
 by_m_e.to_excel("report/by_model_ethics.xlsx")
+
 # %%
 # Group by model_path, sampling_method, take trained on LFB
 by_m_sm = (
@@ -439,5 +440,114 @@ by_m_sm = (
 )
 # sort by model_size_mln:
 by_m_sm = by_m_sm.sort_values(by=["model_size_mln"])
+
+# %%
+# Ungroup by_model_by_ethics into a flat table:
+by_m_sm_flat = by_m_sm.reset_index()
+by_m_sm_flat.columns = [
+    "model_path",
+    "model_size_mln",
+    "sampling_method",
+    "runs",
+    "cs_hard_set_acc",
+    "cs_hard_set_acc_std",
+    "cs_hard_set_acc_max",
+    "cs_test_set_acc",
+    "cs_test_set_acc_std",
+    "cs_test_set_acc_max",
+]
+
+# %%
+# Create bar for Commonsense Test set accuracy for each model_path:
+fig = px.bar(
+    by_m_sm_flat,
+    x="model_path",
+    y="cs_test_set_acc",
+    error_y="cs_test_set_acc_std",
+    color="sampling_method",
+    title="Commomnsense Accuracy (Test Set)",
+    labels={
+        "x": "Model Size (mln params)",
+        "y": "Accuracy",
+        "sampling_method": "Sampling",
+        "cs_test_set_acc": "Accuracy",
+        "model_path": "Model",
+    },
+    barmode="group",
+    text_auto=True,
+)
+fig.update_layout(yaxis_tickformat=".2%")
+fig.show()
+
+# %%
+# Create bar for Commonsense Hard set accuracy for each model_path:
+fig = px.bar(
+    by_m_sm_flat,
+    x="model_path",
+    y="cs_hard_set_acc",
+    error_y="cs_hard_set_acc_std",
+    color="sampling_method",
+    title="Commomnsense Accuracy (Hard Set)",
+    labels={
+        "x": "Model Size (mln params)",
+        "y": "Accuracy",
+        "sampling_method": "Sampling",
+        "cs_hard_set_acc": "Accuracy",
+        "model_path": "Model",
+    },
+    barmode="group",
+    text_auto=True,
+)
+fig.update_layout(yaxis_tickformat=".2%")
+fig.show()
+
+# %%
+# Create table for the report:
+by_m_sm = by_m_sm.reset_index()
+# %% 
+# Join mean and std columns and convert to percentage:
+def format_acc(row, col_name):
+    return f"{row[col_name, 'mean']:.1%} ± {row[col_name, 'std']:.1%}"
+
+for cn in ["cs_hard_set_acc", "cs_test_set_acc"]:
+    by_m_sm[(cn, 'mean')] = by_m_sm.apply(partial(format_acc, col_name=cn), axis=1)
+    by_m_sm[(cn, 'max')] = by_m_sm.apply(lambda row: f"{row[cn, 'max']:.1%}", axis=1)
+
+
+# %%
+# Rename columsn, format values:
+# Delete (cs_hard_set_acc,std) and (cs_test_set_acc,std) columns:
+del by_m_sm["cs_hard_set_acc", "std"]
+del by_m_sm["cs_test_set_acc", "std"]
+
+by_m_sm.rename(
+    columns={
+        "timestamp": "Runs",
+        "model_path": "Model",
+        "model_size_mln": "Params, mln",
+        "only_on_ethics": "On Ethics only",
+        "cs_hard_set_acc": "Commonsense Hard Set",
+        "cs_test_set_acc": "Commonsense Test Set",
+        "sampling_method": "Sampling"
+    },
+    inplace=True,
+)
+
+
+# %% 
+# Sort columns:
+by_m_sm = by_m_sm[
+    [
+        "Model",
+        "Params, mln",
+        "Sampling",
+        "Runs",
+        "Commonsense Hard Set",
+        "Commonsense Test Set",
+    ]
+]
 by_m_sm
+
+# %%
+by_m_sm.to_excel("report/by_model_sampling.xlsx")
 # %%
