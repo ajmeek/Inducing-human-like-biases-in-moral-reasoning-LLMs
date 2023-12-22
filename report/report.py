@@ -4,7 +4,7 @@
 # %%
 from time import strftime, gmtime
 from datetime import datetime
-from plotly import express as px
+from plotly import express as px, subplots, graph_objects as go
 from functools import partial
 import numpy as np
 import pandas as pd
@@ -332,61 +332,88 @@ by_m_e_flat["only_on_ethics"] = by_m_e_flat["only_on_ethics"].apply(
     lambda x: "Only Ethics" if x else "On LFB"
 )
 
-# %%
-# Create bar for Commonsense Test set accuracy for each model_path:
-fig = px.bar(
-    by_m_e_flat,
-    x="model_path",
-    y="cs_test_set_acc",
-    error_y="cs_test_set_acc_std",
-    color="only_on_ethics",
-    title="Commomnsense Accuracy (Test Set)",
-    labels={
-        "x": "Model Size (mln params)",
-        "y": "Accuracy",
-        "only_on_ethics": "Training",
-        "cs_test_set_acc": "Accuracy",
-        "model_path": "Model",
-    },
-    barmode="group",
-    text_auto=True,
-)
-fig.update_layout(yaxis_tickformat=".2%")
-fig.show()
+# Multiply by 100 and round by .1 for each accuracy, std, max:
+for col in ["cs_hard_set_acc", "cs_test_set_acc"]:
+    by_m_e_flat[col] = by_m_e_flat[col].apply(lambda x: round(x * 100, 1))
+    by_m_e_flat[f"{col}_std"] = by_m_e_flat[f"{col}_std"].apply(lambda x: round(x * 100, 1))
+    by_m_e_flat[f"{col}_max"] = by_m_e_flat[f"{col}_max"].apply(lambda x: round(x * 100, 1))
+
 
 # %%
-# Create bar for Commonsense Hard set accuracy for each model_path:
-fig = px.bar(
-    by_m_e_flat,
-    x="model_path",
-    y="cs_hard_set_acc",
-    error_y="cs_hard_set_acc_std",
-    color="only_on_ethics",
-    title="Commomnsense Accuracy (Hard Set)",
-    labels={
-        "x": "Model Size (mln params)",
-        "y": "Accuracy",
-        "only_on_ethics": "Training",
-        "cs_hard_set_acc": "Accuracy",
-        "model_path": "Model",
-    },
-    barmode="group",
-    text_auto=True,
+# Create bar plot.
+fig = subplots.make_subplots(
+    rows=1,
+    cols=2,
+    subplot_titles=(
+        "Commomnsense Accuracy in % (Test Set)",
+        "Commomnsense Accuracy in % (Hard Set)",
+    ),
+    shared_yaxes=True,
+    horizontal_spacing=0.1,
 )
-fig.update_layout(yaxis_tickformat=".2%")
+
+names ={
+    'cs_test_set_acc': "Test Set",
+    'cs_hard_set_acc': "Hard Set",
+}
+
+for i, col in enumerate(["cs_test_set_acc", "cs_hard_set_acc"]):
+    bar_plot = px.bar(
+        by_m_e_flat,
+        x="model_path",
+        y=col,
+        error_y=f"{col}_std",
+        color="only_on_ethics",
+        title=f"Commomnsense Accuracy in % {names[col]}",
+        labels={
+            "x": "Model Size (mln params)",
+            "y": "Accuracy",
+            "only_on_ethics": "Training",
+            col: "Accuracy",
+            "model_path": "Model",
+        },
+        barmode="group",
+        text_auto=True,
+    )
+    for trace in bar_plot["data"]:
+        fig.add_trace(
+            trace,
+            row=1,
+            col=i + 1,
+        )
+        if i % 2 == 0:
+            fig.update_traces(showlegend=False)
+# Show ledgend only for the first plot, above the plot:
+fig.update_layout(
+    showlegend=True, 
+    legend=dict(
+        orientation="h",
+        yanchor="bottom",
+        y=1.15,
+        xanchor="right",
+        x=1
+    ),
+    legend_title_text="Training",
+)
+fig.update_traces(textposition="outside")
+# Make text font size smaller:
+fig.update_layout(font=dict(size=10))
 fig.show()
 
 # %%
 # Create table for the report:
 by_m_e = by_m_e.reset_index()
-# %% 
+
+
+# %%
 # Join mean and std columns and convert to percentage:
 def format_acc(row, col_name):
     return f"{row[col_name, 'mean']:.1%} ± {row[col_name, 'std']:.1%}"
 
+
 for cn in ["cs_hard_set_acc", "cs_test_set_acc"]:
-    by_m_e[(cn, 'mean')] = by_m_e.apply(partial(format_acc, col_name=cn), axis=1)
-    by_m_e[(cn, 'max')] = by_m_e.apply(lambda row: f"{row[cn, 'max']:.1%}", axis=1)
+    by_m_e[(cn, "mean")] = by_m_e.apply(partial(format_acc, col_name=cn), axis=1)
+    by_m_e[(cn, "max")] = by_m_e.apply(lambda row: f"{row[cn, 'max']:.1%}", axis=1)
 
 
 # %%
@@ -408,7 +435,7 @@ by_m_e.rename(
     inplace=True,
 )
 
-# %% 
+# %%
 # Sort columns:
 by_m_e = by_m_e[
     [
@@ -457,6 +484,79 @@ by_m_sm_flat.columns = [
     "cs_test_set_acc_max",
 ]
 
+# Multiply by 100 and round by .1 for each accuracy, std, max:
+for col in ["cs_hard_set_acc", "cs_test_set_acc"]:
+    by_m_sm_flat[col] = by_m_sm_flat[col].apply(lambda x: round(x * 100, 1))
+    by_m_sm_flat[f"{col}_std"] = by_m_sm_flat[f"{col}_std"].apply(
+        lambda x: round(x * 100, 1)
+    )
+    by_m_sm_flat[f"{col}_max"] = by_m_sm_flat[f"{col}_max"].apply(
+        lambda x: round(x * 100, 1)
+    )
+
+# %%
+# Create bar plot.
+fig = subplots.make_subplots(
+    rows=1,
+    cols=2,
+    subplot_titles=(
+        "Commomnsense Accuracy (Test Set)",
+        "Commomnsense Accuracy (Hard Set)",
+    ),
+    shared_yaxes=True,
+    horizontal_spacing=0.1,
+)
+
+names ={
+    'cs_test_set_acc': "Test Set",
+    'cs_hard_set_acc': "Hard Set",
+}
+
+for i, col in enumerate(["cs_test_set_acc", "cs_hard_set_acc"]):
+    bar_plot = px.bar(
+        by_m_sm_flat,
+        x="model_path",
+        y=col,
+        error_y=f"{col}_std",
+        color="sampling_method",
+        labels={
+            "x": "Model Size (mln params)",
+            "y": "Accuracy",
+            "sampling_method": "Sampling",
+            col: "Accuracy",
+            "model_path": "Model",
+        },
+        barmode="group",
+        text_auto=True,
+    )
+    for trace in bar_plot["data"]:
+        fig.add_trace(
+            trace,
+            row=1,
+            col=i + 1,
+        )
+        if i % 2 == 0:
+            fig.update_traces(showlegend=False)
+    
+
+# Show ledgend only for the first plot, above the plot:
+fig.update_layout(
+    showlegend=True, 
+    legend=dict(
+        orientation="h",
+        yanchor="bottom",
+        y=1.15,
+        xanchor="right",
+        x=1
+    ),
+    legend_title_text="Sampling",
+)
+fig.update_traces(textposition="outside")
+
+# Make text font size smaller:
+fig.update_layout(font=dict(size=10))
+fig.show()
+
 # %%
 # Create bar for Commonsense Test set accuracy for each model_path:
 fig = px.bar(
@@ -504,14 +604,17 @@ fig.show()
 # %%
 # Create table for the report:
 by_m_sm = by_m_sm.reset_index()
-# %% 
+
+
+# %%
 # Join mean and std columns and convert to percentage:
 def format_acc(row, col_name):
     return f"{row[col_name, 'mean']:.1%} ± {row[col_name, 'std']:.1%}"
 
+
 for cn in ["cs_hard_set_acc", "cs_test_set_acc"]:
-    by_m_sm[(cn, 'mean')] = by_m_sm.apply(partial(format_acc, col_name=cn), axis=1)
-    by_m_sm[(cn, 'max')] = by_m_sm.apply(lambda row: f"{row[cn, 'max']:.1%}", axis=1)
+    by_m_sm[(cn, "mean")] = by_m_sm.apply(partial(format_acc, col_name=cn), axis=1)
+    by_m_sm[(cn, "max")] = by_m_sm.apply(lambda row: f"{row[cn, 'max']:.1%}", axis=1)
 
 
 # %%
@@ -528,13 +631,13 @@ by_m_sm.rename(
         "only_on_ethics": "On Ethics only",
         "cs_hard_set_acc": "Commonsense Hard Set",
         "cs_test_set_acc": "Commonsense Test Set",
-        "sampling_method": "Sampling"
+        "sampling_method": "Sampling",
     },
     inplace=True,
 )
 
 
-# %% 
+# %%
 # Sort columns:
 by_m_sm = by_m_sm[
     [
