@@ -468,6 +468,10 @@ by_m_sm = (
 # sort by model_size_mln:
 by_m_sm = by_m_sm.sort_values(by=["model_size_mln"])
 
+# Include only those where 'sampling_method' is not empty:
+by_m_sm = by_m_sm[by_m_sm.index.get_level_values("sampling_method") != ""]
+
+
 # %%
 # Ungroup by_model_by_ethics into a flat table:
 by_m_sm_flat = by_m_sm.reset_index()
@@ -493,6 +497,7 @@ for col in ["cs_hard_set_acc", "cs_test_set_acc"]:
     by_m_sm_flat[f"{col}_max"] = by_m_sm_flat[f"{col}_max"].apply(
         lambda x: round(x * 100, 1)
     )
+
 
 # %%
 # Create bar plot.
@@ -554,7 +559,7 @@ fig.update_layout(
 fig.update_traces(textposition="outside")
 
 # Make text font size smaller:
-fig.update_layout(font=dict(size=10))
+fig.update_layout(font=dict(size=9))
 fig.show()
 
 # %%
