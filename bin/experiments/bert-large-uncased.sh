@@ -7,7 +7,7 @@
 DS2_TRAIN_SLICE='[:1000]'
 ETHICS_EPOCHS=15
 FMRI_EPOCHS=55
-MODEL_PATH=roberta-large
+MODEL_PATH=bert-large-cased
 WARM_UP=0.5
 SAMPLING=LAST
 ENAME=UNKNOWN
@@ -25,7 +25,7 @@ function experiment() {
         --accumulate_grad_batches 10 \
         --batch_size_all 8 \
         --check_val_every_n_epoch 2 \
-        --checkpoint_path "$CKPT_FILE" \
+        --checkpoint_path $CKPT_FILE \
         --ds1.name commonsense \
         --ds1.test.slicing '[:1000]' \
         --ds1.train.shuffle 1 \
@@ -39,7 +39,7 @@ function experiment() {
         --ds2.train.slicing "$DS2_TRAIN_SLICE" \
         --find_bs 0 \
         --find_lr 0 \
-        --last_checkpoint_path "$LAST_CKPT" \
+        --last_checkpoint_path $LAST_CKPT \
         --lr 1e-5 \
         --lr_base_model_factor 1.0 \
         --lr_warm_up_steps $WARM_UP \
@@ -57,14 +57,14 @@ function experiment() {
 #########################################
 # No fine tuning
 
-ENAME="no_F_T"
-CKPT_FILE=
-DS1_TRAIN_SLICE="[:80%]"
-DS2_TRAIN_SLICE="[:80%]"
-MAX_EPOCHS=0
-TRAIN_ALL=0
-ds2enable=0
-experiment
+#ENAME="no_F_T"
+#CKPT_FILE=
+#DS1_TRAIN_SLICE="[:80%]"
+#DS2_TRAIN_SLICE="[:80%]"
+#MAX_EPOCHS=0
+#TRAIN_ALL=0
+#ds2enable=0
+#experiment
 
 
 #########################################
@@ -80,6 +80,8 @@ ds2enable=1
 OLD_WARM_UP=$WARM_UP
 WARM_UP=1.0
 experiment
+
+exit 0
 
 WARM_UP=$OLD_WARM_UP
 

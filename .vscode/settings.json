@@ -12,5 +12,6 @@
 	],
 	"python.testing.unittestEnabled": false,
 	"python.testing.pytestEnabled": true,
-	"python.analysis.inlayHints.pytestParameters": false
+	"python.analysis.inlayHints.pytestParameters": false,
+	"jupyter.notebookFileRoot": "${workspaceFolder}",
 }
