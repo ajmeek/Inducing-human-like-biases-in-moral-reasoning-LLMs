@@ -19,7 +19,7 @@ import lightning.pytorch as pl
 import wandb
 import torch
 
-# from calculate_brain_scores_v2 import calculate_brain_scores
+from calculate_brain_scores_v2 import calculate_brain_scores
 from datasets import load_dataset, Split
 
 
@@ -124,11 +124,11 @@ def train(context: Context):
     )
     test_trainer.test(model, data_module)
 
-    # base_model_cfg = AutoConfig.from_pretrained(context.model_path)
-    # try:
-    #    calculate_brainscores_adapter(base_model, tokenizer, logger, base_model_cfg)
-    # except Exception as e:
-    #    print(f"Failed to calc brain scores: {e}")
+    base_model_cfg = AutoConfig.from_pretrained(context.model_path)
+    try:
+       calculate_brainscores_adapter(base_model, tokenizer, logger, base_model_cfg)
+    except Exception as e:
+       print(f"Failed to calc brain scores: {e}")
 
     logger.save()
     wandb.finish()
@@ -137,33 +137,37 @@ def train(context: Context):
         trainer.save_checkpoint(context.last_checkpoint_path)
 
 
-# def calculate_brainscores_adapter(
-#     model: torch.nn.Module, tokenizer, logger: WandbLogger, model_config
-# ):
-#     print("Calculating brainscores...")
-#     model = model.to("cpu")
-#     ds = load_dataset(
-#         "data/ds000212/ds000212_lfb/ds000212_lfb.py", name="LFB-LAST", split=Split.ALL
-#     )
-#     subject = "sub-06"
-#     ds = (
-#         ds.filter(lambda e: subject in e["file"])
-#         .map(lambda e: tokenizer(e["input"], padding="max_length", truncation=True))
-#         .with_format("torch", device="cpu")
-#     )
-#
-#     model_inputs = (torch.tensor(ds["input_ids"]), torch.tensor(ds["attention_mask"]))
-#     layers = [str(l) for l in range(1, model_config.num_hidden_layers + 1)[1:-1]]
-#     res = calculate_brain_scores(
-#         model, model_inputs, ds["label"], layers, train_perc=0.8
-#     )
-#     logger.log_metrics(
-#         {
-#             f"bs_{layer}": score
-#             for layer, score in zip(res["layer.module"], res["brain_score"])
-#         }
-#     )
+def calculate_brainscores_adapter(
+    model: torch.nn.Module, tokenizer, logger: WandbLogger, model_config
+):
+    print("Calculating brainscores...")
+    model = model.to("cpu")
+    ds = load_dataset(
+        "data/ds000212/ds000212_lfb/ds000212_lfb.py", name="LFB-LAST", split=Split.ALL
+    )
+    subject = "sub-06"
+    ds = (
+        ds.filter(lambda e: subject in e["file"])
+        .map(lambda e: tokenizer(e["input"], padding="max_length", truncation=True))
+        .with_format("torch", device="cpu")
+    )
 
+    model_inputs = (torch.tensor(ds["input_ids"]), torch.tensor(ds["attention_mask"]))
+    res = calculate_brain_scores(
+        model, model_inputs, ds["label"], train_perc=0.8
+    )
+    logger.log_metrics(
+        {
+            f"bs_{layer}": score
+            for layer, score in zip(res["layer.module"], res["brain_score"])
+        }
+    )
+    logger.log_metrics(
+        {
+            f"cod_{layer}": score
+            for layer, score in zip(res["layer.module"], res["coeff_of_det"])
+        }
+    )
 
 if __name__ == "__main__":
     parser = ArgumentParser()
@@ -171,3 +175,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     context = args.context
     train(context)
+    #calculate_brainscores_adapter(context)
