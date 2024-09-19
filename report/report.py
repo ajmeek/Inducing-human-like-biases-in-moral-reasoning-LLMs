@@ -1,5 +1,5 @@
 #
-# Generates report for fine tuning experiments. 
+# Generates report for fine tuning experiments.
 
 
 from time import strftime, gmtime
