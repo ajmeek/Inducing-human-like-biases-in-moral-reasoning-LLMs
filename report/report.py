@@ -515,6 +515,7 @@ def create_plots_tables(rdf, output_dir):
         showlegend=True,
         legend=dict(orientation="h", yanchor="bottom", y=1.15, xanchor="right", x=1),
         legend_title_text="Sampling",
+        title="Commonsense Accuracy by Model and Sampling Method",
     )
     fig.update_traces(textposition="outside")
 
