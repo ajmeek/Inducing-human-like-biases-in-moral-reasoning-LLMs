@@ -1,7 +1,6 @@
 #
 # Generates report for fine tuning experiments.
 
-
 from time import strftime, gmtime
 from datetime import datetime
 from plotly import express as px, subplots, graph_objects as go
@@ -249,8 +248,6 @@ def filter_augment(rdf, output_dir):
 
 
 def create_plots_tables(rdf, output_dir):
-    # Create a view
-
     # Filter out runs with with
     a_view = rdf[
         [
