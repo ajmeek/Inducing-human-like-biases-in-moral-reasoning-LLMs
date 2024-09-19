@@ -23,6 +23,11 @@ export PYTHON_ENV_NAME=brainbias
 
 ################################################################################
 
+function install() {
+    python3.10 -m venv .venv
+    source .venv/bin/activate
+    pip install -r requirements.txt
+}
 
 function datasets() {
     ./data/ds000212/make.sh "$@"
@@ -61,6 +66,16 @@ function gcp() {
 
 function test() {
     (cd data/ds000212/ds000212_lfb ; pytest )
+}
+
+function report() {
+    if [[ ! -d ./report/.venv ]] ; then 
+        python -m venv ./report/.venv
+        source ./report/.venv/bin/activate
+        pip install -r ./report/requirements.txt
+    fi
+    source ./report/.venv/bin/activate
+    python ./report/report.py
 }
 
 ##########################################################################

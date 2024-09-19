@@ -1,0 +1,6 @@
+kaleido
+numpy
+pandas
+plotly
+wandb
+openpyxl
