@@ -12,14 +12,16 @@ import wandb
 from IPython.display import display
 from pathlib import Path
 
-WIDTH = 1200
+write_image_args = {"width": 1500, "scale": 1.0, "format": "svg"}
 
+quantile_lo = lambda x: np.quantile(x, q=0.025)
+quantile_hi = lambda x: np.quantile(x, q=0.975)
 
 def wandb_load(output_dir):
     cache = output_dir / "project_original.pkl"
     if cache.exists():
-       rdf = pd.read_pickle(cache)
-       return rdf
+        rdf = pd.read_pickle(cache)
+        return rdf
 
     api = wandb.Api()
     runs_data = api.runs("asdfasdfasdfdsafsd/AISC_BB")
@@ -44,9 +46,9 @@ def wandb_load(output_dir):
     return rdf
 
 
-def create_report(rdf, output_dir):
+def fitler_and_report(rdf, output_dir):
     rdf = filter_augment(rdf, output_dir)
-    create_plots_tables(rdf, output_dir)
+    create_reports(rdf, output_dir)
 
 
 def filter_augment(rdf, output_dir):
@@ -177,7 +179,6 @@ def filter_augment(rdf, output_dir):
 
     rdf["prev_run_id"] = rdf.apply(find_prev_run_id, axis=1)
 
-
     # Set seq_train column (what datasets were used):
     def get_sequence(row):
         if row["prev_run_id"].is_integer():
@@ -248,8 +249,14 @@ def filter_augment(rdf, output_dir):
     return rdf
 
 
-def create_plots_tables(rdf, output_dir):
+def create_reports(rdf, output_dir):
     # Filter out runs with with
+    a_view = get_view(rdf, output_dir)
+    report_by_training(a_view, output_dir)
+    report_by_sampling(output_dir, a_view)
+
+
+def get_view(rdf, output_dir):
     a_view = rdf[
         [
             "model_path",
@@ -280,25 +287,30 @@ def create_plots_tables(rdf, output_dir):
     a_view["steps"] = rdf["_step"]
     a_view = a_view.sort_values(by=["model_size_mln"])
     a_view.to_csv(output_dir / "project_view.csv")
+    return a_view
+
+
+def report_by_training(a_view, output_dir):
 
     # Group by model_path, sampling_method, seq_train
+
     by_m_e = (
         a_view[~a_view["only_on_lfb"]]
         .groupby(["model_path", "model_size_mln", "only_on_ethics"])
         .agg(
             {
                 "timestamp": ["count"],
-                "cs_hard_set_acc": ["mean", "std", "max"],
-                "cs_test_set_acc": ["mean", "std", "max"],
+                "cs_hard_set_acc": ["mean", "std", "max", ["q_lo", quantile_lo], ["q_hi", quantile_hi]],
+                "cs_test_set_acc": ["mean", "std", "max", ["q_lo", quantile_lo], ["q_hi", quantile_hi]],
                 # "bs_max": ["median", "max"],
             }
         )
     )
     # sort by model_size_mln:
     by_m_e = by_m_e.sort_values(by=["model_size_mln"])
-
     # Ungroup by_model_by_ethics into a flat table:
     by_m_e_flat = by_m_e.reset_index()
+    
     by_m_e_flat.columns = [
         "model_path",
         "model_size_mln",
@@ -307,9 +319,13 @@ def create_plots_tables(rdf, output_dir):
         "cs_hard_set_acc",
         "cs_hard_set_acc_std",
         "cs_hard_set_acc_max",
+        "cs_hard_set_acc_q_lo",
+        "cs_hard_set_acc_q_hi",
         "cs_test_set_acc",
         "cs_test_set_acc_std",
         "cs_test_set_acc_max",
+        "cs_test_set_acc_q_lo",
+        "cs_test_set_acc_q_hi",
     ]
     by_m_e_flat["only_on_ethics"] = by_m_e_flat["only_on_ethics"].apply(
         lambda x: "Only Ethics" if x else "On LFB"
@@ -317,21 +333,17 @@ def create_plots_tables(rdf, output_dir):
 
     # Multiply by 100 and round by .1 for each accuracy, std, max:
     for col in ["cs_hard_set_acc", "cs_test_set_acc"]:
-        by_m_e_flat[col] = by_m_e_flat[col].apply(lambda x: round(x * 100, 1))
-        by_m_e_flat[f"{col}_std"] = by_m_e_flat[f"{col}_std"].apply(
-            lambda x: round(x * 100, 1)
-        )
-        by_m_e_flat[f"{col}_max"] = by_m_e_flat[f"{col}_max"].apply(
-            lambda x: round(x * 100, 1)
-        )
+        for suffix in ["", "_std", "_max", "_q_lo", "_q_hi"]:
+            by_m_e_flat[col + suffix] = by_m_e_flat[col + suffix].apply(lambda x: round(x * 100, 1))
+
 
     # Create bar plot.
     fig = subplots.make_subplots(
         rows=1,
         cols=2,
         subplot_titles=(
-            "Commomnsense Accuracy in % (Test Set)",
-            "Commomnsense Accuracy in % (Hard Set)",
+            "Commomnsense Accuracy, %, 95CI, (Test Set)",
+            "Commomnsense Accuracy, %, 95CI (Hard Set)",
         ),
         shared_yaxes=True,
         horizontal_spacing=0.1,
@@ -347,7 +359,8 @@ def create_plots_tables(rdf, output_dir):
             by_m_e_flat,
             x="model_path",
             y=col,
-            error_y=f"{col}_std",
+            error_y=by_m_e_flat[f"{col}_q_hi"] - by_m_e_flat[f"{col}"],
+            error_y_minus=by_m_e_flat[f"{col}"] - by_m_e_flat[f"{col}_q_lo"],
             color="only_on_ethics",
             title=f"Commomnsense Accuracy in % {names[col]}",
             labels={
@@ -377,53 +390,58 @@ def create_plots_tables(rdf, output_dir):
     fig.update_traces(textposition="outside")
     # Make text font size smaller:
     fig.update_layout(font=dict(size=10))
+    fig.write_image(output_dir / "fig1.svg", **write_image_args)
 
     # Create table for the report:
     by_m_e = by_m_e.reset_index()
 
     # Join mean and std columns and convert to percentage:
     def format_acc(row, col_name):
-        return f"{row[col_name, 'mean']:.1%} ± {row[col_name, 'std']:.1%}"
+        return f"{row[col_name, 'mean']*100:.1f} ± {row[col_name, 'std']*100:.1f}"
 
     for cn in ["cs_hard_set_acc", "cs_test_set_acc"]:
         by_m_e[(cn, "mean")] = by_m_e.apply(partial(format_acc, col_name=cn), axis=1)
-        by_m_e[(cn, "max")] = by_m_e.apply(lambda row: f"{row[cn, 'max']:.1%}", axis=1)
+        by_m_e[(cn, "max")] = by_m_e.apply(lambda row: f"{row[cn, 'max']*100:.1f}", axis=1)
 
     # Rename columsn, format values:
     # Delete (cs_hard_set_acc,std) and (cs_test_set_acc,std) columns:
-    del by_m_e["cs_hard_set_acc", "std"]
-    del by_m_e["cs_test_set_acc", "std"]
+    for col in ["cs_hard_set_acc", "cs_test_set_acc"]:
+        for stat in ["std", "q_hi", "q_lo"]:
+            del by_m_e[col, stat]
 
     by_m_e["only_on_ethics"] = by_m_e["only_on_ethics"].apply(
         lambda x: "✓" if x else ""
     )
+
+    # Sort columns:
+    by_m_e = by_m_e[
+        [
+            "model_path",
+            "model_size_mln",
+            "only_on_ethics",
+            "timestamp",
+            "cs_hard_set_acc",
+            "cs_test_set_acc",
+        ]
+    ]
     by_m_e.rename(
         columns={
             "timestamp": "Runs",
             "model_path": "Model",
             "model_size_mln": "Params, mln",
             "only_on_ethics": "On Ethics only",
-            "cs_hard_set_acc": "Commonsense Hard Set",
-            "cs_test_set_acc": "Commonsense Test Set",
+            "cs_hard_set_acc": "Commonsense Hard Set, % ± STD",
+            "cs_test_set_acc": "Commonsense Test Set, % ± STD",
         },
         inplace=True,
     )
-
-    # Sort columns:
-    by_m_e = by_m_e[
-        [
-            "Model",
-            "Params, mln",
-            "On Ethics only",
-            "Runs",
-            "Commonsense Hard Set",
-            "Commonsense Test Set",
-        ]
-    ]
-    by_m_e.to_html(output_dir / 'table1.html')
+    by_m_e.to_html(output_dir / "table1.html")
+    by_m_e.to_latex(output_dir / "table1.tex")
 
     by_m_e.to_excel(output_dir / "by_model_ethics.xlsx")
 
+
+def report_by_sampling(output_dir, a_view):
     # Group by model_path, sampling_method, take trained on LFB
     by_m_sm = (
         a_view[~a_view["only_on_ethics"]]
@@ -431,8 +449,8 @@ def create_plots_tables(rdf, output_dir):
         .agg(
             {
                 "timestamp": ["count"],
-                "cs_hard_set_acc": ["mean", "std", "max"],
-                "cs_test_set_acc": ["mean", "std", "max"],
+                "cs_hard_set_acc": ["mean", "std", "max", ["q_lo", quantile_lo], ["q_hi", quantile_hi]],
+                "cs_test_set_acc": ["mean", "std", "max", ["q_lo", quantile_lo], ["q_hi", quantile_hi]],
             }
         )
     )
@@ -452,20 +470,19 @@ def create_plots_tables(rdf, output_dir):
         "cs_hard_set_acc",
         "cs_hard_set_acc_std",
         "cs_hard_set_acc_max",
+        "cs_hard_set_acc_q_lo",
+        "cs_hard_set_acc_q_hi",
         "cs_test_set_acc",
         "cs_test_set_acc_std",
         "cs_test_set_acc_max",
+        "cs_test_set_acc_q_lo",
+        "cs_test_set_acc_q_hi",
     ]
 
     # Multiply by 100 and round by .1 for each accuracy, std, max:
     for col in ["cs_hard_set_acc", "cs_test_set_acc"]:
-        by_m_sm_flat[col] = by_m_sm_flat[col].apply(lambda x: round(x * 100, 1))
-        by_m_sm_flat[f"{col}_std"] = by_m_sm_flat[f"{col}_std"].apply(
-            lambda x: round(x * 100, 1)
-        )
-        by_m_sm_flat[f"{col}_max"] = by_m_sm_flat[f"{col}_max"].apply(
-            lambda x: round(x * 100, 1)
-        )
+        for suffix in ["", "_std", "_max", "_q_lo", "_q_hi"]:
+            by_m_sm_flat[col + suffix] = by_m_sm_flat[col + suffix].apply(lambda x: round(x * 100, 1))
 
     # Create bar plot.
     fig = subplots.make_subplots(
@@ -479,17 +496,13 @@ def create_plots_tables(rdf, output_dir):
         horizontal_spacing=0.1,
     )
 
-    names = {
-        "cs_test_set_acc": "Test Set",
-        "cs_hard_set_acc": "Hard Set",
-    }
-
     for i, col in enumerate(["cs_test_set_acc", "cs_hard_set_acc"]):
         bar_plot = px.bar(
             by_m_sm_flat,
             x="model_path",
             y=col,
-            error_y=f"{col}_std",
+            error_y=by_m_sm_flat[f"{col}_q_hi"] - by_m_sm_flat[f"{col}"],
+            error_y_minus=by_m_sm_flat[f"{col}"] - by_m_sm_flat[f"{col}_q_lo"],
             color="sampling_method",
             labels={
                 "x": "Model Size (mln params)",
@@ -515,13 +528,12 @@ def create_plots_tables(rdf, output_dir):
         showlegend=True,
         legend=dict(orientation="h", yanchor="bottom", y=1.15, xanchor="right", x=1),
         legend_title_text="Sampling",
-        title="Commonsense Accuracy by Model and Sampling Method",
     )
     fig.update_traces(textposition="outside")
 
     # Make text font size smaller:
     fig.update_layout(font=dict(size=9))
-    fig.write_image(output_dir / "fig1.svg", width=WIDTH)
+    fig.write_image(output_dir / "fig2.svg", **write_image_args)
 
     # Create bar for Commonsense Test set accuracy for each model_path:
     fig = px.bar(
@@ -542,7 +554,7 @@ def create_plots_tables(rdf, output_dir):
         text_auto=True,
     )
     fig.update_layout(yaxis_tickformat=".2%")
-    fig.write_image(output_dir / "fig2.svg", width=WIDTH)
+    fig.write_image(output_dir / "fig3.svg", **write_image_args)
 
     # Create bar for Commonsense Hard set accuracy for each model_path:
     fig = px.bar(
@@ -563,7 +575,7 @@ def create_plots_tables(rdf, output_dir):
         text_auto=True,
     )
     fig.update_layout(yaxis_tickformat=".2%")
-    fig.write_image(output_dir / "fig3.svg", width=WIDTH)
+    fig.write_image(output_dir / "fig4.svg", **write_image_args)
 
     # Create table for the report:
     by_m_sm = by_m_sm.reset_index()
@@ -580,8 +592,9 @@ def create_plots_tables(rdf, output_dir):
 
     # Rename columsn, format values:
     # Delete (cs_hard_set_acc,std) and (cs_test_set_acc,std) columns:
-    del by_m_sm["cs_hard_set_acc", "std"]
-    del by_m_sm["cs_test_set_acc", "std"]
+    for col in ["cs_hard_set_acc", "cs_test_set_acc"]:
+        for stat in ["std", "q_hi", "q_lo"]:
+            del by_m_sm[col, stat]
 
     by_m_sm.rename(
         columns={
@@ -621,7 +634,7 @@ def main():
     pd.set_option("display.max_columns", None)
 
     rdf = wandb_load(output_dir)
-    create_report(rdf, output_dir)
+    fitler_and_report(rdf, output_dir)
 
 
 if __name__ == "__main__":

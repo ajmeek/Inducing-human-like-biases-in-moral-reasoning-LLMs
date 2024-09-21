@@ -4,3 +4,5 @@ pandas
 plotly
 wandb
 openpyxl
+jinja2
+scipy
