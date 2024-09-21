@@ -342,7 +342,7 @@ def report_by_training(a_view, output_dir):
         rows=1,
         cols=2,
         subplot_titles=(
-            "Commomnsense Accuracy, %, 95CI, (Test Set)",
+            "Commomnsense Accuracy, %, 95CI (Test Set)",
             "Commomnsense Accuracy, %, 95CI (Hard Set)",
         ),
         shared_yaxes=True,
@@ -397,7 +397,7 @@ def report_by_training(a_view, output_dir):
 
     # Join mean and std columns and convert to percentage:
     def format_acc(row, col_name):
-        return f"{row[col_name, 'mean']*100:.1f} ± {row[col_name, 'std']*100:.1f}"
+        return f"{row[col_name, 'mean']*100:.1f} ({row[col_name, 'q_lo']*100:.1f}, {row[col_name, 'q_hi']*100:.1f})"
 
     for cn in ["cs_hard_set_acc", "cs_test_set_acc"]:
         by_m_e[(cn, "mean")] = by_m_e.apply(partial(format_acc, col_name=cn), axis=1)
@@ -430,8 +430,8 @@ def report_by_training(a_view, output_dir):
             "model_path": "Model",
             "model_size_mln": "Params, mln",
             "only_on_ethics": "On Ethics only",
-            "cs_hard_set_acc": "Commonsense Hard Set, % ± STD",
-            "cs_test_set_acc": "Commonsense Test Set, % ± STD",
+            "cs_hard_set_acc": "Commonsense Hard Set, % (95% CI)",
+            "cs_test_set_acc": "Commonsense Test Set, % (95% CI)",
         },
         inplace=True,
     )
