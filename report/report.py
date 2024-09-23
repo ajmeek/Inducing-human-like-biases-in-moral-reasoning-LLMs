@@ -47,11 +47,11 @@ def wandb_load(output_dir):
 
 
 def fitler_and_report(rdf, output_dir):
-    rdf = filter_augment(rdf, output_dir)
+    rdf = filter_and_augment(rdf, output_dir)
     create_reports(rdf, output_dir)
 
 
-def filter_augment(rdf, output_dir):
+def filter_and_augment(rdf, output_dir):
     # Only those after 1 Sep 2023 because we didn't train much and there were some bugs.
     rdf = rdf[rdf["_timestamp"] >= datetime(2023, 9, 1).timestamp()]
 
@@ -241,6 +241,8 @@ def filter_augment(rdf, output_dir):
             )
         )
     )
+
+    rdf = rdf[(rdf["cs_hard_set_acc"] > 0) | (rdf["cs_test_set_acc"] > 0)]
 
     # To csv:
     rdf.to_csv(output_dir / "project.csv")
