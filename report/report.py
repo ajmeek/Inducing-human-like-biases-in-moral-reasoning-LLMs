@@ -17,6 +17,7 @@ write_image_args = {"width": 1500, "scale": 1.0, "format": "svg"}
 quantile_lo = lambda x: np.quantile(x, q=0.025)
 quantile_hi = lambda x: np.quantile(x, q=0.975)
 
+
 def wandb_load(output_dir):
     cache = output_dir / "project_original.pkl"
     if cache.exists():
@@ -302,17 +303,89 @@ def report_by_training(a_view, output_dir):
         .agg(
             {
                 "timestamp": ["count"],
-                "cs_hard_set_acc": ["mean", "std", "max", ["q_lo", quantile_lo], ["q_hi", quantile_hi]],
-                "cs_test_set_acc": ["mean", "std", "max", ["q_lo", quantile_lo], ["q_hi", quantile_hi]],
+                "cs_hard_set_acc": [
+                    "mean",
+                    "std",
+                    "max",
+                    ["q_lo", quantile_lo],
+                    ["q_hi", quantile_hi],
+                ],
+                "cs_test_set_acc": [
+                    "mean",
+                    "std",
+                    "max",
+                    ["q_lo", quantile_lo],
+                    ["q_hi", quantile_hi],
+                ],
                 # "bs_max": ["median", "max"],
             }
         )
     )
     # sort by model_size_mln:
     by_m_e = by_m_e.sort_values(by=["model_size_mln"])
+
+    fig = create_bar_plot(by_m_e)
+    fig.write_image(output_dir / "fig1.svg", **write_image_args)
+
+    report_table = create_table(by_m_e)
+    report_table.to_html(output_dir / "table1.html")
+    report_table.to_latex(output_dir / "table1.tex")
+    report_table.to_excel(output_dir / "by_model_ethics.xlsx")
+
+
+def create_table(by_m_e):
+    # Create table for the report:
+    by_m_e = by_m_e.reset_index()
+
+    # Join mean and std columns and convert to percentage:
+    def format_acc(row, col_name):
+        return f"{row[col_name, 'mean']*100:.1f} ({row[col_name, 'q_lo']*100:.1f}, {row[col_name, 'q_hi']*100:.1f})"
+
+    for cn in ["cs_hard_set_acc", "cs_test_set_acc"]:
+        by_m_e[(cn, "mean")] = by_m_e.apply(partial(format_acc, col_name=cn), axis=1)
+        by_m_e[(cn, "max")] = by_m_e.apply(
+            lambda row: f"{row[cn, 'max']*100:.1f}", axis=1
+        )
+
+    # Rename columsn, format values:
+    # Delete (cs_hard_set_acc,std) and (cs_test_set_acc,std) columns:
+    for col in ["cs_hard_set_acc", "cs_test_set_acc"]:
+        for stat in ["std", "q_hi", "q_lo"]:
+            del by_m_e[col, stat]
+
+    by_m_e["only_on_ethics"] = by_m_e["only_on_ethics"].apply(
+        lambda x: "✓" if x else ""
+    )
+
+    # Sort columns:
+    by_m_e = by_m_e[
+        [
+            "model_path",
+            "model_size_mln",
+            "only_on_ethics",
+            "timestamp",
+            "cs_hard_set_acc",
+            "cs_test_set_acc",
+        ]
+    ]
+    by_m_e.rename(
+        columns={
+            "timestamp": "Runs",
+            "model_path": "Model",
+            "model_size_mln": "Params, mln",
+            "only_on_ethics": "On Ethics only",
+            "cs_hard_set_acc": "Commonsense Hard Set, % (95% CI)",
+            "cs_test_set_acc": "Commonsense Test Set, % (95% CI)",
+        },
+        inplace=True,
+    )
+    return by_m_e
+
+
+def create_bar_plot(by_m_e):
     # Ungroup by_model_by_ethics into a flat table:
     by_m_e_flat = by_m_e.reset_index()
-    
+
     by_m_e_flat.columns = [
         "model_path",
         "model_size_mln",
@@ -336,8 +409,9 @@ def report_by_training(a_view, output_dir):
     # Multiply by 100 and round by .1 for each accuracy, std, max:
     for col in ["cs_hard_set_acc", "cs_test_set_acc"]:
         for suffix in ["", "_std", "_max", "_q_lo", "_q_hi"]:
-            by_m_e_flat[col + suffix] = by_m_e_flat[col + suffix].apply(lambda x: round(x * 100, 1))
-
+            by_m_e_flat[col + suffix] = by_m_e_flat[col + suffix].apply(
+                lambda x: round(x * 100, 1)
+            )
 
     # Create bar plot.
     fig = subplots.make_subplots(
@@ -392,55 +466,7 @@ def report_by_training(a_view, output_dir):
     fig.update_traces(textposition="outside")
     # Make text font size smaller:
     fig.update_layout(font=dict(size=10))
-    fig.write_image(output_dir / "fig1.svg", **write_image_args)
-
-    # Create table for the report:
-    by_m_e = by_m_e.reset_index()
-
-    # Join mean and std columns and convert to percentage:
-    def format_acc(row, col_name):
-        return f"{row[col_name, 'mean']*100:.1f} ({row[col_name, 'q_lo']*100:.1f}, {row[col_name, 'q_hi']*100:.1f})"
-
-    for cn in ["cs_hard_set_acc", "cs_test_set_acc"]:
-        by_m_e[(cn, "mean")] = by_m_e.apply(partial(format_acc, col_name=cn), axis=1)
-        by_m_e[(cn, "max")] = by_m_e.apply(lambda row: f"{row[cn, 'max']*100:.1f}", axis=1)
-
-    # Rename columsn, format values:
-    # Delete (cs_hard_set_acc,std) and (cs_test_set_acc,std) columns:
-    for col in ["cs_hard_set_acc", "cs_test_set_acc"]:
-        for stat in ["std", "q_hi", "q_lo"]:
-            del by_m_e[col, stat]
-
-    by_m_e["only_on_ethics"] = by_m_e["only_on_ethics"].apply(
-        lambda x: "✓" if x else ""
-    )
-
-    # Sort columns:
-    by_m_e = by_m_e[
-        [
-            "model_path",
-            "model_size_mln",
-            "only_on_ethics",
-            "timestamp",
-            "cs_hard_set_acc",
-            "cs_test_set_acc",
-        ]
-    ]
-    by_m_e.rename(
-        columns={
-            "timestamp": "Runs",
-            "model_path": "Model",
-            "model_size_mln": "Params, mln",
-            "only_on_ethics": "On Ethics only",
-            "cs_hard_set_acc": "Commonsense Hard Set, % (95% CI)",
-            "cs_test_set_acc": "Commonsense Test Set, % (95% CI)",
-        },
-        inplace=True,
-    )
-    by_m_e.to_html(output_dir / "table1.html")
-    by_m_e.to_latex(output_dir / "table1.tex")
-
-    by_m_e.to_excel(output_dir / "by_model_ethics.xlsx")
+    return fig
 
 
 def report_by_sampling(output_dir, a_view):
@@ -451,8 +477,20 @@ def report_by_sampling(output_dir, a_view):
         .agg(
             {
                 "timestamp": ["count"],
-                "cs_hard_set_acc": ["mean", "std", "max", ["q_lo", quantile_lo], ["q_hi", quantile_hi]],
-                "cs_test_set_acc": ["mean", "std", "max", ["q_lo", quantile_lo], ["q_hi", quantile_hi]],
+                "cs_hard_set_acc": [
+                    "mean",
+                    "std",
+                    "max",
+                    ["q_lo", quantile_lo],
+                    ["q_hi", quantile_hi],
+                ],
+                "cs_test_set_acc": [
+                    "mean",
+                    "std",
+                    "max",
+                    ["q_lo", quantile_lo],
+                    ["q_hi", quantile_hi],
+                ],
             }
         )
     )
@@ -484,7 +522,9 @@ def report_by_sampling(output_dir, a_view):
     # Multiply by 100 and round by .1 for each accuracy, std, max:
     for col in ["cs_hard_set_acc", "cs_test_set_acc"]:
         for suffix in ["", "_std", "_max", "_q_lo", "_q_hi"]:
-            by_m_sm_flat[col + suffix] = by_m_sm_flat[col + suffix].apply(lambda x: round(x * 100, 1))
+            by_m_sm_flat[col + suffix] = by_m_sm_flat[col + suffix].apply(
+                lambda x: round(x * 100, 1)
+            )
 
     # Create bar plot.
     fig = subplots.make_subplots(
