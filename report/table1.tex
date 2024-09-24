@@ -1,15 +1,15 @@
 \begin{tabular}{llrlrllll}
 \toprule
- & Model & Params, mln & On Ethics only & Runs & \multicolumn{2}{r}{Commonsense Hard Set, % (95% CI)} & \multicolumn{2}{r}{Commonsense Test Set, % (95% CI)} \\
+ & Model & Params, mln & On Ethics only & Runs & \multicolumn{2}{r}{CS Hard Set, % (95 CI)} & \multicolumn{2}{r}{CS Test Set, % (95 CI)} \\
  &  &  &  & count & mean & max & mean & max \\
 \midrule
-0 & bert-base-cased & 108 &  & 35 & 47.3 (0.0, 53.9) & 55.5 & 57.0 (48.8, 70.5) & 73.7 \\
-1 & bert-base-cased & 108 & ✓ & 7 & 52.3 (50.0, 55.3) & 55.4 & 58.3 (50.0, 71.0) & 71.7 \\
-2 & bert-large-cased & 333 &  & 28 & 53.6 (49.4, 59.0) & 61.8 & 62.0 (48.5, 78.7) & 85.4 \\
-3 & bert-large-cased & 333 & ✓ & 16 & 52.5 (48.2, 58.8) & 58.8 & 59.2 (43.9, 78.8) & 79.3 \\
-4 & roberta-large & 355 & ✓ & 18 & 65.7 (49.8, 73.8) & 74.1 & 79.0 (49.7, 91.6) & 91.8 \\
-5 & roberta-large & 355 &  & 4 & 66.1 (51.5, 72.4) & 72.5 & 80.6 (53.0, 91.4) & 91.4 \\
-6 & microsoft/deberta-v2-xlarge & 884 & ✓ & 3 & 59.5 (49.8, 77.4) & 78.8 & 64.1 (49.9, 90.2) & 92.3 \\
-7 & microsoft/deberta-v2-xlarge & 884 &  & 9 & 51.8 (45.9, 67.4) & 70.8 & 52.9 (49.9, 66.6) & 70.0 \\
+0 & BERT-base & 108 &  & 35 & 47.3 (0.0, 53.9) & 55.5 & 57.0 (48.8, 70.5) & 73.7 \\
+1 & BERT-base & 108 & Yes & 7 & 52.3 (50.0, 55.3) & 55.4 & 58.3 (50.0, 71.0) & 71.7 \\
+2 & BERT-large & 333 &  & 28 & 53.6 (49.4, 59.0) & 61.8 & 62.0 (48.5, 78.7) & 85.4 \\
+3 & BERT-large & 333 & Yes & 16 & 52.5 (48.2, 58.8) & 58.8 & 59.2 (43.9, 78.8) & 79.3 \\
+4 & RoBERTa-large & 355 &  & 4 & 66.1 (51.5, 72.4) & 72.5 & 80.6 (53.0, 91.4) & 91.4 \\
+5 & RoBERTa-large & 355 & Yes & 18 & 65.7 (49.8, 73.8) & 74.1 & 79.0 (49.7, 91.6) & 91.8 \\
+6 & DeBERTa-v2-xlarge & 884 &  & 9 & 51.8 (45.9, 67.4) & 70.8 & 52.9 (49.9, 66.6) & 70.0 \\
+7 & DeBERTa-v2-xlarge & 884 & Yes & 3 & 59.5 (49.8, 77.4) & 78.8 & 64.1 (49.9, 90.2) & 92.3 \\
 \bottomrule
 \end{tabular}

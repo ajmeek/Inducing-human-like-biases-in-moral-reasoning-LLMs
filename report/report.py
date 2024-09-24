@@ -12,7 +12,8 @@ import wandb
 from IPython.display import display
 from pathlib import Path
 
-write_image_args = {"width": 1500, "scale": 1.0, "format": "svg"}
+write_image_args = {"width": 1500, "scale": 1.0,
+                     }
 
 quantile_lo = lambda x: np.quantile(x, q=0.025)
 quantile_hi = lambda x: np.quantile(x, q=0.975)
@@ -213,6 +214,15 @@ def filter_and_augment(rdf, output_dir):
     rdf["model_size_mln"] = rdf["model_path"].apply(
         lambda x: model_size_mln.get(x, None)
     )
+    model_names = {
+        "bert-large-cased": "BERT-large",
+        "bert-base-cased": "BERT-base",
+        "roberta-large": "RoBERTa-large",
+        "microsoft/deberta-v2-xlarge": "DeBERTa-v2-xlarge"
+    }
+    # Replace names:
+    rdf["model_path"] = rdf["model_path"].apply(lambda x: model_names.get(x, x))
+
 
     # Set only_on_ethics column (whether the model was trained only on ethics).
     # Assume ds1 is ethics and ds2 is brain data.
@@ -288,7 +298,7 @@ def get_view(rdf, output_dir):
     # myview["cod_median"] = runs_df[cod_columns].median(axis=1)
     # myview["cod_std"] = runs_df[cod_columns].std(axis=1)
     a_view["steps"] = rdf["_step"]
-    a_view = a_view.sort_values(by=["model_size_mln"])
+    a_view = a_view.sort_values(by=["model_size_mln", "only_on_ethics"])
     a_view.to_csv(output_dir / "project_view.csv")
     return a_view
 
@@ -322,15 +332,22 @@ def report_by_training(a_view, output_dir):
         )
     )
     # sort by model_size_mln:
-    by_m_e = by_m_e.sort_values(by=["model_size_mln"])
+    by_m_e = by_m_e.sort_values(by=["model_size_mln", "only_on_ethics"])
 
     fig = create_bar_plot(by_m_e)
-    fig.write_image(output_dir / "fig1.svg", **write_image_args)
+    fig.update_layout(
+        margin=dict(l=10, r=10, t=50, b=50),
+    )
+    fig.write_image(output_dir / "fig1.png", **write_image_args)
 
     report_table = create_table(by_m_e)
+
+    # Set borders for HTML. Only top rows are delimited by a border:
+    report_table.style.apply(lambda x: ['border-top: 1px solid black' if i == 0 or x.name[0] != by_m_e.index[i-1][0] else '' for i in range(len(x))])
+
     report_table.to_html(output_dir / "table1.html")
     report_table.to_latex(output_dir / "table1.tex")
-    report_table.to_excel(output_dir / "by_model_ethics.xlsx")
+    report_table.to_excel(output_dir / "table1.xlsx")
 
 
 def create_table(by_m_e):
@@ -354,7 +371,7 @@ def create_table(by_m_e):
             del by_m_e[col, stat]
 
     by_m_e["only_on_ethics"] = by_m_e["only_on_ethics"].apply(
-        lambda x: "✓" if x else ""
+        lambda x: "Yes" if x else ""
     )
 
     # Sort columns:
@@ -374,8 +391,8 @@ def create_table(by_m_e):
             "model_path": "Model",
             "model_size_mln": "Params, mln",
             "only_on_ethics": "On Ethics only",
-            "cs_hard_set_acc": "Commonsense Hard Set, % (95% CI)",
-            "cs_test_set_acc": "Commonsense Test Set, % (95% CI)",
+            "cs_hard_set_acc": "CS Hard Set, % (95 CI)",
+            "cs_test_set_acc": "CS Test Set, % (95 CI)",
         },
         inplace=True,
     )
@@ -495,7 +512,7 @@ def report_by_sampling(output_dir, a_view):
         )
     )
     # sort by model_size_mln:
-    by_m_sm = by_m_sm.sort_values(by=["model_size_mln"])
+    by_m_sm = by_m_sm.sort_values(by=["model_size_mln", "sampling_method"])
 
     # Include only those where 'sampling_method' is not empty:
     by_m_sm = by_m_sm[by_m_sm.index.get_level_values("sampling_method") != ""]
@@ -531,8 +548,8 @@ def report_by_sampling(output_dir, a_view):
         rows=1,
         cols=2,
         subplot_titles=(
-            "Commomnsense Accuracy (Test Set)",
-            "Commomnsense Accuracy (Hard Set)",
+            "CS Accuracy, % (Test Set)",
+            "CS Accuracy, % (Hard Set)",
         ),
         shared_yaxes=True,
         horizontal_spacing=0.1,
@@ -575,7 +592,10 @@ def report_by_sampling(output_dir, a_view):
 
     # Make text font size smaller:
     fig.update_layout(font=dict(size=9))
-    fig.write_image(output_dir / "fig2.svg", **write_image_args)
+    fig.update_layout(
+        margin=dict(l=10, r=10, t=50, b=50),
+    )
+    fig.write_image(output_dir / "fig2.png", **write_image_args)
 
     # Create bar for Commonsense Test set accuracy for each model_path:
     fig = px.bar(
@@ -584,7 +604,7 @@ def report_by_sampling(output_dir, a_view):
         y="cs_test_set_acc",
         error_y="cs_test_set_acc_std",
         color="sampling_method",
-        title="Commomnsense Accuracy (Test Set)",
+        title="CS Accuracy (Test Set)",
         labels={
             "x": "Model Size (mln params)",
             "y": "Accuracy",
@@ -596,7 +616,7 @@ def report_by_sampling(output_dir, a_view):
         text_auto=True,
     )
     fig.update_layout(yaxis_tickformat=".2%")
-    fig.write_image(output_dir / "fig3.svg", **write_image_args)
+    fig.write_image(output_dir / "fig3.png", **write_image_args)
 
     # Create bar for Commonsense Hard set accuracy for each model_path:
     fig = px.bar(
@@ -605,7 +625,7 @@ def report_by_sampling(output_dir, a_view):
         y="cs_hard_set_acc",
         error_y="cs_hard_set_acc_std",
         color="sampling_method",
-        title="Commomnsense Accuracy (Hard Set)",
+        title="CS Accuracy (Hard Set)",
         labels={
             "x": "Model Size (mln params)",
             "y": "Accuracy",
@@ -624,12 +644,12 @@ def report_by_sampling(output_dir, a_view):
 
     # Join mean and std columns and convert to percentage:
     def format_acc(row, col_name):
-        return f"{row[col_name, 'mean']:.1%} ± {row[col_name, 'std']:.1%}"
+        return f"{row[col_name, 'mean']*100:.1f} ± {row[col_name, 'std']*100:.1f}"
 
     for cn in ["cs_hard_set_acc", "cs_test_set_acc"]:
         by_m_sm[(cn, "mean")] = by_m_sm.apply(partial(format_acc, col_name=cn), axis=1)
         by_m_sm[(cn, "max")] = by_m_sm.apply(
-            lambda row: f"{row[cn, 'max']:.1%}", axis=1
+            lambda row: f"{row[cn, 'max']*100:.1f}", axis=1
         )
 
     # Rename columsn, format values:
@@ -644,8 +664,8 @@ def report_by_sampling(output_dir, a_view):
             "model_path": "Model",
             "model_size_mln": "Params, mln",
             "only_on_ethics": "On Ethics only",
-            "cs_hard_set_acc": "Commonsense Hard Set",
-            "cs_test_set_acc": "Commonsense Test Set",
+            "cs_hard_set_acc": "CS Hard Set, %",
+            "cs_test_set_acc": "CS Test Set, %",
             "sampling_method": "Sampling",
         },
         inplace=True,
@@ -658,8 +678,8 @@ def report_by_sampling(output_dir, a_view):
             "Params, mln",
             "Sampling",
             "Runs",
-            "Commonsense Hard Set",
-            "Commonsense Test Set",
+            "CS Hard Set, %",
+            "CS Test Set, %",
         ]
     ]
     by_m_sm.to_html(output_dir / "table2.html")
