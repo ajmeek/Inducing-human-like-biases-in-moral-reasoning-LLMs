@@ -15,11 +15,11 @@ def sweep():
             #sampling_method = dict(values = ['LAST', 'SENTENCES', 'AVG'])
 		)
 	)
-    sweep_id = wandb.sweep(sweep=sweep_config, project='AISC_BB')
+    sweep_id = wandb.sweep(sweep=sweep_config, project=ANONYMIZED)
     wandb.agent(sweep_id=sweep_id, function=objective, count=30)
 
 def objective():
-    wandb.init(project='AISC_BB')
+    wandb.init(project=ANONYMIZED)
     config = get_config()
     config['checkpoint']='deepset/deberta-v3-large-squad2'
     config['shuffle_train']=True

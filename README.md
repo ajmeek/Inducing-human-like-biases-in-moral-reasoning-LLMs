@@ -1,4 +1,4 @@
-# Inducing human-like biases in moral reasoning LMs 
+# ANONYMIZED
 
 This project is about fine-tuning language models (LMs) on a publicly available moral reasoning neuroimaging (fMRI) dataset, with the hope/expectation that this could help induce more human-like biases in the moral reasoning processes of LMs.
 
